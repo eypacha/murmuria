@@ -2,12 +2,16 @@ import {
   GRID_HEIGHT,
   GRID_WIDTH,
 } from '../config/constants.js'
+import {
+  CASTLE_FOOTPRINT,
+  createCastle,
+} from '../domain/factories/createCastle.js'
 import { seededRandom } from './seededRandom.js'
 
 const LAND_RATIO = 0.55
 const MAX_ELEVATION_LEVEL = 2
 const PLATEAU_COUNT = 3
-const PLATEAU_SIZE = 20
+const PLATEAU_SIZE = 24
 const PLATEAU_SMOOTH_PASSES = 2
 const NEIGHBOR_OFFSETS = [
   { x: 0, y: -1 },
@@ -31,6 +35,7 @@ function createWaterTile(x, y) {
     terrain: 'water',
     elevation: 0,
     cliff: false,
+    cliffWaterBelow: false,
     ramp: false,
     walkable: false,
     movementCost: 1,
@@ -44,6 +49,7 @@ function createGrassTile(x, y) {
     terrain: 'grass',
     elevation: 1,
     cliff: false,
+    cliffWaterBelow: false,
     ramp: false,
     walkable: true,
     movementCost: 1,
@@ -58,6 +64,21 @@ function getTile(tiles, x, y) {
   return tiles[y]?.[x] ?? null
 }
 
+function getCastleIdealPosition(width, height) {
+  return {
+    x: Math.max(0, Math.floor((width - CASTLE_FOOTPRINT.w) / 2)),
+    y: Math.max(0, Math.floor((height - CASTLE_FOOTPRINT.h) / 2)),
+  }
+}
+
+function isCastleFootprintTile(tile) {
+  return tile?.terrain === 'grass' && tile.walkable && !tile.cliff
+}
+
+function isCastleDropTile(tile) {
+  return tile?.walkable ?? false
+}
+
 function touchesWater(tile, tiles) {
   for (const offset of NEIGHBOR_OFFSETS) {
     const neighbor = getTile(tiles, tile.x + offset.x, tile.y + offset.y)
@@ -68,6 +89,53 @@ function touchesWater(tile, tiles) {
   }
 
   return false
+}
+
+function isCastlePlacementValid(tiles, width, height, x, y) {
+  if (x < 0 || y < 0) {
+    return false
+  }
+
+  if (x + CASTLE_FOOTPRINT.w > width || y + CASTLE_FOOTPRINT.h > height) {
+    return false
+  }
+
+  for (let dy = 0; dy < CASTLE_FOOTPRINT.h; dy += 1) {
+    for (let dx = 0; dx < CASTLE_FOOTPRINT.w; dx += 1) {
+      const tile = getTile(tiles, x + dx, y + dy)
+
+      if (!isCastleFootprintTile(tile)) {
+        return false
+      }
+    }
+  }
+
+  const dropTile = getTile(tiles, x + Math.floor(CASTLE_FOOTPRINT.w / 2), y + CASTLE_FOOTPRINT.h)
+
+  return isCastleDropTile(dropTile)
+}
+
+function findCastlePlacement(tiles, width, height) {
+  const idealPosition = getCastleIdealPosition(width, height)
+  let bestPosition = null
+  let bestDistance = Number.POSITIVE_INFINITY
+
+  for (let y = 0; y <= height - CASTLE_FOOTPRINT.h; y += 1) {
+    for (let x = 0; x <= width - CASTLE_FOOTPRINT.w; x += 1) {
+      if (!isCastlePlacementValid(tiles, width, height, x, y)) {
+        continue
+      }
+
+      const distance = Math.abs(x - idealPosition.x) + Math.abs(y - idealPosition.y)
+
+      if (distance < bestDistance) {
+        bestDistance = distance
+        bestPosition = { x, y }
+      }
+    }
+  }
+
+  return bestPosition ?? idealPosition
 }
 
 function getEligibleLandTiles(tiles) {
@@ -202,6 +270,19 @@ function detectCliffs(tiles, width, height) {
     return
   }
 
+  for (const row of tiles) {
+    if (!Array.isArray(row)) {
+      continue
+    }
+
+    for (const tile of row) {
+      if (tile) {
+        tile.cliff = false
+        tile.cliffWaterBelow = false
+      }
+    }
+  }
+
   for (let y = 0; y < height; y += 1) {
     const row = tiles[y]
 
@@ -216,19 +297,16 @@ function detectCliffs(tiles, width, height) {
         continue
       }
 
-      if (tile.elevation !== MAX_ELEVATION_LEVEL) {
-        tile.cliff = false
-        continue
-      }
-
       if (y === height - 1) {
-        tile.cliff = false
         continue
       }
 
       const southTile = getTile(tiles, x, y + 1)
 
-      tile.cliff = Boolean(southTile) && tile.elevation > southTile.elevation
+      if (tile.elevation === MAX_ELEVATION_LEVEL && southTile && tile.elevation > southTile.elevation) {
+        southTile.cliff = true
+        southTile.cliffWaterBelow = southTile.terrain === 'water'
+      }
     }
   }
 }
@@ -297,6 +375,8 @@ export function createWorld(worldStore) {
   const tiles = buildTilesFromMask(mask)
   generatePlateaus(tiles, rng)
   detectCliffs(tiles, width, height)
+  const castlePosition = findCastlePlacement(tiles, width, height)
+  const castle = createCastle(castlePosition.x, castlePosition.y)
 
   worldStore.tick = 0
   worldStore.seed = seed
@@ -310,6 +390,6 @@ export function createWorld(worldStore) {
     tiles,
   })
   worldStore.resources = []
-  worldStore.buildings = []
+  worldStore.buildings = [castle]
   worldStore.units = []
 }

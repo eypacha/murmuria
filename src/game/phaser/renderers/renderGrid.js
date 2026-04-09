@@ -13,7 +13,7 @@ const CLIFF_DEPTH = DEPTH_GRID + 0.75
 const PLATEAU_ELEVATION = 2
 const PLATEAU_TILE_INDEX_OFFSET = 5
 const CLIFF_AUTOTILE = {
-  0: 43,
+  0: 44,
   1: 43,
   2: 41,
   3: 42,
@@ -56,6 +56,16 @@ function getTileElevation(tiles, x, y) {
 
 function getTileCliff(tiles, x, y) {
   return tiles[y]?.[x]?.cliff ?? false
+}
+
+function isConnectedCliffNeighbor(tiles, x, y) {
+  return getTileCliff(tiles, x, y) || getTileElevation(tiles, x, y) === PLATEAU_ELEVATION
+}
+
+function isBlockedByUpperDiagonalCliff(tiles, x, y, side) {
+  const diagonalX = side === 'left' ? x - 1 : x + 1
+
+  return getTileCliff(tiles, diagonalX, y - 1)
 }
 
 export function computeGrassMask(x, y, tiles) {
@@ -127,11 +137,11 @@ function computeElevationMask(x, y, tiles, elevation) {
 function computeCliffMask(x, y, tiles) {
   let mask = 0
 
-  if (getTileCliff(tiles, x - 1, y)) {
+  if (isConnectedCliffNeighbor(tiles, x - 1, y) && !isBlockedByUpperDiagonalCliff(tiles, x, y, 'left')) {
     mask |= 1
   }
 
-  if (getTileCliff(tiles, x + 1, y)) {
+  if (isConnectedCliffNeighbor(tiles, x + 1, y) && !isBlockedByUpperDiagonalCliff(tiles, x, y, 'right')) {
     mask |= 2
   }
 
@@ -166,12 +176,13 @@ function resolveElevationOneTileIndex(x, y, tiles) {
   }
 }
 
-function resolveCliffTileIndex(x, y, tiles) {
-  const mask = computeCliffMask(x, y, tiles)
+function resolveCliffTileIndex(tile, tiles) {
+  const mask = computeCliffMask(tile.x, tile.y, tiles)
+  const tileIndex = CLIFF_AUTOTILE[mask] + (tile.cliffWaterBelow ? 9 : 0)
 
   return {
     mask,
-    tileIndex: CLIFF_AUTOTILE[mask],
+    tileIndex,
   }
 }
 
@@ -218,6 +229,16 @@ export function renderGrid(scene, worldStore) {
       const y = tile.y * TILE_SIZE + TILE_SIZE / 2
 
       if (tile.terrain === 'water') {
+        if (tile.cliff) {
+          if (FOAM_ANIMATION && tile.cliffWaterBelow) {
+            addWaterFoam(scene, x, y)
+          }
+
+          const cliffTile = resolveCliffTileIndex(tile, tiles)
+
+          addTerrainSprite(scene, x, y, PLATEAU_TEXTURE_KEY, cliffTile.tileIndex, CLIFF_DEPTH)
+        }
+
         continue
       }
 
@@ -249,10 +270,9 @@ export function renderGrid(scene, worldStore) {
         )
 
         if (tile.cliff) {
-          const cliffTile = resolveCliffTileIndex(tile.x, tile.y, tiles)
-          const cliffY = y + TILE_SIZE
+          const cliffTile = resolveCliffTileIndex(tile, tiles)
 
-          addTerrainSprite(scene, x, cliffY, PLATEAU_TEXTURE_KEY, cliffTile.tileIndex, CLIFF_DEPTH)
+          addTerrainSprite(scene, x, y, PLATEAU_TEXTURE_KEY, cliffTile.tileIndex, CLIFF_DEPTH)
         }
 
         if (DEBUG_MODE) {
