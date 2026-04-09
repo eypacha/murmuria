@@ -83,6 +83,10 @@ export function resolvePawnAnimation(pawn) {
     return 'pawn-interact-axe'
   }
 
+  if (state === 'preparing_to_return' || state === 'gathering_complete' || state === 'delivering_wood') {
+    return 'pawn-idle-wood'
+  }
+
   if (state === 'returning_to_castle') {
     return 'pawn-run-wood'
   }

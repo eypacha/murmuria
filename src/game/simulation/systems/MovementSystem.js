@@ -1,7 +1,10 @@
-import { SIMULATION_TICK_MS, TILE_SIZE } from '../../config/constants.js'
+import {
+  PAWN_ARRIVAL_THRESHOLD,
+  PAWN_PREPARE_TO_GATHER_MS,
+  SIMULATION_TICK_MS,
+  TILE_SIZE,
+} from '../../config/constants.js'
 import { PawnStateSystem } from './PawnStateSystem.js'
-
-const ARRIVAL_THRESHOLD = 4
 
 export class MovementSystem {
   static update(worldStore) {
@@ -12,7 +15,11 @@ export class MovementSystem {
         continue
       }
 
-      if (pawn.state !== 'moving_to_tree' && pawn.state !== 'moving') {
+      if (
+        pawn.state !== 'moving_to_tree' &&
+        pawn.state !== 'returning_to_castle' &&
+        pawn.state !== 'moving'
+      ) {
         continue
       }
 
@@ -38,7 +45,7 @@ export class MovementSystem {
     const dy = targetPosition.y - currentPosition.y
     const distance = Math.hypot(dx, dy)
 
-    if (distance < ARRIVAL_THRESHOLD) {
+    if (distance < PAWN_ARRIVAL_THRESHOLD) {
       pawn.pos = {
         x: targetPosition.x,
         y: targetPosition.y,
@@ -47,8 +54,14 @@ export class MovementSystem {
         x: targetTile.x,
         y: targetTile.y,
       }
+
+      if (pawn.target?.type === 'castle') {
+        pawn.state = 'delivering_wood'
+        return
+      }
+
       pawn.state = 'preparing_to_gather'
-      PawnStateSystem.queueTimedTransition(pawn, worldStore, 'gathering')
+      PawnStateSystem.queueTimedTransition(pawn, worldStore, 'gathering', PAWN_PREPARE_TO_GATHER_MS)
       return
     }
 

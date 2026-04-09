@@ -1,4 +1,5 @@
 import { getOccupiedTiles } from '../../core/getOccupiedTiles.js'
+import { PAWN_PREPARE_TO_TREE_MS } from '../../config/constants.js'
 import { PawnStateSystem } from './PawnStateSystem.js'
 
 export class DecisionSystem {
@@ -21,6 +22,10 @@ export class DecisionSystem {
         continue
       }
 
+      if ((pawn.inventory?.wood ?? 0) > 0) {
+        continue
+      }
+
       const tree = this.findNearestAvailableTree(pawn, trees)
 
       if (!tree) {
@@ -35,6 +40,7 @@ export class DecisionSystem {
 
       tree.reservedBy = pawn.id
       pawn.targetId = tree.id
+      pawn.workTargetId = tree.id
       pawn.target = {
         type: 'tree',
         id: tree.id,
@@ -42,7 +48,7 @@ export class DecisionSystem {
       }
       pawn.facing = this.getFacingForTree(tree, targetTile)
       pawn.state = 'preparing_to_tree'
-      PawnStateSystem.queueTimedTransition(pawn, worldStore, 'moving_to_tree')
+      PawnStateSystem.queueTimedTransition(pawn, worldStore, 'moving_to_tree', PAWN_PREPARE_TO_TREE_MS)
     }
   }
 
@@ -141,7 +147,10 @@ export class DecisionSystem {
   }
 
   static isTreeAvailable(tree) {
-    return tree.reservedBy === null || tree.reservedBy === undefined
+    return (
+      (tree.reservedBy === null || tree.reservedBy === undefined) &&
+      (tree.amount ?? 0) > 0
+    )
   }
 
   static isInsideWorld(tile, worldStore) {

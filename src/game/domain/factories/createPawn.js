@@ -1,4 +1,4 @@
-import { TILE_SIZE } from '../../config/constants.js'
+import { PAWN_CARRY_CAPACITY_WOOD, TILE_SIZE } from '../../config/constants.js'
 
 function getWorldPosition(x, y) {
   return {
@@ -29,7 +29,7 @@ export function createPawn(x = 0, y = 0) {
     },
     stats: {
       moveSpeed: 64,
-      carryCapacityWood: 10,
+      carryCapacityWood: PAWN_CARRY_CAPACITY_WOOD,
     },
   }
 }

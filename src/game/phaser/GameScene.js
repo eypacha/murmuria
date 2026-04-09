@@ -48,6 +48,8 @@ export class GameScene extends Phaser.Scene {
     super({ key: 'GameScene' })
     this.worldStore = null
     this.pawnControllers = new Map()
+    this.resourceSprites = new Map()
+    this.resourceDebugBorders = new Map()
   }
 
   preload() {
@@ -64,6 +66,8 @@ export class GameScene extends Phaser.Scene {
       frameWidth: 192,
       frameHeight: 256,
     })
+
+    this.load.image('stump_0', '/assets/terrain/resources/wood/trees/stump-0.png')
 
     this.load.spritesheet('terrain_tileset', '/assets/terrain/tileset/tilemap-color-0.png', {
       frameWidth: 64,
@@ -84,6 +88,16 @@ export class GameScene extends Phaser.Scene {
       controller.destroy()
     }
     this.pawnControllers.clear()
+
+    for (const sprite of this.resourceSprites.values()) {
+      sprite.destroy()
+    }
+    this.resourceSprites.clear()
+
+    for (const border of this.resourceDebugBorders.values()) {
+      border.destroy()
+    }
+    this.resourceDebugBorders.clear()
 
     this.cameras.main.setBounds(0, 0, GRID_WIDTH * TILE_SIZE, GRID_HEIGHT * TILE_SIZE)
     this.ensureAnimations()
@@ -137,6 +151,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   update() {
+    syncResources(this, this.worldStore)
     this.syncPawnControllers()
   }
 

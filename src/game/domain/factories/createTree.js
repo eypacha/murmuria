@@ -1,3 +1,5 @@
+import { TREE_WOOD_AMOUNT } from '../../config/constants.js'
+
 export function createTree(x = 0, y = 0) {
   return {
     id: `tree-${x}-${y}`,
@@ -7,7 +9,7 @@ export function createTree(x = 0, y = 0) {
       x,
       y,
     },
-    amount: 100,
+    amount: TREE_WOOD_AMOUNT,
     reservedBy: null,
   }
 }
