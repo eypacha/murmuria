@@ -62,7 +62,7 @@ export class PawnWorkSystem {
 
   static beginReturnToCastle(pawn, worldStore) {
     const castle = this.getCastle(worldStore)
-    const returnTile = castle ? this.findCastleReturnTile(castle, pawn, worldStore) : null
+    const returnTile = castle ? this.findCastleDropTile(castle, worldStore) : null
 
     if (castle && returnTile) {
       pawn.targetId = castle.id
@@ -76,6 +76,47 @@ export class PawnWorkSystem {
 
     pawn.state = 'preparing_to_return'
     PawnStateSystem.queueTimedTransition(pawn, worldStore, 'returning_to_castle', PAWN_PREPARE_TO_RETURN_MS)
+  }
+
+  static findCastleDropTile(castle, worldStore) {
+    const footprint = castle.footprint ?? { w: 1, h: 1 }
+    const centerTile = {
+      x: castle.gridPos.x + Math.floor(footprint.w / 2),
+      y: castle.gridPos.y + footprint.h,
+    }
+
+    if (
+      this.isInsideWorld(centerTile, worldStore) &&
+      this.isWalkable(centerTile, worldStore) &&
+      !this.isTileOccupied(centerTile, worldStore)
+    ) {
+      return centerTile
+    }
+
+    return this.findAdjacentFallbackTile(castle, worldStore)
+  }
+
+  static findAdjacentFallbackTile(castle, worldStore) {
+    const footprint = castle.footprint ?? { w: 1, h: 1 }
+    const candidates = []
+
+    for (let dx = 0; dx < footprint.w; dx += 1) {
+      candidates.push({ x: castle.gridPos.x + dx, y: castle.gridPos.y + footprint.h })
+    }
+
+    const validCandidates = candidates.filter((tile) => {
+      if (!this.isInsideWorld(tile, worldStore)) {
+        return false
+      }
+
+      if (!this.isWalkable(tile, worldStore)) {
+        return false
+      }
+
+      return !this.isTileOccupied(tile, worldStore)
+    })
+
+    return validCandidates[0] ?? null
   }
 
   static completeDelivery(pawn, worldStore) {
@@ -99,58 +140,6 @@ export class PawnWorkSystem {
     pawn.stateUntilTick = null
     pawn.nextState = null
     pawn.state = 'idle'
-  }
-
-  static findCastleReturnTile(castle, pawn, worldStore) {
-    const footprint = castle.footprint ?? { w: 1, h: 1 }
-    const candidates = []
-
-    for (let dy = 0; dy < footprint.h; dy += 1) {
-      candidates.push({ x: castle.gridPos.x - 1, y: castle.gridPos.y + dy })
-      candidates.push({ x: castle.gridPos.x + footprint.w, y: castle.gridPos.y + dy })
-    }
-
-    const validCandidates = candidates.filter((tile) => {
-      if (!this.isInsideWorld(tile, worldStore)) {
-        return false
-      }
-
-      if (!this.isWalkable(tile, worldStore)) {
-        return false
-      }
-
-      return !this.isTileOccupied(tile, worldStore)
-    })
-
-    const fallbackCandidates = candidates.filter((tile) => {
-      if (!this.isInsideWorld(tile, worldStore)) {
-        return false
-      }
-
-      return this.isWalkable(tile, worldStore)
-    })
-
-    const choices = validCandidates.length > 0 ? validCandidates : fallbackCandidates
-
-    if (choices.length === 0) {
-      return null
-    }
-
-    const pawnPosition = pawn.gridPos ?? pawn.target?.tile ?? choices[0]
-    let closestTile = choices[0]
-    let closestDistance = this.getManhattanDistance(pawnPosition, closestTile)
-
-    for (let i = 1; i < choices.length; i += 1) {
-      const candidate = choices[i]
-      const distance = this.getManhattanDistance(pawnPosition, candidate)
-
-      if (distance < closestDistance) {
-        closestDistance = distance
-        closestTile = candidate
-      }
-    }
-
-    return closestTile
   }
 
   static getCastle(worldStore) {
