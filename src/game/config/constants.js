@@ -1,4 +1,4 @@
-export const DEBUG_MODE = false
+export const DEBUG_MODE = true
 
 export const GRID_WIDTH = 40
 export const GRID_HEIGHT = 40

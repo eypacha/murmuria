@@ -71,6 +71,8 @@ export class PawnWorkSystem {
         id: castle.id,
         tile: returnTile,
       }
+      pawn.path = []
+      pawn.pathGoalKey = null
       pawn.facing = returnTile.x > (pawn.gridPos?.x ?? returnTile.x) ? 'right' : 'left'
     }
 
@@ -137,6 +139,9 @@ export class PawnWorkSystem {
     pawn.workTargetId = null
     pawn.targetId = null
     pawn.target = null
+    pawn.interactionFacing = null
+    pawn.path = []
+    pawn.pathGoalKey = null
     pawn.stateUntilTick = null
     pawn.nextState = null
     pawn.state = 'idle'

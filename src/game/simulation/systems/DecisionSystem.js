@@ -46,7 +46,10 @@ export class DecisionSystem {
         id: tree.id,
         tile: targetTile,
       }
-      pawn.facing = this.getFacingForTree(tree, targetTile)
+      pawn.path = []
+      pawn.pathGoalKey = null
+      pawn.interactionFacing = this.getFacingForTree(tree, targetTile)
+      pawn.facing = pawn.interactionFacing
       pawn.state = 'preparing_to_tree'
       PawnStateSystem.queueTimedTransition(pawn, worldStore, 'moving_to_tree', PAWN_PREPARE_TO_TREE_MS)
     }

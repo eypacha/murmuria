@@ -26,6 +26,18 @@ function getPawnWorldPosition(pawn) {
 }
 
 function resolveFacing(pawn) {
+  const state = typeof pawn?.state === 'string' ? pawn.state : 'idle'
+
+  if (
+    state === 'preparing_to_tree' ||
+    state === 'preparing_to_gather' ||
+    state === 'gathering'
+  ) {
+    if (pawn?.interactionFacing === 'left' || pawn?.interactionFacing === 'right') {
+      return pawn.interactionFacing
+    }
+  }
+
   if (pawn?.facing === 'left' || pawn?.facing === 'right') {
     return pawn.facing
   }

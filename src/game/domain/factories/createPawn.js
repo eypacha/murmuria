@@ -21,9 +21,11 @@ export function createPawn(x = 0, y = 0) {
     pos: getWorldPosition(x, y),
     targetId: null,
     target: null,
+    interactionFacing: null,
     stateUntilTick: null,
     nextState: null,
     path: [],
+    pathGoalKey: null,
     inventory: {
       wood: 0,
     },
