@@ -93,14 +93,14 @@ export class DecisionSystem {
   }
 
   static computeResourceScores(pawn, worldStore) {
-    const gatherWood = Number(worldStore.kingdom?.desires?.gatherWood ?? 0)
-    const gatherGold = Number(worldStore.kingdom?.desires?.gatherGold ?? 0)
-    const gatherMeat = Number(worldStore.kingdom?.desires?.gatherMeat ?? 0)
+    const woodNeed = Number(worldStore.kingdom?.needs?.wood ?? 0)
+    const goldNeed = Number(worldStore.kingdom?.needs?.gold ?? 0)
+    const foodNeed = Number(worldStore.kingdom?.needs?.food ?? 0)
 
     return [
-      { type: 'tree', score: gatherWood },
-      { type: 'gold', score: gatherGold },
-      { type: 'sheep', score: gatherMeat },
+      { type: 'tree', score: woodNeed },
+      { type: 'gold', score: goldNeed },
+      { type: 'sheep', score: foodNeed },
     ].filter(({ score }) => score > 0)
   }
 

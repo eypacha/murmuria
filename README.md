@@ -11,7 +11,7 @@ sincroniza el estado con el canvas de Phaser en cada tick.
 - Simulacion basada en estado compartido en Pinia.
 - Peones con pathfinding, seleccion de objetivo por deseos del reino, recoleccion y entrega de recursos.
 - Ovejas con movimiento autonomo.
-- HUD de recursos del reino y panel de debug para editar los deseos en JSON.
+- HUD de recursos del reino.
 - Camara con pan por teclado, zoom por rueda y ajuste al resize.
 - `vue-router` e `vue-i18n` estan inicializados como base, pero la experiencia actual no usa navegacion por vistas.
 - No hay backend, persistencia ni suite de tests configurada en `package.json`.
@@ -55,7 +55,6 @@ src/
 - `src/game/phaser/GameScene.js`: gestiona carga de assets, camara, animaciones y sincronizacion visual.
 - `src/game/rendering/PawnSpriteController.js`: interpola posicion de peones y resuelve animaciones/facing.
 - `src/components/HudPanel.vue`: muestra madera, oro y carne del reino.
-- `src/components/DebugPanel.vue`: permite modificar `kingdom.desires` sin tocar el codigo.
 
 ## Tecnologias
 

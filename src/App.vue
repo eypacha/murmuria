@@ -1,5 +1,4 @@
 <script setup>
-import DebugPanel from './components/DebugPanel.vue'
 import HudPanel from './components/HudPanel.vue'
 import GameCanvas from './components/GameCanvas.vue'
 </script>
@@ -8,6 +7,5 @@ import GameCanvas from './components/GameCanvas.vue'
   <main class="fixed inset-0 overflow-hidden bg-black text-slate-100">
     <GameCanvas class="absolute inset-0" />
     <HudPanel class="absolute left-4 top-4 z-20" />
-    <DebugPanel class="absolute right-4 top-4 z-20 w-[360px] max-w-[calc(100vw-2rem)]" />
   </main>
 </template>

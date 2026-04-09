@@ -1608,9 +1608,9 @@ export function createWorld(worldStore) {
   worldStore.kingdom.resources.wood = 0
   worldStore.kingdom.resources.gold = 0
   worldStore.kingdom.resources.meat = 0
-  worldStore.kingdom.desires.gatherWood = 0
-  worldStore.kingdom.desires.gatherGold = 0
-  worldStore.kingdom.desires.gatherMeat = 0
+  worldStore.kingdom.needs.wood = 0
+  worldStore.kingdom.needs.gold = 0
+  worldStore.kingdom.needs.food = 0
   Object.assign(worldStore.world, {
     width,
     height,
