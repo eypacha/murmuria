@@ -149,6 +149,24 @@ export class PawnWorkSystem {
       const kingdomResourceKey = this.getKingdomResourceKey(resourceType)
       worldStore.kingdom.resources[kingdomResourceKey] =
         (worldStore.kingdom.resources[kingdomResourceKey] ?? 0) + carriedAmount
+
+      if (resourceType === 'wood') {
+        worldStore.kingdom.needs.wood = Math.max(
+          0,
+          (worldStore.kingdom.needs.wood ?? 0) - carriedAmount,
+        )
+      } else if (resourceType === 'gold') {
+        worldStore.kingdom.needs.gold = Math.max(
+          0,
+          (worldStore.kingdom.needs.gold ?? 0) - carriedAmount,
+        )
+      } else if (resourceType === 'meat') {
+        worldStore.kingdom.needs.food = Math.max(
+          0,
+          (worldStore.kingdom.needs.food ?? 0) - carriedAmount,
+        )
+      }
+
       pawn.inventory[inventoryKey] = 0
     }
 
