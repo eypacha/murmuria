@@ -1,7 +1,7 @@
 export const DEBUG_MODE = false 
 export const FOAM_ANIMATION = true
-export const GRID_WIDTH = 40
-export const GRID_HEIGHT = 40
+export const GRID_WIDTH = 60
+export const GRID_HEIGHT = 60
 export const TILE_SIZE = 64
 export const DEPTH_GRID = 0
 export const DEPTH_BUILDINGS = 10
