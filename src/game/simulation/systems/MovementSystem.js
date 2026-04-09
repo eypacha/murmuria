@@ -1,4 +1,5 @@
 import { SIMULATION_TICK_MS, TILE_SIZE } from '../../config/constants.js'
+import { PawnStateSystem } from './PawnStateSystem.js'
 
 const ARRIVAL_THRESHOLD = 4
 
@@ -11,7 +12,7 @@ export class MovementSystem {
         continue
       }
 
-      if (pawn.state !== 'moving') {
+      if (pawn.state !== 'moving_to_tree' && pawn.state !== 'moving') {
         continue
       }
 
@@ -21,11 +22,11 @@ export class MovementSystem {
         continue
       }
 
-      this.movePawnTowardTile(pawn, targetTile)
+      this.movePawnTowardTile(pawn, targetTile, worldStore)
     }
   }
 
-  static movePawnTowardTile(pawn, targetTile) {
+  static movePawnTowardTile(pawn, targetTile, worldStore) {
     const targetPosition = this.gridTileToWorldPosition(targetTile)
     const currentPosition = this.getCurrentWorldPosition(pawn)
 
@@ -46,7 +47,8 @@ export class MovementSystem {
         x: targetTile.x,
         y: targetTile.y,
       }
-      pawn.state = 'gathering'
+      pawn.state = 'preparing_to_gather'
+      PawnStateSystem.queueTimedTransition(pawn, worldStore, 'gathering')
       return
     }
 

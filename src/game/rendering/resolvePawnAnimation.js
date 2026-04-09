@@ -50,7 +50,7 @@ function resolveIdleAnimation(pawn) {
   return 'pawn-idle'
 }
 
-function resolveLegacyMovingAnimation(pawn) {
+function resolveMovingAnimation(pawn) {
   const targetType = pawn?.target?.type
 
   if (targetType === 'tree') {
@@ -71,6 +71,10 @@ function resolveLegacyMovingAnimation(pawn) {
 export function resolvePawnAnimation(pawn) {
   const state = typeof pawn?.state === 'string' ? pawn.state : 'idle'
 
+  if (state === 'preparing_to_tree' || state === 'preparing_to_gather') {
+    return 'pawn-idle-axe'
+  }
+
   if (state === 'moving_to_tree') {
     return 'pawn-run-axe'
   }
@@ -84,7 +88,7 @@ export function resolvePawnAnimation(pawn) {
   }
 
   if (state === 'moving') {
-    return resolveLegacyMovingAnimation(pawn)
+    return resolveMovingAnimation(pawn)
   }
 
   return resolveIdleAnimation(pawn)

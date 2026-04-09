@@ -1,4 +1,5 @@
 import { getOccupiedTiles } from '../../core/getOccupiedTiles.js'
+import { PawnStateSystem } from './PawnStateSystem.js'
 
 export class DecisionSystem {
   static update(worldStore) {
@@ -40,7 +41,8 @@ export class DecisionSystem {
         tile: targetTile,
       }
       pawn.facing = this.getFacingForTree(tree, targetTile)
-      pawn.state = 'moving'
+      pawn.state = 'preparing_to_tree'
+      PawnStateSystem.queueTimedTransition(pawn, worldStore, 'moving_to_tree')
     }
   }
 

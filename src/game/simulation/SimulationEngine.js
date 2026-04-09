@@ -1,6 +1,7 @@
 import { SIMULATION_TICK_MS } from '../config/constants.js'
 import { DecisionSystem } from './systems/DecisionSystem.js'
 import { MovementSystem } from './systems/MovementSystem.js'
+import { PawnStateSystem } from './systems/PawnStateSystem.js'
 
 export class SimulationEngine {
   constructor(worldStore) {
@@ -29,6 +30,7 @@ export class SimulationEngine {
     }
 
     DecisionSystem.update(this.worldStore)
+    PawnStateSystem.update(this.worldStore)
     MovementSystem.update(this.worldStore)
     this.worldStore.tick++
   }
