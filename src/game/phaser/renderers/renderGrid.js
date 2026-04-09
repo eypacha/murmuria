@@ -1,9 +1,12 @@
-import { DEBUG_MODE, DEPTH_GRID, TILE_SIZE } from '../../config/constants.js'
+import { FOAM_ANIMATION, DEBUG_MODE, DEPTH_GRID, TILE_SIZE } from '../../config/constants.js'
 
 const TERRAIN_TEXTURE_KEY = 'terrain_tileset'
+const WATER_FOAM_TEXTURE_KEY = 'water-foam'
+const WATER_FOAM_ANIMATION_KEY = 'water-foam_anim'
 const SKY_BACKGROUND_COLOR = 0x87ceeb
 const GRID_LINE_COLOR = 0x000000
 const GRID_LINE_ALPHA = 0.35
+const WATER_FOAM_DEPTH = DEPTH_GRID - 1
 const DEBUG_TILE_TEXT_STYLE = {
   fontFamily: 'monospace',
   fontSize: '12px',
@@ -29,7 +32,7 @@ export const GRASS_AUTOTILE = {
   12: 2,  // S + W
   13: 11, // N + S + W
   14: 1,  // E + S + W
-  15: 10 // N + E + S + W
+  15: 10, // N + E + S + W
 }
 
 function getTileTerrain(tiles, x, y) {
@@ -80,6 +83,15 @@ function addDebugTileLabel(scene, x, y, key, value) {
   return label
 }
 
+function addWaterFoam(scene, x, y) {
+  const sprite = scene.add.sprite(x, y, WATER_FOAM_TEXTURE_KEY)
+
+  sprite.setDepth(WATER_FOAM_DEPTH)
+  sprite.play(WATER_FOAM_ANIMATION_KEY)
+
+  return sprite
+}
+
 export function renderGrid(scene, worldStore) {
   const tiles = worldStore.world.tiles
   const worldWidth = worldStore.world.width * TILE_SIZE
@@ -91,21 +103,27 @@ export function renderGrid(scene, worldStore) {
     for (const tile of row) {
       const x = tile.x * TILE_SIZE + TILE_SIZE / 2
       const y = tile.y * TILE_SIZE + TILE_SIZE / 2
-      let sprite
+
+      if (tile.terrain === 'water') {
+        continue
+      }
 
       if (tile.terrain === 'grass') {
         const grassTile = resolveGrassTileIndex(tile.x, tile.y, tiles)
-        sprite = scene.add.image(x, y, TERRAIN_TEXTURE_KEY, grassTile.tileIndex)
+
+        if (FOAM_ANIMATION && grassTile.mask !== 15) {
+          addWaterFoam(scene, x, y)
+        }
+
+        const sprite = scene.add.image(x, y, TERRAIN_TEXTURE_KEY, grassTile.tileIndex)
 
         if (DEBUG_MODE) {
           tile.debugMask = grassTile.mask
           addDebugTileLabel(scene, x, y, grassTile.mask, grassTile.tileIndex)
         }
-      } else {
-        continue
-      }
 
-      sprite.setDepth(DEPTH_GRID)
+        sprite.setDepth(DEPTH_GRID)
+      }
     }
   }
 

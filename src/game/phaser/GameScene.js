@@ -25,6 +25,10 @@ const CAMERA_CAPTURE_KEYS = [
   Phaser.Input.Keyboard.KeyCodes.DOWN,
 ]
 
+const WATER_FOAM_TEXTURE_KEY = 'water-foam'
+const WATER_FOAM_ANIMATION_KEY = 'water-foam_anim'
+const WATER_FOAM_FRAME_COUNT = 16
+
 const PAWN_ASSETS = [
   {
     key: 'pawn-idle',
@@ -125,11 +129,14 @@ export class GameScene extends Phaser.Scene {
       this.load.image(treeVariant.stumpKey, treeVariant.stumpPath)
     }
 
-    this.load.spritesheet('terrain_tileset', '/assets/terrain/tileset/tilemap-color-0.png', {
+    this.load.spritesheet('terrain_tileset', '/assets/terrain/tileset/tilemap-color-2.png', {
       frameWidth: 64,
       frameHeight: 64,
     })
-    this.load.image('water-background', '/assets/terrain/tileset/water-background.png')
+    this.load.spritesheet(WATER_FOAM_TEXTURE_KEY, '/assets/terrain/tileset/water-foam.png', {
+      frameWidth: 192,
+      frameHeight: 192,
+    })
   }
 
   init(data = {}) {
@@ -269,6 +276,20 @@ export class GameScene extends Phaser.Scene {
   }
 
   ensureAnimations() {
+    const waterFoamTexture = this.textures.get(WATER_FOAM_TEXTURE_KEY)
+
+    if (!this.anims.exists(WATER_FOAM_ANIMATION_KEY) && waterFoamTexture) {
+      this.anims.create({
+        key: WATER_FOAM_ANIMATION_KEY,
+        frames: this.anims.generateFrameNumbers(WATER_FOAM_TEXTURE_KEY, {
+          start: 0,
+          end: WATER_FOAM_FRAME_COUNT - 1,
+        }),
+        frameRate: 10,
+        repeat: -1,
+      })
+    }
+
     for (const asset of PAWN_ASSETS) {
       if (this.anims.exists(asset.key)) {
         continue
