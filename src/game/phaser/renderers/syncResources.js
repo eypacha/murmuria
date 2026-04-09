@@ -28,6 +28,20 @@ function getResourceTextureKey(tree) {
   return (tree.amount ?? 0) > 0 ? 'tree_0' : 'stump_0'
 }
 
+function isTreeBeingHarvested(tree, worldStore) {
+  return (worldStore.units ?? []).some((pawn) => {
+    if (pawn.role !== 'pawn') {
+      return false
+    }
+
+    if (pawn.state !== 'gathering') {
+      return false
+    }
+
+    return pawn.targetId === tree.id || pawn.workTargetId === tree.id
+  })
+}
+
 function updateTreeSprite(scene, tree) {
   const x = tree.gridPos.x * TILE_SIZE + TILE_SIZE / 2
   const y = tree.gridPos.y * TILE_SIZE + TILE_SIZE
@@ -35,6 +49,7 @@ function updateTreeSprite(scene, tree) {
   const textureKey = getResourceTextureKey(tree)
   const hasWood = textureKey === 'tree_0'
   const displaySize = hasWood ? TREE_DISPLAY_SIZE : STUMP_DISPLAY_SIZE
+  const isHarvested = hasWood && isTreeBeingHarvested(tree, scene.worldStore)
 
   let sprite = scene.resourceSprites.get(tree.id)
 
@@ -46,8 +61,11 @@ function updateTreeSprite(scene, tree) {
     sprite.setDisplaySize(displaySize, displaySize)
     sprite.setDepth(depth)
 
-    if (hasWood) {
+    if (isHarvested) {
       sprite.play('tree_idle_anim', true)
+    } else {
+      sprite.anims?.stop()
+      sprite.setFrame(0)
     }
   } else if (sprite.getData('resourceTextureKey') !== textureKey) {
     sprite.anims?.stop()
@@ -57,9 +75,19 @@ function updateTreeSprite(scene, tree) {
     sprite.setDisplaySize(displaySize, displaySize)
     sprite.setDepth(depth)
 
-    if (hasWood) {
+    if (isHarvested) {
+      sprite.play('tree_idle_anim', true)
+    } else {
+      sprite.anims?.stop()
+      sprite.setFrame(0)
+    }
+  } else if (hasWood && isHarvested) {
+    if (sprite.anims.currentAnim?.key !== 'tree_idle_anim') {
       sprite.play('tree_idle_anim', true)
     }
+  } else {
+    sprite.anims?.stop()
+    sprite.setFrame(0)
   }
 
   if (DEBUG_MODE) {
