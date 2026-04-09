@@ -39,11 +39,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="absolute inset-0 flex items-center justify-center bg-black">
-    <div
-      :id="containerId"
-      class="relative"
-      style="width: min(100vw, calc(100vh * 16 / 9)); height: min(100vh, calc(100vw * 9 / 16));"
-    />
+  <div class="absolute inset-0 overflow-hidden bg-black">
+    <div :id="containerId" class="absolute inset-0" />
   </div>
 </template>

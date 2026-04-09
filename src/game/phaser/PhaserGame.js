@@ -9,13 +9,13 @@ export function createPhaserGame(containerId, worldStore) {
 
   const game = new Phaser.Game({
     type: Phaser.AUTO,
-    parent: containerId,
+    parent: parentElement ?? containerId,
     backgroundColor: '#0f172a',
     width,
     height,
     scene: [],
     scale: {
-      mode: Phaser.Scale.NONE,
+      mode: Phaser.Scale.RESIZE,
       autoCenter: Phaser.Scale.NO_CENTER,
     },
     callbacks: {

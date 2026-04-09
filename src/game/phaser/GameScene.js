@@ -102,6 +102,7 @@ export class GameScene extends Phaser.Scene {
     this.resourceDebugBorders = new Map()
     this.cursors = null
     this.handleCameraWheel = this.handleCameraWheel.bind(this)
+    this.handleResize = this.handleResize.bind(this)
   }
 
   preload() {
@@ -177,6 +178,7 @@ export class GameScene extends Phaser.Scene {
     camera.setZoom(CAMERA_DEFAULT_ZOOM)
     this.ensureAnimations()
     this.setupCameraControls()
+    this.scale.on(Phaser.Scale.Events.RESIZE, this.handleResize, this)
     this.centerCameraOnCastle()
 
     renderGrid(this, this.worldStore)
@@ -221,6 +223,10 @@ export class GameScene extends Phaser.Scene {
       keyboard.removeCapture(CAMERA_CAPTURE_KEYS)
     }
 
+    if (this.scale) {
+      this.scale.off(Phaser.Scale.Events.RESIZE, this.handleResize, this)
+    }
+
     this.cursors = null
   }
 
@@ -249,6 +255,15 @@ export class GameScene extends Phaser.Scene {
 
     camera.scrollX = Phaser.Math.Clamp(camera.scrollX, 0, maxScrollX)
     camera.scrollY = Phaser.Math.Clamp(camera.scrollY, 0, maxScrollY)
+  }
+
+  handleResize(gameSize) {
+    const camera = this.cameras.main
+    const width = gameSize?.width ?? camera.width
+    const height = gameSize?.height ?? camera.height
+
+    camera.setViewport(0, 0, width, height)
+    this.clampCameraToWorld()
   }
 
   handleCameraWheel(pointer, _currentlyOver, _deltaX, deltaY, _deltaZ, event) {
