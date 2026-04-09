@@ -116,7 +116,9 @@ export function createWorld(worldStore) {
   const pawnPositions = createPawnPositions(castle, width, height, occupiedTiles, rng)
 
   for (const position of pawnPositions) {
-    units.push(createPawn(position.x, position.y))
+    const facing = rng.nextInt(2) === 0 ? 'left' : 'right'
+
+    units.push(createPawn(position.x, position.y, facing))
     occupiedTiles.add(positionKey(position.x, position.y))
   }
 

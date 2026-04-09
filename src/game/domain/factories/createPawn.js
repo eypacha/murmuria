@@ -7,13 +7,13 @@ function getWorldPosition(x, y) {
   }
 }
 
-export function createPawn(x = 0, y = 0) {
+export function createPawn(x = 0, y = 0, facing = 'right') {
   return {
     id: `pawn-${x}-${y}`,
     kind: 'unit',
     role: 'pawn',
     state: 'idle',
-    facing: 'right',
+    facing,
     gridPos: {
       x,
       y,

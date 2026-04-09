@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
 export const useWorldStore = defineStore('world', () => {
-  const seed = ref(null)
+  const seed = ref(0)
   const tick = ref(0)
 
   const kingdom = ref({
