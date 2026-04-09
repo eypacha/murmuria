@@ -1,4 +1,5 @@
 import { getOccupiedTiles } from '../../core/getOccupiedTiles.js'
+import { findPath } from '../../core/findPath.js'
 import { isTraversableWorldTile } from '../../core/isTraversableTile.js'
 import { PAWN_PREPARE_TO_TREE_MS } from '../../config/constants.js'
 import { PawnStateSystem } from './PawnStateSystem.js'
@@ -36,19 +37,14 @@ export class DecisionSystem {
         }
 
         const resources = (worldStore.resources ?? []).filter((resource) => resource.type === resourceType)
-        const resource = this.findNearestAvailableResource(pawn, resources)
+        const selection = this.findNearestAvailableResource(pawn, resources, worldStore)
 
-        if (!resource) {
+        if (!selection) {
           availableScores = availableScores.filter((score) => score.type !== resourceType)
           continue
         }
 
-        const targetTile = this.findAdjacentTile(resource, pawn, worldStore)
-
-        if (!targetTile) {
-          availableScores = availableScores.filter((score) => score.type !== resourceType)
-          continue
-        }
+        const { resource, targetTile } = selection
 
         resource.reservedBy = pawn.id
         pawn.targetId = resource.id
@@ -118,7 +114,7 @@ export class DecisionSystem {
     return scores.find(({ score }) => score > 0)?.type ?? null
   }
 
-  static findNearestAvailableResource(pawn, resources) {
+  static findNearestAvailableResource(pawn, resources, worldStore) {
     const pawnPosition = this.getGridPosition(pawn)
 
     if (!pawnPosition) {
@@ -126,6 +122,7 @@ export class DecisionSystem {
     }
 
     let nearestResource = null
+    let nearestTargetTile = null
     let nearestDistance = Number.POSITIVE_INFINITY
 
     for (const resource of resources) {
@@ -133,30 +130,32 @@ export class DecisionSystem {
         continue
       }
 
-      const resourcePosition = this.getGridPosition(resource)
+      const selection = this.findReachableAdjacentTile(resource, pawnPosition, worldStore)
 
-      if (!resourcePosition) {
+      if (!selection) {
         continue
       }
 
-      const distance = this.getManhattanDistance(pawnPosition, resourcePosition)
+      const { targetTile, pathLength } = selection
 
-      if (distance < nearestDistance) {
-        nearestDistance = distance
+      if (pathLength < nearestDistance) {
+        nearestDistance = pathLength
         nearestResource = resource
+        nearestTargetTile = targetTile
       }
     }
 
-    return nearestResource
-  }
-
-  static findAdjacentTile(resource, pawn, worldStore) {
-    const pawnPosition = this.getGridPosition(pawn)
-
-    if (!pawnPosition) {
+    if (!nearestResource || !nearestTargetTile) {
       return null
     }
 
+    return {
+      resource: nearestResource,
+      targetTile: nearestTargetTile,
+    }
+  }
+
+  static findReachableAdjacentTile(resource, pawnPosition, worldStore) {
     const footprint = resource.footprint ?? { w: 1, h: 1 }
     const candidates = []
 
@@ -181,20 +180,30 @@ export class DecisionSystem {
       return null
     }
 
-    let closestTile = validCandidates[0]
-    let closestDistance = this.getManhattanDistance(pawnPosition, closestTile)
+    let closestTile = null
+    let shortestPathLength = Number.POSITIVE_INFINITY
 
-    for (let i = 1; i < validCandidates.length; i += 1) {
-      const candidate = validCandidates[i]
-      const distance = this.getManhattanDistance(pawnPosition, candidate)
+    for (const candidate of validCandidates) {
+      const path = findPath(worldStore, pawnPosition, candidate)
 
-      if (distance < closestDistance) {
-        closestDistance = distance
+      if (!Array.isArray(path) || path.length === 0) {
+        continue
+      }
+
+      if (path.length < shortestPathLength) {
+        shortestPathLength = path.length
         closestTile = candidate
       }
     }
 
-    return closestTile
+    if (!closestTile) {
+      return null
+    }
+
+    return {
+      targetTile: closestTile,
+      pathLength: shortestPathLength,
+    }
   }
 
   static getTargetResource(worldStore, unit) {
