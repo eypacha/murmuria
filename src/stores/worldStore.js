@@ -6,10 +6,12 @@ function createKingdomState() {
     resources: {
       wood: 0,
       gold: 0,
+      meat: 0,
     },
     desires: {
       gatherWood: 0,
       gatherGold: 0,
+      gatherMeat: 0,
     },
   }
 }

@@ -30,7 +30,7 @@ function applyDesires() {
       id="debug-panel-input"
       v-model="desireJson"
       class="mt-2 min-h-32 w-full border-0 bg-slate-900 px-4 py-3 text-sm text-slate-100 outline-none placeholder:text-slate-500"
-      placeholder='{"gatherWood": 1}'
+      placeholder='{"gatherWood": 1, "gatherGold": 1, "gatherMeat": 1}'
     ></textarea>
 
     <p v-if="errorMessage" class="mt-2 text-sm text-red-400">

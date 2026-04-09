@@ -1,5 +1,6 @@
 import {
   PAWN_CARRY_CAPACITY_GOLD,
+  PAWN_CARRY_CAPACITY_MEAT,
   PAWN_CARRY_CAPACITY_WOOD,
   TILE_SIZE,
 } from '../../config/constants.js'
@@ -34,6 +35,7 @@ export function createPawn(x = 0, y = 0, facing = 'right') {
     inventory: {
       wood: 0,
       gold: 0,
+      meat: 0,
     },
     equipment: {
       tool: null,
@@ -42,6 +44,7 @@ export function createPawn(x = 0, y = 0, facing = 'right') {
       moveSpeed: 64,
       carryCapacityWood: PAWN_CARRY_CAPACITY_WOOD,
       carryCapacityGold: PAWN_CARRY_CAPACITY_GOLD,
+      carryCapacityMeat: PAWN_CARRY_CAPACITY_MEAT,
     },
   }
 }

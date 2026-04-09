@@ -3,6 +3,7 @@ import {
   GRID_WIDTH,
   INITIAL_GOLD_COUNT,
   INITIAL_PAWNS,
+  INITIAL_SHEEP_COUNT,
   INITIAL_TREE_COUNT,
 } from '../config/constants.js'
 import {
@@ -11,10 +12,12 @@ import {
 } from '../domain/factories/createCastle.js'
 import { createGoldStone } from '../domain/factories/createGoldStone.js'
 import { createPawn } from '../domain/factories/createPawn.js'
+import { createSheep } from '../domain/factories/createSheep.js'
 import { createTree } from '../domain/factories/createTree.js'
 import { isTraversableTile } from './isTraversableTile.js'
 import {
   GOLD_VARIANT_CONFIGS,
+  SHEEP_VARIANT_CONFIGS,
   TREE_VARIANT_CONFIGS,
 } from '../config/resourceVariants.js'
 import { getOccupiedTiles } from './getOccupiedTiles.js'
@@ -941,6 +944,162 @@ function spawnTrees(tiles, castle, rng, extraReservedKeys = new Set()) {
   return resources
 }
 
+function growSheepCluster(seed, targetSize, candidateKeys, occupiedKeys, tiles, rng) {
+  const cluster = [seed]
+  const clusterKeys = new Set([positionKey(seed.x, seed.y)])
+  const frontier = [seed]
+
+  occupiedKeys.add(positionKey(seed.x, seed.y))
+
+  while (frontier.length > 0 && cluster.length < targetSize) {
+    const frontierIndex = rng.nextInt(frontier.length)
+    const current = frontier[frontierIndex]
+
+    frontier[frontierIndex] = frontier[frontier.length - 1]
+    frontier.pop()
+
+    const neighbors = []
+
+    for (const offset of CARDINAL_NEIGHBOR_OFFSETS) {
+      const neighbor = getTile(tiles, current.x + offset.x, current.y + offset.y)
+
+      if (!neighbor) {
+        continue
+      }
+
+      const key = positionKey(neighbor.x, neighbor.y)
+
+      if (!candidateKeys.has(key) || occupiedKeys.has(key) || clusterKeys.has(key)) {
+        continue
+      }
+
+      neighbors.push(neighbor)
+    }
+
+    shuffleInPlace(neighbors, rng)
+
+    const nextNeighbor = neighbors[0]
+
+    if (!nextNeighbor) {
+      continue
+    }
+
+    const nextKey = positionKey(nextNeighbor.x, nextNeighbor.y)
+
+    if (occupiedKeys.has(nextKey) || clusterKeys.has(nextKey)) {
+      continue
+    }
+
+    cluster.push(nextNeighbor)
+    clusterKeys.add(nextKey)
+    occupiedKeys.add(nextKey)
+    frontier.push(nextNeighbor)
+  }
+
+  return cluster
+}
+
+function spawnSheep(tiles, castle, rng, extraReservedKeys = new Set()) {
+  const resources = []
+  const reservedKeys = new Set([...getCastleReservationKeys(castle), ...extraReservedKeys])
+  const occupiedKeys = new Set(reservedKeys)
+  const candidateTiles = getTreeCandidates(tiles, reservedKeys)
+  const candidateKeys = new Set(candidateTiles.map((tile) => positionKey(tile.x, tile.y)))
+  const sheepPositions = []
+  const clusterTargetCount = Math.min(
+    4,
+    Math.max(1, Math.floor(INITIAL_SHEEP_COUNT / 2)),
+  )
+  let clusterCount = 0
+
+  while (resources.length < INITIAL_SHEEP_COUNT && clusterCount < clusterTargetCount) {
+    const availableSeeds = candidateTiles.filter((tile) => {
+      const key = positionKey(tile.x, tile.y)
+
+      return !occupiedKeys.has(key) && isDistanceFarEnough(tile, sheepPositions, 5)
+    })
+
+    if (availableSeeds.length === 0) {
+      break
+    }
+
+    const seed = availableSeeds[rng.nextInt(availableSeeds.length)]
+
+    if (!seed) {
+      break
+    }
+
+    const seedKey = positionKey(seed.x, seed.y)
+
+    if (occupiedKeys.has(seedKey)) {
+      continue
+    }
+
+    const remainingSlots = INITIAL_SHEEP_COUNT - resources.length
+
+    if (remainingSlots <= 0) {
+      break
+    }
+
+    const desiredClusterSize = Math.min(1 + rng.nextInt(2), remainingSlots)
+    const cluster = growSheepCluster(seed, desiredClusterSize, candidateKeys, occupiedKeys, tiles, rng)
+
+    if (cluster.length === 0) {
+      continue
+    }
+
+    clusterCount += 1
+
+    for (const tile of cluster) {
+      sheepPositions.push(tile)
+      resources.push(createSheep(tile.x, tile.y, rng.nextInt(SHEEP_VARIANT_CONFIGS.length)))
+    }
+  }
+
+  const remainingCandidates = candidateTiles.filter((tile) => !occupiedKeys.has(positionKey(tile.x, tile.y)))
+  shuffleInPlace(remainingCandidates, rng)
+
+  for (const tile of remainingCandidates) {
+    if (resources.length >= INITIAL_SHEEP_COUNT) {
+      break
+    }
+
+    const key = positionKey(tile.x, tile.y)
+
+    if (occupiedKeys.has(key)) {
+      continue
+    }
+
+    if (!isDistanceFarEnough(tile, sheepPositions, 2)) {
+      continue
+    }
+
+    occupiedKeys.add(key)
+    sheepPositions.push(tile)
+    resources.push(createSheep(tile.x, tile.y, rng.nextInt(SHEEP_VARIANT_CONFIGS.length)))
+  }
+
+  if (resources.length < INITIAL_SHEEP_COUNT) {
+    for (const tile of remainingCandidates) {
+      if (resources.length >= INITIAL_SHEEP_COUNT) {
+        break
+      }
+
+      const key = positionKey(tile.x, tile.y)
+
+      if (occupiedKeys.has(key)) {
+        continue
+      }
+
+      occupiedKeys.add(key)
+      sheepPositions.push(tile)
+      resources.push(createSheep(tile.x, tile.y, rng.nextInt(SHEEP_VARIANT_CONFIGS.length)))
+    }
+  }
+
+  return resources
+}
+
 export function generatePlateaus(tiles, rng) {
   if (!Array.isArray(tiles) || tiles.length === 0 || typeof rng?.nextInt !== 'function') {
     return
@@ -1174,14 +1333,21 @@ export function createWorld(worldStore) {
   )
   const treeReservedKeys = new Set([...pawnReservedKeys, ...goldReservedKeys])
   const treeResources = spawnTrees(tiles, castle, rng, treeReservedKeys)
-  const resources = [...goldResources, ...treeResources]
+  const treeResourceKeys = new Set(
+    treeResources.map((resource) => positionKey(resource.gridPos.x, resource.gridPos.y)),
+  )
+  const sheepReservedKeys = new Set([...treeReservedKeys, ...treeResourceKeys])
+  const sheepResources = spawnSheep(tiles, castle, rng, sheepReservedKeys)
+  const resources = [...goldResources, ...treeResources, ...sheepResources]
 
   worldStore.tick = 0
   worldStore.seed = seed
   worldStore.kingdom.resources.wood = 0
   worldStore.kingdom.resources.gold = 0
+  worldStore.kingdom.resources.meat = 0
   worldStore.kingdom.desires.gatherWood = 0
   worldStore.kingdom.desires.gatherGold = 0
+  worldStore.kingdom.desires.gatherMeat = 0
   Object.assign(worldStore.world, {
     width,
     height,

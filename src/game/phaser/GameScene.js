@@ -14,6 +14,7 @@ import { syncResources } from './renderers/syncResources.js'
 import {
   GOLD_FRAME_COUNT,
   GOLD_VARIANT_CONFIGS,
+  SHEEP_VARIANT_CONFIGS,
   TREE_FRAME_COUNT,
   TREE_VARIANT_CONFIGS,
 } from '../config/resourceVariants.js'
@@ -52,6 +53,11 @@ const PAWN_ASSETS = [
     frameCount: 8,
   },
   {
+    key: 'pawn-idle-knife',
+    path: '/assets/units/blue/pawn/pawn-idle-knife.png',
+    frameCount: 8,
+  },
+  {
     key: 'pawn-run',
     path: '/assets/units/blue/pawn/pawn-run.png',
     frameCount: 6,
@@ -64,6 +70,16 @@ const PAWN_ASSETS = [
   {
     key: 'pawn-run-pickaxe',
     path: '/assets/units/blue/pawn/pawn-run-pickaxe.png',
+    frameCount: 6,
+  },
+  {
+    key: 'pawn-run-knife',
+    path: '/assets/units/blue/pawn/pawn-run-knife.png',
+    frameCount: 6,
+  },
+  {
+    key: 'pawn-interact-knife',
+    path: '/assets/units/blue/pawn/pawn-interact-knife.png',
     frameCount: 6,
   },
   {
@@ -82,6 +98,11 @@ const PAWN_ASSETS = [
     frameCount: 6,
   },
   {
+    key: 'pawn-idle-meat',
+    path: '/assets/units/blue/pawn/pawn-idle-meat.png',
+    frameCount: 8,
+  },
+  {
     key: 'pawn-idle-gold',
     path: '/assets/units/blue/pawn/pawn-idle-gold.png',
     frameCount: 8,
@@ -89,6 +110,11 @@ const PAWN_ASSETS = [
   {
     key: 'pawn-run-gold',
     path: '/assets/units/blue/pawn/pawn-run-gold.png',
+    frameCount: 6,
+  },
+  {
+    key: 'pawn-run-meat',
+    path: '/assets/units/blue/pawn/pawn-run-meat.png',
     frameCount: 6,
   },
 ]
@@ -129,6 +155,23 @@ export class GameScene extends Phaser.Scene {
       })
 
       this.load.image(treeVariant.stumpKey, treeVariant.stumpPath)
+    }
+
+    for (const sheepVariant of SHEEP_VARIANT_CONFIGS) {
+      this.load.spritesheet(sheepVariant.idleKey, sheepVariant.idlePath, {
+        frameWidth: sheepVariant.displayWidth,
+        frameHeight: sheepVariant.frameHeight,
+      })
+
+      this.load.spritesheet(sheepVariant.moveKey, sheepVariant.movePath, {
+        frameWidth: sheepVariant.displayWidth,
+        frameHeight: sheepVariant.frameHeight,
+      })
+
+      this.load.spritesheet(sheepVariant.grassKey, sheepVariant.grassPath, {
+        frameWidth: sheepVariant.displayWidth,
+        frameHeight: sheepVariant.frameHeight,
+      })
     }
 
     this.load.spritesheet('terrain_tileset', '/assets/terrain/tileset/tilemap-color-2.png', {
@@ -360,6 +403,32 @@ export class GameScene extends Phaser.Scene {
         frameRate: 10,
         repeat: -1,
       })
+    }
+
+    for (const sheepVariant of SHEEP_VARIANT_CONFIGS) {
+      const sheepAnimations = [
+        [sheepVariant.idleKey, sheepVariant.idleFrameCount],
+        [sheepVariant.moveKey, sheepVariant.moveFrameCount],
+        [sheepVariant.grassKey, sheepVariant.grassFrameCount],
+      ]
+
+      for (const [textureKey, frameCount] of sheepAnimations) {
+        const animationKey = `${textureKey}_anim`
+
+        if (this.anims.exists(animationKey)) {
+          continue
+        }
+
+        this.anims.create({
+          key: animationKey,
+          frames: this.anims.generateFrameNumbers(textureKey, {
+            start: 0,
+            end: frameCount - 1,
+          }),
+          frameRate: 10,
+          repeat: -1,
+        })
+      }
     }
   }
 

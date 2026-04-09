@@ -1,8 +1,10 @@
 import {
   PAWN_CARRY_CAPACITY_GOLD,
+  PAWN_CARRY_CAPACITY_MEAT,
   PAWN_CARRY_CAPACITY_WOOD,
   PAWN_GATHER_DURATION_MS,
   PAWN_GOLD_HARVEST_CHUNK,
+  PAWN_MEAT_HARVEST_CHUNK,
   PAWN_PREPARE_TO_RETURN_MS,
   PAWN_WOOD_HARVEST_CHUNK,
 } from '../../config/constants.js'
@@ -29,7 +31,11 @@ export class PawnWorkSystem {
         continue
       }
 
-      if (pawn.state === 'delivering_wood' || pawn.state === 'delivering_gold') {
+      if (
+        pawn.state === 'delivering_wood' ||
+        pawn.state === 'delivering_gold' ||
+        pawn.state === 'delivering_meat'
+      ) {
         this.completeDelivery(pawn, worldStore)
       }
     }
@@ -51,7 +57,7 @@ export class PawnWorkSystem {
     const carryCapacity = this.getCarryCapacity(pawn, resourceType)
     const harvestChunk = this.getHarvestChunk(resourceType)
 
-    pawn.inventory = pawn.inventory ?? { wood: 0, gold: 0 }
+    pawn.inventory = pawn.inventory ?? { wood: 0, gold: 0, meat: 0 }
     const currentAmount = Math.max(0, pawn.inventory[inventoryKey] ?? 0)
     const availableCapacity = Math.max(0, carryCapacity - currentAmount)
     const transferAmount = Math.min(harvestChunk, availableCapacity, resourceAmount)
@@ -114,7 +120,7 @@ export class PawnWorkSystem {
   }
 
   static completeDelivery(pawn, worldStore) {
-    pawn.inventory = pawn.inventory ?? { wood: 0, gold: 0 }
+    pawn.inventory = pawn.inventory ?? { wood: 0, gold: 0, meat: 0 }
     const resourceType = this.getCarriedResourceType(pawn)
     const inventoryKey = this.getInventoryKey(resourceType)
     const carriedAmount = Math.max(0, pawn.inventory[inventoryKey] ?? 0)
@@ -164,6 +170,10 @@ export class PawnWorkSystem {
   }
 
   static getCarriedResourceType(pawn) {
+    if ((pawn.inventory?.meat ?? 0) > 0) {
+      return 'meat'
+    }
+
     if ((pawn.inventory?.gold ?? 0) > 0) {
       return 'gold'
     }
@@ -176,11 +186,27 @@ export class PawnWorkSystem {
   }
 
   static getInventoryKey(resourceType) {
-    return resourceType === 'gold' ? 'gold' : 'wood'
+    if (resourceType === 'gold') {
+      return 'gold'
+    }
+
+    if (resourceType === 'sheep' || resourceType === 'meat') {
+      return 'meat'
+    }
+
+    return 'wood'
   }
 
   static getKingdomResourceKey(resourceType) {
-    return resourceType === 'gold' ? 'gold' : 'wood'
+    if (resourceType === 'gold') {
+      return 'gold'
+    }
+
+    if (resourceType === 'sheep' || resourceType === 'meat') {
+      return 'meat'
+    }
+
+    return 'wood'
   }
 
   static getCarryCapacity(pawn, resourceType) {
@@ -188,11 +214,23 @@ export class PawnWorkSystem {
       return pawn.stats?.carryCapacityGold ?? PAWN_CARRY_CAPACITY_GOLD
     }
 
+    if (resourceType === 'sheep' || resourceType === 'meat') {
+      return pawn.stats?.carryCapacityMeat ?? PAWN_CARRY_CAPACITY_MEAT
+    }
+
     return pawn.stats?.carryCapacityWood ?? PAWN_CARRY_CAPACITY_WOOD
   }
 
   static getHarvestChunk(resourceType) {
-    return resourceType === 'gold' ? PAWN_GOLD_HARVEST_CHUNK : PAWN_WOOD_HARVEST_CHUNK
+    if (resourceType === 'gold') {
+      return PAWN_GOLD_HARVEST_CHUNK
+    }
+
+    if (resourceType === 'sheep' || resourceType === 'meat') {
+      return PAWN_MEAT_HARVEST_CHUNK
+    }
+
+    return PAWN_WOOD_HARVEST_CHUNK
   }
 
   static isInsideWorld(tile, worldStore) {

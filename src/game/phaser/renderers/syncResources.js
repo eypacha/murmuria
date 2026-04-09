@@ -5,6 +5,7 @@ import {
 import { getOccupiedTiles } from '../../core/getOccupiedTiles.js'
 import {
   GOLD_VARIANT_CONFIGS,
+  SHEEP_VARIANT_CONFIGS,
   TREE_VARIANT_CONFIGS,
 } from '../../config/resourceVariants.js'
 
@@ -13,10 +14,16 @@ const STUMP_DISPLAY_WIDTH = 192
 const STUMP_DISPLAY_HEIGHT = 256
 const DEBUG_TREE_BORDER_COLOR = 0x58d96f
 const DEBUG_GOLD_BORDER_COLOR = 0xf2c94c
+const DEBUG_SHEEP_BORDER_COLOR = 0xe7a07f
 
 function drawDebugOccupiedTiles(scene, resource, depth) {
   const border = scene.add.graphics()
-  const color = resource.type === 'gold' ? DEBUG_GOLD_BORDER_COLOR : DEBUG_TREE_BORDER_COLOR
+  const color =
+    resource.type === 'gold'
+      ? DEBUG_GOLD_BORDER_COLOR
+      : resource.type === 'sheep'
+        ? DEBUG_SHEEP_BORDER_COLOR
+        : DEBUG_TREE_BORDER_COLOR
 
   border.lineStyle(2, color, 1)
   border.setDepth(depth)
@@ -39,6 +46,10 @@ function ensureResourceCaches(scene) {
 }
 
 function getResourceTextureKey(tree) {
+  if (tree.type === 'sheep') {
+    return getSheepVariantTextureKey(tree)
+  }
+
   if (tree.type === 'gold') {
     const variantConfig = getGoldVariantConfig(tree)
     return variantConfig.key
@@ -49,6 +60,10 @@ function getResourceTextureKey(tree) {
 }
 
 function getResourceAnimationKey(tree) {
+  if (tree.type === 'sheep') {
+    return getSheepAnimationKey(tree)
+  }
+
   if (tree.type === 'gold') {
     const variantConfig = getGoldVariantConfig(tree)
 
@@ -82,7 +97,42 @@ function getGoldVariantConfig(resource) {
   return GOLD_VARIANT_CONFIGS[clampedIndex] ?? GOLD_VARIANT_CONFIGS[0]
 }
 
+function getSheepVariantConfig(resource) {
+  const variantIndex = Number.isInteger(resource?.variant) ? resource.variant : 0
+  const clampedIndex = Math.max(0, Math.min(SHEEP_VARIANT_CONFIGS.length - 1, variantIndex))
+
+  return SHEEP_VARIANT_CONFIGS[clampedIndex] ?? SHEEP_VARIANT_CONFIGS[0]
+}
+
+function getSheepVariantTextureKey(resource) {
+  const variantConfig = getSheepVariantConfig(resource)
+  const state = typeof resource?.state === 'string' ? resource.state : 'idle'
+
+  if (state === 'moving') {
+    return variantConfig.moveKey
+  }
+
+  if (state === 'eating') {
+    return variantConfig.grassKey
+  }
+
+  return variantConfig.idleKey
+}
+
+function getSheepAnimationKey(resource) {
+  return `${getSheepVariantTextureKey(resource)}_anim`
+}
+
 function getResourceDisplaySize(resource) {
+  if (resource.type === 'sheep') {
+    const variantConfig = getSheepVariantConfig(resource)
+
+    return {
+      width: variantConfig.displayWidth ?? TREE_DISPLAY_WIDTH,
+      height: variantConfig.displayHeight ?? TREE_DISPLAY_WIDTH,
+    }
+  }
+
   const variantConfig =
     resource.type === 'gold' ? getGoldVariantConfig(resource) : getTreeVariantConfig(resource)
 
@@ -93,7 +143,7 @@ function getResourceDisplaySize(resource) {
 }
 
 function getResourceWorldPosition(resource) {
-  if (resource.type === 'gold') {
+  if (resource.type === 'gold' || resource.type === 'sheep') {
     return {
       x: resource.gridPos.x * TILE_SIZE + TILE_SIZE / 2,
       y: resource.gridPos.y * TILE_SIZE + TILE_SIZE / 2,
@@ -152,12 +202,16 @@ function updateResourceSprite(scene, resource) {
   const isHarvested = (resource.amount ?? 0) > 0 && isResourceBeingHarvested(resource, scene.worldStore)
   const animationKey = getResourceAnimationKey(resource)
   const displaySize = getResourceDisplaySize(resource)
-  const displayWidth = resource.type === 'gold' ? displaySize.width : (isTreeTexture ? TREE_DISPLAY_WIDTH : STUMP_DISPLAY_WIDTH)
-  const displayHeight = resource.type === 'gold'
+  const isSheep = resource.type === 'sheep'
+  const displayWidth = resource.type === 'gold' || isSheep
+    ? displaySize.width
+    : (isTreeTexture ? TREE_DISPLAY_WIDTH : STUMP_DISPLAY_WIDTH)
+  const displayHeight = resource.type === 'gold' || isSheep
     ? displaySize.height
     : (isTreeTexture ? getTreeVariantConfig(resource).displayHeight : STUMP_DISPLAY_HEIGHT)
   const originX = 0.5
-  const originY = resource.type === 'gold' ? 0.5 : 1
+  const originY = resource.type === 'gold' || isSheep ? 0.5 : 1
+  const shouldAnimate = isSheep || ((resource.type === 'gold' || isTreeTexture) && isHarvested)
 
   let sprite = scene.resourceSprites.get(resource.id)
 
@@ -169,7 +223,7 @@ function updateResourceSprite(scene, resource) {
     sprite.setDisplaySize(displayWidth, displayHeight)
     sprite.setDepth(depth)
 
-    if (animationKey && isHarvested) {
+    if (shouldAnimate && animationKey) {
       sprite.play(animationKey, true)
     } else {
       sprite.anims?.stop()
@@ -183,13 +237,13 @@ function updateResourceSprite(scene, resource) {
     sprite.setDisplaySize(displayWidth, displayHeight)
     sprite.setDepth(depth)
 
-    if (animationKey && isHarvested) {
+    if (shouldAnimate && animationKey) {
       sprite.play(animationKey, true)
     } else {
       sprite.anims?.stop()
       sprite.setFrame(0)
     }
-  } else if ((resource.type === 'gold' || isTreeTexture) && isHarvested) {
+  } else if (shouldAnimate) {
     if (
       animationKey &&
       (!sprite.anims.isPlaying || sprite.anims.currentAnim?.key !== animationKey)

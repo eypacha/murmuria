@@ -7,6 +7,7 @@ export class DecisionSystem {
   static update(worldStore) {
     const pawns = worldStore.units ?? []
     const occupiedTiles = this.buildOccupiedTileSet(worldStore)
+    const blockedTiles = this.buildOccupiedTileSet(worldStore, { includeUnits: false })
 
     for (const pawn of pawns) {
       if (pawn.role !== 'pawn') {
@@ -17,7 +18,11 @@ export class DecisionSystem {
         continue
       }
 
-      if ((pawn.inventory?.wood ?? 0) > 0 || (pawn.inventory?.gold ?? 0) > 0) {
+      if (
+        (pawn.inventory?.wood ?? 0) > 0 ||
+        (pawn.inventory?.gold ?? 0) > 0 ||
+        (pawn.inventory?.meat ?? 0) > 0
+      ) {
         continue
       }
 
@@ -33,7 +38,7 @@ export class DecisionSystem {
         continue
       }
 
-      const reachableTiles = this.buildReachabilityMap(pawnPosition, worldStore, occupiedTiles)
+      const reachableTiles = this.buildReachabilityMap(pawnPosition, worldStore, blockedTiles)
       let availableScores = scores
 
       while (availableScores.length > 0) {
@@ -49,6 +54,7 @@ export class DecisionSystem {
           resources,
           worldStore,
           occupiedTiles,
+          blockedTiles,
           reachableTiles,
         )
 
@@ -73,12 +79,12 @@ export class DecisionSystem {
         pawn.interactionFacing = this.getFacingForResource(resource, targetTile)
         pawn.facing = pawn.interactionFacing
         pawn.equipment = pawn.equipment ?? { tool: null }
-        pawn.equipment.tool = resourceType === 'gold' ? 'pickaxe' : 'axe'
-        pawn.state = resourceType === 'gold' ? 'preparing_to_gold' : 'preparing_to_tree'
+        pawn.equipment.tool = this.getToolForResourceType(resourceType)
+        pawn.state = this.getPreparingStateForResourceType(resourceType)
         PawnStateSystem.queueTimedTransition(
           pawn,
           worldStore,
-          resourceType === 'gold' ? 'moving_to_gold' : 'moving_to_tree',
+          this.getMovingStateForResourceType(resourceType),
           PAWN_PREPARE_TO_TREE_MS,
         )
         break
@@ -89,10 +95,12 @@ export class DecisionSystem {
   static computeResourceScores(pawn, worldStore) {
     const gatherWood = Number(worldStore.kingdom?.desires?.gatherWood ?? 0)
     const gatherGold = Number(worldStore.kingdom?.desires?.gatherGold ?? 0)
+    const gatherMeat = Number(worldStore.kingdom?.desires?.gatherMeat ?? 0)
 
     return [
       { type: 'tree', score: gatherWood },
       { type: 'gold', score: gatherGold },
+      { type: 'sheep', score: gatherMeat },
     ].filter(({ score }) => score > 0)
   }
 
@@ -127,14 +135,21 @@ export class DecisionSystem {
     return scores.find(({ score }) => score > 0)?.type ?? null
   }
 
-  static findNearestAvailableResource(pawn, resources, worldStore, occupiedTiles, reachableTiles) {
+  static findNearestAvailableResource(
+    pawn,
+    resources,
+    worldStore,
+    occupiedTiles,
+    blockedTiles,
+    reachableTiles,
+  ) {
     const pawnPosition = this.getGridPosition(pawn)
 
     if (!pawnPosition) {
       return null
     }
 
-    const pathMap = reachableTiles ?? this.buildReachabilityMap(pawnPosition, worldStore, occupiedTiles)
+    const pathMap = reachableTiles ?? this.buildReachabilityMap(pawnPosition, worldStore, blockedTiles)
     let nearestResource = null
     let nearestTargetTile = null
     let nearestDistance = Number.POSITIVE_INFINITY
@@ -144,7 +159,7 @@ export class DecisionSystem {
         continue
       }
 
-      const selection = this.findReachableAdjacentTile(resource, pathMap)
+      const selection = this.findReachableAdjacentTile(resource, pathMap, occupiedTiles)
 
       if (!selection) {
         continue
@@ -169,7 +184,7 @@ export class DecisionSystem {
     }
   }
 
-  static findReachableAdjacentTile(resource, reachableTiles) {
+  static findReachableAdjacentTile(resource, reachableTiles, occupiedTiles) {
     const footprint = resource.footprint ?? { w: 1, h: 1 }
     const candidates = []
 
@@ -182,7 +197,13 @@ export class DecisionSystem {
     let shortestPathLength = Number.POSITIVE_INFINITY
 
     for (const candidate of candidates) {
-      const pathLength = reachableTiles.get(this.tileKey(candidate))
+      const candidateKey = this.tileKey(candidate)
+
+      if (occupiedTiles?.has(candidateKey)) {
+        continue
+      }
+
+      const pathLength = reachableTiles.get(candidateKey)
 
       if (pathLength === undefined) {
         continue
@@ -227,7 +248,7 @@ export class DecisionSystem {
           continue
         }
 
-        if (occupiedTiles?.has(neighborKey) || this.isTileOccupied(neighbor, worldStore)) {
+        if (occupiedTiles?.has(neighborKey)) {
           continue
         }
 
@@ -259,7 +280,47 @@ export class DecisionSystem {
     return 'right'
   }
 
+  static getToolForResourceType(resourceType) {
+    if (resourceType === 'gold') {
+      return 'pickaxe'
+    }
+
+    if (resourceType === 'sheep') {
+      return 'knife'
+    }
+
+    return 'axe'
+  }
+
+  static getPreparingStateForResourceType(resourceType) {
+    if (resourceType === 'gold') {
+      return 'preparing_to_gold'
+    }
+
+    if (resourceType === 'sheep') {
+      return 'preparing_to_meat'
+    }
+
+    return 'preparing_to_tree'
+  }
+
+  static getMovingStateForResourceType(resourceType) {
+    if (resourceType === 'gold') {
+      return 'moving_to_gold'
+    }
+
+    if (resourceType === 'sheep') {
+      return 'moving_to_meat'
+    }
+
+    return 'moving_to_tree'
+  }
+
   static isResourceAvailable(resource) {
+    if (resource.type === 'sheep' && (resource.state ?? 'idle') !== 'idle') {
+      return false
+    }
+
     return (
       (resource.reservedBy === null || resource.reservedBy === undefined) &&
       (resource.amount ?? 0) > 0
@@ -287,13 +348,17 @@ export class DecisionSystem {
     return entities.some((entity) => this.entityOccupiesTile(entity, tile))
   }
 
-  static buildOccupiedTileSet(worldStore) {
+  static buildOccupiedTileSet(worldStore, options = {}) {
+    const includeUnits = options.includeUnits !== false
     const occupiedTiles = new Set()
     const entities = [
       ...(worldStore.buildings ?? []),
       ...(worldStore.resources ?? []),
-      ...(worldStore.units ?? []),
     ]
+
+    if (includeUnits) {
+      entities.push(...(worldStore.units ?? []))
+    }
 
     for (const entity of entities) {
       if (!entity?.gridPos) {

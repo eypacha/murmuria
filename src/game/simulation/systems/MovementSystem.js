@@ -19,6 +19,7 @@ export class MovementSystem {
       if (
         pawn.state !== 'moving_to_tree' &&
         pawn.state !== 'moving_to_gold' &&
+        pawn.state !== 'moving_to_meat' &&
         pawn.state !== 'returning_to_castle' &&
         pawn.state !== 'moving'
       ) {
@@ -155,6 +156,10 @@ export class MovementSystem {
   }
 
   static resolveDeliveryState(pawn) {
+    if ((pawn.inventory?.meat ?? 0) > 0 || pawn.workTargetType === 'sheep') {
+      return 'delivering_meat'
+    }
+
     if ((pawn.inventory?.gold ?? 0) > 0 || pawn.workTargetType === 'gold') {
       return 'delivering_gold'
     }

@@ -15,6 +15,11 @@ const resources = computed(() => [
     value: Number(worldStore.kingdom?.resources?.gold ?? 0),
     icon: '/assets/ui/elements/icons/coin.png',
   },
+  {
+    key: 'meat',
+    value: Number(worldStore.kingdom?.resources?.meat ?? 0),
+    icon: '/assets/ui/elements/icons/meat.png',
+  },
 ])
 </script>
 
