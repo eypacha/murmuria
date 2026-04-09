@@ -1,5 +1,14 @@
 import Phaser from 'phaser'
-import { GRID_HEIGHT, GRID_WIDTH, TILE_SIZE } from '../config/constants.js'
+import {
+  DEPTH_HUD,
+  GRID_HEIGHT,
+  GRID_WIDTH,
+  HUD_GAP,
+  HUD_ICON_SIZE,
+  HUD_MARGIN,
+  HUD_TEXT_SIZE,
+  TILE_SIZE,
+} from '../config/constants.js'
 import { PawnSpriteController } from '../rendering/PawnSpriteController.js'
 import { renderGrid } from './renderers/renderGrid.js'
 import { syncBuildings } from './renderers/syncBuildings.js'
@@ -50,6 +59,9 @@ export class GameScene extends Phaser.Scene {
     this.pawnControllers = new Map()
     this.resourceSprites = new Map()
     this.resourceDebugBorders = new Map()
+    this.woodHudIcon = null
+    this.woodHudText = null
+    this.woodHudValue = null
   }
 
   preload() {
@@ -61,6 +73,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.load.image('castle_blue', '/assets/buildings/blue/castle.png')
+    this.load.image('wood_resource_icon', '/assets/terrain/resources/wood/resource.png')
 
     this.load.spritesheet('tree_0', '/assets/terrain/resources/wood/trees/tree-0.png', {
       frameWidth: 192,
@@ -102,11 +115,13 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, GRID_WIDTH * TILE_SIZE, GRID_HEIGHT * TILE_SIZE)
     this.ensureAnimations()
     this.centerCameraOnCastle()
+    this.createWoodHud()
 
     renderGrid(this, this.worldStore)
     syncBuildings(this, this.worldStore)
     syncResources(this, this.worldStore)
     this.syncPawnControllers()
+    this.syncWoodHud()
   }
 
   centerCameraOnCastle() {
@@ -153,6 +168,56 @@ export class GameScene extends Phaser.Scene {
   update() {
     syncResources(this, this.worldStore)
     this.syncPawnControllers()
+    this.syncWoodHud()
+  }
+
+  createWoodHud() {
+    if (this.woodHudIcon) {
+      this.woodHudIcon.destroy()
+      this.woodHudIcon = null
+    }
+
+    if (this.woodHudText) {
+      this.woodHudText.destroy()
+      this.woodHudText = null
+    }
+
+    this.woodHudIcon = this.add.image(0, 0, 'wood_resource_icon')
+    this.woodHudIcon.setOrigin(1, 0.5)
+    this.woodHudIcon.setScrollFactor(0)
+    this.woodHudIcon.setDepth(DEPTH_HUD)
+    this.woodHudIcon.setDisplaySize(HUD_ICON_SIZE, HUD_ICON_SIZE)
+
+    this.woodHudText = this.add.text(0, 0, '0', {
+      fontFamily: 'monospace',
+      fontSize: `${HUD_TEXT_SIZE}px`,
+      color: '#f8fafc',
+      align: 'right',
+    })
+    this.woodHudText.setOrigin(1, 0.5)
+    this.woodHudText.setScrollFactor(0)
+    this.woodHudText.setDepth(DEPTH_HUD)
+  }
+
+  syncWoodHud() {
+    if (!this.worldStore || !this.woodHudIcon || !this.woodHudText) {
+      return
+    }
+
+    const wood = this.worldStore.kingdom?.resources?.wood ?? 0
+    const woodText = String(wood)
+
+    if (woodText !== this.woodHudValue) {
+      this.woodHudText.setText(woodText)
+      this.woodHudValue = woodText
+    }
+
+    const viewWidth = this.scale.width ?? this.game.canvas?.width ?? 0
+    const textX = viewWidth - HUD_MARGIN
+    const textY = HUD_MARGIN + HUD_ICON_SIZE / 2
+
+    this.woodHudText.setPosition(textX, textY)
+    this.woodHudIcon.setPosition(textX - this.woodHudText.width - HUD_GAP, textY)
   }
 
   syncPawnControllers() {
