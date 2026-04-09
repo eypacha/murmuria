@@ -12,10 +12,10 @@ function drawDebugTileBorder(scene, gridX, gridY, depth) {
 }
 
 export function syncUnits(scene, worldStore) {
-  const villagers = worldStore.units.filter((unit) => unit.role === 'villager')
+  const pawns = worldStore.units.filter((unit) => unit.role === 'pawn')
 
-  return villagers.map((villager) => {
-    const pos = villager.pos ?? villager.gridPos
+  return pawns.map((pawn) => {
+    const pos = pawn.pos ?? pawn.gridPos
     const x = pos.x * TILE_SIZE + TILE_SIZE / 2
     const y = pos.y * TILE_SIZE + TILE_SIZE + UNIT_RENDER_OFFSET_Y
     const depth = y

@@ -2,11 +2,11 @@ import {
   GRID_HEIGHT,
   GRID_WIDTH,
   INITIAL_TREE_COUNT,
-  INITIAL_VILLAGERS,
+  INITIAL_PAWNS,
 } from '../config/constants.js'
 import { createCastle } from '../domain/factories/createCastle.js'
+import { createPawn } from '../domain/factories/createPawn.js'
 import { createTree } from '../domain/factories/createTree.js'
-import { createVillager } from '../domain/factories/createVillager.js'
 import { seededRandom } from './seededRandom.js'
 
 function createTileGrid(width, height) {
@@ -45,7 +45,7 @@ function shuffleInPlace(items, rng) {
   }
 }
 
-function createVillagerPositions(castle, width, height, rng) {
+function createPawnPositions(castle, width, height, rng) {
   const positions = []
 
   for (let y = castle.gridPos.y - 1; y <= castle.gridPos.y + 1; y += 1) {
@@ -64,7 +64,7 @@ function createVillagerPositions(castle, width, height, rng) {
 
   shuffleInPlace(positions, rng)
 
-  return positions.slice(0, Math.min(INITIAL_VILLAGERS, positions.length))
+  return positions.slice(0, Math.min(INITIAL_PAWNS, positions.length))
 }
 
 export function createWorld(worldStore) {
@@ -80,10 +80,10 @@ export function createWorld(worldStore) {
   const units = []
   const occupiedTiles = new Set([positionKey(castle.gridPos.x, castle.gridPos.y)])
 
-  const villagerPositions = createVillagerPositions(castle, width, height, rng)
+  const pawnPositions = createPawnPositions(castle, width, height, rng)
 
-  for (const position of villagerPositions) {
-    units.push(createVillager(position.x, position.y))
+  for (const position of pawnPositions) {
+    units.push(createPawn(position.x, position.y))
     occupiedTiles.add(positionKey(position.x, position.y))
   }
 

@@ -1,8 +1,8 @@
-export function createVillager(x = 0, y = 0) {
+export function createPawn(x = 0, y = 0) {
   return {
-    id: `villager-${x}-${y}`,
+    id: `pawn-${x}-${y}`,
     kind: 'unit',
-    role: 'villager',
+    role: 'pawn',
     state: 'idle',
     gridPos: {
       x,

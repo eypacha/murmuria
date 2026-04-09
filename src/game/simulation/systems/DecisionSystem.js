@@ -10,7 +10,7 @@ export class DecisionSystem {
     const trees = (worldStore.resources ?? []).filter((resource) => resource.type === 'tree')
 
     for (const unit of units) {
-      if (unit.role !== 'villager') {
+      if (unit.role !== 'pawn') {
         continue
       }
 
