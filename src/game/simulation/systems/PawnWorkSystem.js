@@ -1,6 +1,8 @@
 import {
+  PAWN_CARRY_CAPACITY_GOLD,
   PAWN_CARRY_CAPACITY_WOOD,
   PAWN_GATHER_DURATION_MS,
+  PAWN_GOLD_HARVEST_CHUNK,
   PAWN_PREPARE_TO_RETURN_MS,
   PAWN_WOOD_HARVEST_CHUNK,
 } from '../../config/constants.js'
@@ -26,7 +28,7 @@ export class PawnWorkSystem {
         continue
       }
 
-      if (pawn.state === 'delivering_wood') {
+      if (pawn.state === 'delivering_wood' || pawn.state === 'delivering_gold') {
         this.completeDelivery(pawn, worldStore)
       }
     }
@@ -41,19 +43,23 @@ export class PawnWorkSystem {
   }
 
   static completeGather(pawn, worldStore) {
-    const tree = this.getTreeById(worldStore, pawn.workTargetId ?? pawn.targetId)
-    const treeAmount = Math.max(0, tree?.amount ?? 0)
-    const carryCapacity = pawn.stats?.carryCapacityWood ?? PAWN_CARRY_CAPACITY_WOOD
-    pawn.inventory = pawn.inventory ?? { wood: 0 }
-    const currentWood = Math.max(0, pawn.inventory.wood ?? 0)
-    const availableCapacity = Math.max(0, carryCapacity - currentWood)
-    const transferAmount = Math.min(PAWN_WOOD_HARVEST_CHUNK, availableCapacity, treeAmount)
+    const resource = this.getResourceById(worldStore, pawn.workTargetId ?? pawn.targetId)
+    const resourceType = this.getWorkTargetType(pawn, resource)
+    const resourceAmount = Math.max(0, resource?.amount ?? 0)
+    const inventoryKey = this.getInventoryKey(resourceType)
+    const carryCapacity = this.getCarryCapacity(pawn, resourceType)
+    const harvestChunk = this.getHarvestChunk(resourceType)
+
+    pawn.inventory = pawn.inventory ?? { wood: 0, gold: 0 }
+    const currentAmount = Math.max(0, pawn.inventory[inventoryKey] ?? 0)
+    const availableCapacity = Math.max(0, carryCapacity - currentAmount)
+    const transferAmount = Math.min(harvestChunk, availableCapacity, resourceAmount)
 
     if (transferAmount > 0) {
-      pawn.inventory.wood = currentWood + transferAmount
+      pawn.inventory[inventoryKey] = currentAmount + transferAmount
 
-      if (tree) {
-        tree.amount = Math.max(0, treeAmount - transferAmount)
+      if (resource) {
+        resource.amount = Math.max(0, resourceAmount - transferAmount)
       }
     }
 
@@ -73,7 +79,15 @@ export class PawnWorkSystem {
       }
       pawn.path = []
       pawn.pathGoalKey = null
-      pawn.facing = returnTile.x > (pawn.gridPos?.x ?? returnTile.x) ? 'right' : 'left'
+      const pawnX = pawn.gridPos?.x
+
+      if (pawnX != null) {
+        if (returnTile.x > pawnX) {
+          pawn.facing = 'right'
+        } else if (returnTile.x < pawnX) {
+          pawn.facing = 'left'
+        }
+      }
     }
 
     pawn.state = 'preparing_to_return'
@@ -99,24 +113,32 @@ export class PawnWorkSystem {
   }
 
   static completeDelivery(pawn, worldStore) {
-    pawn.inventory = pawn.inventory ?? { wood: 0 }
-    const carriedWood = Math.max(0, pawn.inventory.wood ?? 0)
+    pawn.inventory = pawn.inventory ?? { wood: 0, gold: 0 }
+    const resourceType = this.getCarriedResourceType(pawn)
+    const inventoryKey = this.getInventoryKey(resourceType)
+    const carriedAmount = Math.max(0, pawn.inventory[inventoryKey] ?? 0)
 
-    if (carriedWood > 0) {
-      worldStore.kingdom.resources.wood += carriedWood
-      pawn.inventory.wood = 0
+    if (carriedAmount > 0) {
+      const kingdomResourceKey = this.getKingdomResourceKey(resourceType)
+      worldStore.kingdom.resources[kingdomResourceKey] =
+        (worldStore.kingdom.resources[kingdomResourceKey] ?? 0) + carriedAmount
+      pawn.inventory[inventoryKey] = 0
     }
 
-    const tree = this.getTreeById(worldStore, pawn.workTargetId ?? pawn.targetId)
+    const resource = this.getResourceById(worldStore, pawn.workTargetId ?? pawn.targetId)
 
-    if (tree) {
-      tree.reservedBy = null
+    if (resource) {
+      resource.reservedBy = null
     }
 
     pawn.workTargetId = null
+    pawn.workTargetType = null
     pawn.targetId = null
     pawn.target = null
     pawn.interactionFacing = null
+    if (pawn.equipment) {
+      pawn.equipment.tool = null
+    }
     pawn.path = []
     pawn.pathGoalKey = null
     pawn.stateUntilTick = null
@@ -128,12 +150,48 @@ export class PawnWorkSystem {
     return (worldStore.buildings ?? []).find((building) => building.type === 'castle') ?? null
   }
 
-  static getTreeById(worldStore, treeId) {
-    if (!treeId) {
+  static getResourceById(worldStore, resourceId) {
+    if (!resourceId) {
       return null
     }
 
-    return (worldStore.resources ?? []).find((resource) => resource.id === treeId) ?? null
+    return (worldStore.resources ?? []).find((resource) => resource.id === resourceId) ?? null
+  }
+
+  static getWorkTargetType(pawn, resource) {
+    return pawn.workTargetType ?? resource?.type ?? 'tree'
+  }
+
+  static getCarriedResourceType(pawn) {
+    if ((pawn.inventory?.gold ?? 0) > 0) {
+      return 'gold'
+    }
+
+    if ((pawn.inventory?.wood ?? 0) > 0) {
+      return 'wood'
+    }
+
+    return pawn.workTargetType ?? 'wood'
+  }
+
+  static getInventoryKey(resourceType) {
+    return resourceType === 'gold' ? 'gold' : 'wood'
+  }
+
+  static getKingdomResourceKey(resourceType) {
+    return resourceType === 'gold' ? 'gold' : 'wood'
+  }
+
+  static getCarryCapacity(pawn, resourceType) {
+    if (resourceType === 'gold') {
+      return pawn.stats?.carryCapacityGold ?? PAWN_CARRY_CAPACITY_GOLD
+    }
+
+    return pawn.stats?.carryCapacityWood ?? PAWN_CARRY_CAPACITY_WOOD
+  }
+
+  static getHarvestChunk(resourceType) {
+    return resourceType === 'gold' ? PAWN_GOLD_HARVEST_CHUNK : PAWN_WOOD_HARVEST_CHUNK
   }
 
   static isInsideWorld(tile, worldStore) {

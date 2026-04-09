@@ -6,15 +6,20 @@ import {
   HUD_GAP,
   HUD_ICON_SIZE,
   HUD_MARGIN,
+  HUD_ROW_GAP,
   HUD_TEXT_SIZE,
   TILE_SIZE,
-  TREE_FRAME_COUNT,
-  TREE_VARIANT_CONFIGS,
 } from '../config/constants.js'
 import { PawnSpriteController } from '../rendering/PawnSpriteController.js'
 import { renderGrid } from './renderers/renderGrid.js'
 import { syncBuildings } from './renderers/syncBuildings.js'
 import { syncResources } from './renderers/syncResources.js'
+import {
+  GOLD_FRAME_COUNT,
+  GOLD_VARIANT_CONFIGS,
+  TREE_FRAME_COUNT,
+  TREE_VARIANT_CONFIGS,
+} from '../config/resourceVariants.js'
 
 const PAWN_ASSETS = [
   {
@@ -25,6 +30,11 @@ const PAWN_ASSETS = [
   {
     key: 'pawn-idle-axe',
     path: '/assets/units/blue/pawn/pawn-idle-axe.png',
+    frameCount: 8,
+  },
+  {
+    key: 'pawn-idle-pickaxe',
+    path: '/assets/units/blue/pawn/pawn-idle-pickaxe.png',
     frameCount: 8,
   },
   {
@@ -43,13 +53,33 @@ const PAWN_ASSETS = [
     frameCount: 6,
   },
   {
+    key: 'pawn-run-pickaxe',
+    path: '/assets/units/blue/pawn/pawn-run-pickaxe.png',
+    frameCount: 6,
+  },
+  {
     key: 'pawn-interact-axe',
     path: '/assets/units/blue/pawn/pawn-interact-axe.png',
     frameCount: 6,
   },
   {
+    key: 'pawn-interact-pickaxe',
+    path: '/assets/units/blue/pawn/pawn-interact-pickaxe.png',
+    frameCount: 6,
+  },
+  {
     key: 'pawn-run-wood',
     path: '/assets/units/blue/pawn/pawn-run-wood.png',
+    frameCount: 6,
+  },
+  {
+    key: 'pawn-idle-gold',
+    path: '/assets/units/blue/pawn/pawn-idle-gold.png',
+    frameCount: 8,
+  },
+  {
+    key: 'pawn-run-gold',
+    path: '/assets/units/blue/pawn/pawn-run-gold.png',
     frameCount: 6,
   },
 ]
@@ -64,6 +94,9 @@ export class GameScene extends Phaser.Scene {
     this.woodHudIcon = null
     this.woodHudText = null
     this.woodHudValue = null
+    this.goldHudIcon = null
+    this.goldHudText = null
+    this.goldHudValue = null
   }
 
   preload() {
@@ -76,6 +109,14 @@ export class GameScene extends Phaser.Scene {
 
     this.load.image('castle_blue', '/assets/buildings/blue/castle.png')
     this.load.image('wood_resource_icon', '/assets/terrain/resources/wood/resource.png')
+    this.load.image('gold_resource_icon', '/assets/terrain/resources/gold/resource.png')
+
+    for (const goldVariant of GOLD_VARIANT_CONFIGS) {
+      this.load.spritesheet(goldVariant.key, goldVariant.path, {
+        frameWidth: 128,
+        frameHeight: 128,
+      })
+    }
 
     for (const treeVariant of TREE_VARIANT_CONFIGS) {
       this.load.spritesheet(treeVariant.key, treeVariant.path, {
@@ -120,12 +161,14 @@ export class GameScene extends Phaser.Scene {
     this.ensureAnimations()
     this.centerCameraOnCastle()
     this.createWoodHud()
+    this.createGoldHud()
 
     renderGrid(this, this.worldStore)
     syncBuildings(this, this.worldStore)
     syncResources(this, this.worldStore)
     this.syncPawnControllers()
     this.syncWoodHud()
+    this.syncGoldHud()
   }
 
   centerCameraOnCastle() {
@@ -176,12 +219,31 @@ export class GameScene extends Phaser.Scene {
         repeat: -1,
       })
     }
+
+    for (const goldVariant of GOLD_VARIANT_CONFIGS) {
+      const animationKey = `${goldVariant.key}_harvest_anim`
+
+      if (this.anims.exists(animationKey)) {
+        continue
+      }
+
+      this.anims.create({
+        key: animationKey,
+        frames: this.anims.generateFrameNumbers(goldVariant.key, {
+          start: 0,
+          end: GOLD_FRAME_COUNT - 1,
+        }),
+        frameRate: 10,
+        repeat: -1,
+      })
+    }
   }
 
   update() {
     syncResources(this, this.worldStore)
     this.syncPawnControllers()
     this.syncWoodHud()
+    this.syncGoldHud()
   }
 
   createWoodHud() {
@@ -196,7 +258,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.woodHudIcon = this.add.image(0, 0, 'wood_resource_icon')
-    this.woodHudIcon.setOrigin(1, 0.5)
+    this.woodHudIcon.setOrigin(0, 0.5)
     this.woodHudIcon.setScrollFactor(0)
     this.woodHudIcon.setDepth(DEPTH_HUD)
     this.woodHudIcon.setDisplaySize(HUD_ICON_SIZE, HUD_ICON_SIZE)
@@ -205,9 +267,9 @@ export class GameScene extends Phaser.Scene {
       fontFamily: 'monospace',
       fontSize: `${HUD_TEXT_SIZE}px`,
       color: '#f8fafc',
-      align: 'right',
+      align: 'left',
     })
-    this.woodHudText.setOrigin(1, 0.5)
+    this.woodHudText.setOrigin(0, 0.5)
     this.woodHudText.setScrollFactor(0)
     this.woodHudText.setDepth(DEPTH_HUD)
   }
@@ -225,12 +287,61 @@ export class GameScene extends Phaser.Scene {
       this.woodHudValue = woodText
     }
 
-    const viewWidth = this.scale.width ?? this.game.canvas?.width ?? 0
-    const textX = viewWidth - HUD_MARGIN
+    const iconX = HUD_MARGIN
+    const textX = iconX + HUD_ICON_SIZE + HUD_GAP
     const textY = HUD_MARGIN + HUD_ICON_SIZE / 2
 
+    this.woodHudIcon.setPosition(iconX, textY)
     this.woodHudText.setPosition(textX, textY)
-    this.woodHudIcon.setPosition(textX - this.woodHudText.width - HUD_GAP, textY)
+  }
+
+  createGoldHud() {
+    if (this.goldHudIcon) {
+      this.goldHudIcon.destroy()
+      this.goldHudIcon = null
+    }
+
+    if (this.goldHudText) {
+      this.goldHudText.destroy()
+      this.goldHudText = null
+    }
+
+    this.goldHudIcon = this.add.image(0, 0, 'gold_resource_icon')
+    this.goldHudIcon.setOrigin(0, 0.5)
+    this.goldHudIcon.setScrollFactor(0)
+    this.goldHudIcon.setDepth(DEPTH_HUD)
+    this.goldHudIcon.setDisplaySize(HUD_ICON_SIZE, HUD_ICON_SIZE)
+
+    this.goldHudText = this.add.text(0, 0, '0', {
+      fontFamily: 'monospace',
+      fontSize: `${HUD_TEXT_SIZE}px`,
+      color: '#f8fafc',
+      align: 'left',
+    })
+    this.goldHudText.setOrigin(0, 0.5)
+    this.goldHudText.setScrollFactor(0)
+    this.goldHudText.setDepth(DEPTH_HUD)
+  }
+
+  syncGoldHud() {
+    if (!this.worldStore || !this.goldHudIcon || !this.goldHudText) {
+      return
+    }
+
+    const gold = this.worldStore.kingdom?.resources?.gold ?? 0
+    const goldText = String(gold)
+
+    if (goldText !== this.goldHudValue) {
+      this.goldHudText.setText(goldText)
+      this.goldHudValue = goldText
+    }
+
+    const iconX = HUD_MARGIN
+    const textX = iconX + HUD_ICON_SIZE + HUD_GAP
+    const textY = HUD_MARGIN + HUD_ICON_SIZE / 2 + HUD_ICON_SIZE + HUD_ROW_GAP
+
+    this.goldHudIcon.setPosition(iconX, textY)
+    this.goldHudText.setPosition(textX, textY)
   }
 
   syncPawnControllers() {

@@ -30,6 +30,7 @@ function resolveFacing(pawn) {
 
   if (
     state === 'preparing_to_tree' ||
+    state === 'preparing_to_gold' ||
     state === 'preparing_to_gather' ||
     state === 'gathering'
   ) {

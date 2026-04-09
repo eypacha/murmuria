@@ -18,6 +18,7 @@ export class MovementSystem {
 
       if (
         pawn.state !== 'moving_to_tree' &&
+        pawn.state !== 'moving_to_gold' &&
         pawn.state !== 'returning_to_castle' &&
         pawn.state !== 'moving'
       ) {
@@ -134,7 +135,7 @@ export class MovementSystem {
     pawn.pathGoalKey = null
 
     if (pawn.target?.type === 'castle') {
-      pawn.state = 'delivering_wood'
+      pawn.state = this.resolveDeliveryState(pawn)
       return
     }
 
@@ -144,6 +145,14 @@ export class MovementSystem {
 
     pawn.state = 'preparing_to_gather'
     PawnStateSystem.queueTimedTransition(pawn, worldStore, 'gathering', PAWN_PREPARE_TO_GATHER_MS)
+  }
+
+  static resolveDeliveryState(pawn) {
+    if ((pawn.inventory?.gold ?? 0) > 0 || pawn.workTargetType === 'gold') {
+      return 'delivering_gold'
+    }
+
+    return 'delivering_wood'
   }
 
   static gridTileToWorldPosition(tile) {

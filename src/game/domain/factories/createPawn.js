@@ -1,4 +1,8 @@
-import { PAWN_CARRY_CAPACITY_WOOD, TILE_SIZE } from '../../config/constants.js'
+import {
+  PAWN_CARRY_CAPACITY_GOLD,
+  PAWN_CARRY_CAPACITY_WOOD,
+  TILE_SIZE,
+} from '../../config/constants.js'
 
 function getWorldPosition(x, y) {
   return {
@@ -21,6 +25,7 @@ export function createPawn(x = 0, y = 0, facing = 'right') {
     pos: getWorldPosition(x, y),
     targetId: null,
     target: null,
+    workTargetType: null,
     interactionFacing: null,
     stateUntilTick: null,
     nextState: null,
@@ -28,10 +33,15 @@ export function createPawn(x = 0, y = 0, facing = 'right') {
     pathGoalKey: null,
     inventory: {
       wood: 0,
+      gold: 0,
+    },
+    equipment: {
+      tool: null,
     },
     stats: {
       moveSpeed: 64,
       carryCapacityWood: PAWN_CARRY_CAPACITY_WOOD,
+      carryCapacityGold: PAWN_CARRY_CAPACITY_GOLD,
     },
   }
 }

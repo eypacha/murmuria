@@ -4,14 +4,13 @@ import { PawnStateSystem } from './PawnStateSystem.js'
 
 export class DecisionSystem {
   static update(worldStore) {
-    const woodPriority = worldStore.kingdom?.policies?.woodPriority ?? 0
+    const resourceTypes = this.resolvePreferredResourceTypes(worldStore)
 
-    if (woodPriority <= 0) {
+    if (resourceTypes.length === 0) {
       return
     }
 
     const pawns = worldStore.units ?? []
-    const trees = (worldStore.resources ?? []).filter((resource) => resource.type === 'tree')
 
     for (const pawn of pawns) {
       if (pawn.role !== 'pawn') {
@@ -22,82 +21,119 @@ export class DecisionSystem {
         continue
       }
 
-      if ((pawn.inventory?.wood ?? 0) > 0) {
+      if ((pawn.inventory?.wood ?? 0) > 0 || (pawn.inventory?.gold ?? 0) > 0) {
         continue
       }
 
-      const tree = this.findNearestAvailableTree(pawn, trees)
+      let resource = null
+      let selectedResourceType = null
 
-      if (!tree) {
+      for (const resourceType of resourceTypes) {
+        const resources = (worldStore.resources ?? []).filter((resource) => resource.type === resourceType)
+        resource = this.findNearestAvailableResource(pawn, resources)
+
+        if (resource) {
+          selectedResourceType = resourceType
+          break
+        }
+      }
+
+      if (!resource) {
         continue
       }
 
-      const targetTile = this.findAdjacentTile(tree, pawn, worldStore)
+      const targetTile = this.findAdjacentTile(resource, pawn, worldStore)
 
       if (!targetTile) {
         continue
       }
 
-      tree.reservedBy = pawn.id
-      pawn.targetId = tree.id
-      pawn.workTargetId = tree.id
+      resource.reservedBy = pawn.id
+      pawn.targetId = resource.id
+      pawn.workTargetId = resource.id
+      pawn.workTargetType = resource.type
       pawn.target = {
-        type: 'tree',
-        id: tree.id,
+        type: resource.type,
+        id: resource.id,
         tile: targetTile,
       }
       pawn.path = []
       pawn.pathGoalKey = null
-      pawn.interactionFacing = this.getFacingForTree(tree, targetTile)
+      pawn.interactionFacing = this.getFacingForResource(resource, targetTile)
       pawn.facing = pawn.interactionFacing
-      pawn.state = 'preparing_to_tree'
-      PawnStateSystem.queueTimedTransition(pawn, worldStore, 'moving_to_tree', PAWN_PREPARE_TO_TREE_MS)
+      pawn.equipment = pawn.equipment ?? { tool: null }
+      pawn.equipment.tool = selectedResourceType === 'gold' ? 'pickaxe' : 'axe'
+      pawn.state = selectedResourceType === 'gold' ? 'preparing_to_gold' : 'preparing_to_tree'
+      PawnStateSystem.queueTimedTransition(
+        pawn,
+        worldStore,
+        selectedResourceType === 'gold' ? 'moving_to_gold' : 'moving_to_tree',
+        PAWN_PREPARE_TO_TREE_MS,
+      )
     }
   }
 
-  static findNearestAvailableTree(pawn, trees) {
+  static resolvePreferredResourceTypes(worldStore) {
+    const woodPriority = worldStore.kingdom?.policies?.woodPriority ?? 0
+    const goldPriority = worldStore.kingdom?.policies?.goldPriority ?? 0
+
+    if (woodPriority <= 0 && goldPriority <= 0) {
+      return []
+    }
+
+    if (goldPriority > woodPriority) {
+      return goldPriority > 0 ? ['gold', 'tree'] : ['tree']
+    }
+
+    return woodPriority > 0 ? ['tree', 'gold'] : ['gold']
+  }
+
+  static findNearestAvailableResource(pawn, resources) {
     const pawnPosition = this.getGridPosition(pawn)
 
     if (!pawnPosition) {
       return null
     }
 
-    let nearestTree = null
+    let nearestResource = null
     let nearestDistance = Number.POSITIVE_INFINITY
 
-    for (const tree of trees) {
-      if (!this.isTreeAvailable(tree)) {
+    for (const resource of resources) {
+      if (!this.isResourceAvailable(resource)) {
         continue
       }
 
-      const treePosition = this.getGridPosition(tree)
+      const resourcePosition = this.getGridPosition(resource)
 
-      if (!treePosition) {
+      if (!resourcePosition) {
         continue
       }
 
-      const distance = this.getManhattanDistance(pawnPosition, treePosition)
+      const distance = this.getManhattanDistance(pawnPosition, resourcePosition)
 
       if (distance < nearestDistance) {
         nearestDistance = distance
-        nearestTree = tree
+        nearestResource = resource
       }
     }
 
-    return nearestTree
+    return nearestResource
   }
 
-  static findAdjacentTile(tree, pawn, worldStore) {
+  static findAdjacentTile(resource, pawn, worldStore) {
     const pawnPosition = this.getGridPosition(pawn)
 
     if (!pawnPosition) {
       return null
     }
 
-    const candidates = [
-      { x: tree.gridPos.x + 1, y: tree.gridPos.y },
-      { x: tree.gridPos.x - 1, y: tree.gridPos.y },
-    ]
+    const footprint = resource.footprint ?? { w: 1, h: 1 }
+    const candidates = []
+
+    for (let dy = 0; dy < footprint.h; dy += 1) {
+      candidates.push({ x: resource.gridPos.x - 1, y: resource.gridPos.y + dy })
+      candidates.push({ x: resource.gridPos.x + footprint.w, y: resource.gridPos.y + dy })
+    }
 
     const validCandidates = candidates.filter((tile) => {
       if (!this.isInsideWorld(tile, worldStore)) {
@@ -141,18 +177,20 @@ export class DecisionSystem {
     return (worldStore.resources ?? []).find((resource) => resource.id === targetId) ?? null
   }
 
-  static getFacingForTree(tree, targetTile) {
-    if (targetTile.x > tree.gridPos.x) {
+  static getFacingForResource(resource, targetTile) {
+    const footprint = resource.footprint ?? { w: 1, h: 1 }
+
+    if (targetTile.x >= resource.gridPos.x + footprint.w) {
       return 'left'
     }
 
     return 'right'
   }
 
-  static isTreeAvailable(tree) {
+  static isResourceAvailable(resource) {
     return (
-      (tree.reservedBy === null || tree.reservedBy === undefined) &&
-      (tree.amount ?? 0) > 0
+      (resource.reservedBy === null || resource.reservedBy === undefined) &&
+      (resource.amount ?? 0) > 0
     )
   }
 

@@ -1,15 +1,17 @@
 import {
   GRID_HEIGHT,
   GRID_WIDTH,
+  INITIAL_GOLD_COUNT,
   INITIAL_TREE_COUNT,
   INITIAL_PAWNS,
-  TREE_VARIANT_KEYS,
 } from '../config/constants.js'
 import { createCastle } from '../domain/factories/createCastle.js'
+import { createGoldStone } from '../domain/factories/createGoldStone.js'
 import { createPawn } from '../domain/factories/createPawn.js'
 import { createTree } from '../domain/factories/createTree.js'
 import { getOccupiedTiles } from './getOccupiedTiles.js'
 import { seededRandom } from './seededRandom.js'
+import { GOLD_VARIANT_CONFIGS, TREE_VARIANT_KEYS } from '../config/resourceVariants.js'
 
 function createTileGrid(width, height) {
   const tiles = []
@@ -44,6 +46,12 @@ function shuffleInPlace(items, rng) {
     const temp = items[i]
     items[i] = items[j]
     items[j] = temp
+  }
+}
+
+function reserveEntityTiles(entity, occupiedTiles) {
+  for (const tile of getOccupiedTiles(entity)) {
+    occupiedTiles.add(positionKey(tile.x, tile.y))
   }
 }
 
@@ -122,6 +130,36 @@ export function createWorld(worldStore) {
     occupiedTiles.add(positionKey(position.x, position.y))
   }
 
+  const goldCandidates = []
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const key = positionKey(x, y)
+
+      if (occupiedTiles.has(key)) {
+        continue
+      }
+
+      goldCandidates.push({ x, y })
+    }
+  }
+
+  shuffleInPlace(goldCandidates, rng)
+
+  const goldCount = Math.min(INITIAL_GOLD_COUNT, goldCandidates.length)
+
+  for (const position of goldCandidates) {
+    if (resources.length >= goldCount) {
+      break
+    }
+
+    const variantIndex = rng.nextInt(GOLD_VARIANT_CONFIGS.length)
+    const gold = createGoldStone(position.x, position.y, variantIndex)
+
+    resources.push(gold)
+    reserveEntityTiles(gold, occupiedTiles)
+  }
+
   const treeCandidates = []
 
   for (let y = 0; y < height; y += 1) {
@@ -143,14 +181,18 @@ export function createWorld(worldStore) {
   for (let i = 0; i < treeCount; i += 1) {
     const position = treeCandidates[i]
     const variant = rng.nextInt(TREE_VARIANT_KEYS.length)
-    resources.push(createTree(position.x, position.y, variant))
+    const tree = createTree(position.x, position.y, variant)
+
+    resources.push(tree)
     occupiedTiles.add(positionKey(position.x, position.y))
   }
 
   worldStore.tick = 0
   worldStore.seed = seed
   worldStore.kingdom.resources.wood = 0
+  worldStore.kingdom.resources.gold = 0
   worldStore.kingdom.policies.woodPriority = 0
+  worldStore.kingdom.policies.goldPriority = 0
   Object.assign(worldStore.world, {
     width,
     height,
