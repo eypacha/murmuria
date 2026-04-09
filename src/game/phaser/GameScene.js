@@ -5,12 +5,6 @@ import {
   CAMERA_MIN_ZOOM,
   CAMERA_PAN_SPEED,
   CAMERA_WHEEL_ZOOM_RATE,
-  DEPTH_HUD,
-  HUD_GAP,
-  HUD_ICON_SIZE,
-  HUD_MARGIN,
-  HUD_ROW_GAP,
-  HUD_TEXT_SIZE,
   TILE_SIZE,
 } from '../config/constants.js'
 import { PawnSpriteController } from '../rendering/PawnSpriteController.js'
@@ -101,12 +95,6 @@ export class GameScene extends Phaser.Scene {
     this.pawnControllers = new Map()
     this.resourceSprites = new Map()
     this.resourceDebugBorders = new Map()
-    this.woodHudIcon = null
-    this.woodHudText = null
-    this.woodHudValue = null
-    this.goldHudIcon = null
-    this.goldHudText = null
-    this.goldHudValue = null
     this.cursors = null
     this.handleCameraWheel = this.handleCameraWheel.bind(this)
   }
@@ -120,8 +108,6 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.load.image('castle_blue', '/assets/buildings/blue/castle.png')
-    this.load.image('wood_resource_icon', '/assets/terrain/resources/wood/resource.png')
-    this.load.image('gold_resource_icon', '/assets/terrain/resources/gold/resource.png')
 
     for (const goldVariant of GOLD_VARIANT_CONFIGS) {
       this.load.spritesheet(goldVariant.key, goldVariant.path, {
@@ -179,15 +165,11 @@ export class GameScene extends Phaser.Scene {
     this.ensureAnimations()
     this.setupCameraControls()
     this.centerCameraOnCastle()
-    this.createWoodHud()
-    this.createGoldHud()
 
     renderGrid(this, this.worldStore)
     syncBuildings(this, this.worldStore)
     syncResources(this, this.worldStore)
     this.syncPawnControllers()
-    this.syncWoodHud()
-    this.syncGoldHud()
   }
 
   getWorldPixelSize() {
@@ -343,8 +325,6 @@ export class GameScene extends Phaser.Scene {
     this.updateCamera(delta)
     syncResources(this, this.worldStore)
     this.syncPawnControllers()
-    this.syncWoodHud()
-    this.syncGoldHud()
   }
 
   updateCamera(delta) {
@@ -369,104 +349,6 @@ export class GameScene extends Phaser.Scene {
     camera.scrollY += normalizedY * distance
 
     this.clampCameraToWorld()
-  }
-
-  createWoodHud() {
-    if (this.woodHudIcon) {
-      this.woodHudIcon.destroy()
-      this.woodHudIcon = null
-    }
-
-    if (this.woodHudText) {
-      this.woodHudText.destroy()
-      this.woodHudText = null
-    }
-
-    this.woodHudIcon = this.add.image(0, 0, 'wood_resource_icon')
-    this.woodHudIcon.setOrigin(0, 0.5)
-    this.woodHudIcon.setScrollFactor(0)
-    this.woodHudIcon.setDepth(DEPTH_HUD)
-    this.woodHudIcon.setDisplaySize(HUD_ICON_SIZE, HUD_ICON_SIZE)
-
-    this.woodHudText = this.add.text(0, 0, '0', {
-      fontFamily: 'monospace',
-      fontSize: `${HUD_TEXT_SIZE}px`,
-      color: '#f8fafc',
-      align: 'left',
-    })
-    this.woodHudText.setOrigin(0, 0.5)
-    this.woodHudText.setScrollFactor(0)
-    this.woodHudText.setDepth(DEPTH_HUD)
-  }
-
-  syncWoodHud() {
-    if (!this.worldStore || !this.woodHudIcon || !this.woodHudText) {
-      return
-    }
-
-    const wood = this.worldStore.kingdom?.resources?.wood ?? 0
-    const woodText = String(wood)
-
-    if (woodText !== this.woodHudValue) {
-      this.woodHudText.setText(woodText)
-      this.woodHudValue = woodText
-    }
-
-    const iconX = HUD_MARGIN
-    const textX = iconX + HUD_ICON_SIZE + HUD_GAP
-    const textY = HUD_MARGIN + HUD_ICON_SIZE / 2
-
-    this.woodHudIcon.setPosition(iconX, textY)
-    this.woodHudText.setPosition(textX, textY)
-  }
-
-  createGoldHud() {
-    if (this.goldHudIcon) {
-      this.goldHudIcon.destroy()
-      this.goldHudIcon = null
-    }
-
-    if (this.goldHudText) {
-      this.goldHudText.destroy()
-      this.goldHudText = null
-    }
-
-    this.goldHudIcon = this.add.image(0, 0, 'gold_resource_icon')
-    this.goldHudIcon.setOrigin(0, 0.5)
-    this.goldHudIcon.setScrollFactor(0)
-    this.goldHudIcon.setDepth(DEPTH_HUD)
-    this.goldHudIcon.setDisplaySize(HUD_ICON_SIZE, HUD_ICON_SIZE)
-
-    this.goldHudText = this.add.text(0, 0, '0', {
-      fontFamily: 'monospace',
-      fontSize: `${HUD_TEXT_SIZE}px`,
-      color: '#f8fafc',
-      align: 'left',
-    })
-    this.goldHudText.setOrigin(0, 0.5)
-    this.goldHudText.setScrollFactor(0)
-    this.goldHudText.setDepth(DEPTH_HUD)
-  }
-
-  syncGoldHud() {
-    if (!this.worldStore || !this.goldHudIcon || !this.goldHudText) {
-      return
-    }
-
-    const gold = this.worldStore.kingdom?.resources?.gold ?? 0
-    const goldText = String(gold)
-
-    if (goldText !== this.goldHudValue) {
-      this.goldHudText.setText(goldText)
-      this.goldHudValue = goldText
-    }
-
-    const iconX = HUD_MARGIN
-    const textX = iconX + HUD_ICON_SIZE + HUD_GAP
-    const textY = HUD_MARGIN + HUD_ICON_SIZE / 2 + HUD_ICON_SIZE + HUD_ROW_GAP
-
-    this.goldHudIcon.setPosition(iconX, textY)
-    this.goldHudText.setPosition(textX, textY)
   }
 
   syncPawnControllers() {
