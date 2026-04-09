@@ -1,10 +1,11 @@
 import { TREE_WOOD_AMOUNT } from '../../config/constants.js'
 
-export function createTree(x = 0, y = 0) {
+export function createTree(x = 0, y = 0, variant = 0) {
   return {
     id: `tree-${x}-${y}`,
     kind: 'resource',
     type: 'tree',
+    variant,
     gridPos: {
       x,
       y,

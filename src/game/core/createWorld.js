@@ -3,6 +3,7 @@ import {
   GRID_WIDTH,
   INITIAL_TREE_COUNT,
   INITIAL_PAWNS,
+  TREE_VARIANT_KEYS,
 } from '../config/constants.js'
 import { createCastle } from '../domain/factories/createCastle.js'
 import { createPawn } from '../domain/factories/createPawn.js'
@@ -139,7 +140,8 @@ export function createWorld(worldStore) {
 
   for (let i = 0; i < treeCount; i += 1) {
     const position = treeCandidates[i]
-    resources.push(createTree(position.x, position.y))
+    const variant = rng.nextInt(TREE_VARIANT_KEYS.length)
+    resources.push(createTree(position.x, position.y, variant))
     occupiedTiles.add(positionKey(position.x, position.y))
   }
 

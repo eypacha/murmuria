@@ -1,7 +1,12 @@
-import { DEBUG_MODE, TILE_SIZE } from '../../config/constants.js'
+import {
+  DEBUG_MODE,
+  TILE_SIZE,
+  TREE_VARIANT_CONFIGS,
+} from '../../config/constants.js'
 
-const TREE_DISPLAY_SIZE = 192
-const STUMP_DISPLAY_SIZE = 192
+const TREE_DISPLAY_WIDTH = 192
+const STUMP_DISPLAY_WIDTH = 192
+const STUMP_DISPLAY_HEIGHT = 256
 const DEBUG_TREE_BORDER_COLOR = 0x58d96f
 
 function drawDebugTileBorder(scene, gridX, gridY, depth) {
@@ -25,7 +30,26 @@ function ensureResourceCaches(scene) {
 }
 
 function getResourceTextureKey(tree) {
-  return (tree.amount ?? 0) > 0 ? 'tree_0' : 'stump_0'
+  const variantConfig = getTreeVariantConfig(tree)
+
+  return (tree.amount ?? 0) > 0 ? variantConfig.key : variantConfig.stumpKey
+}
+
+function getResourceAnimationKey(tree) {
+  const variantConfig = getTreeVariantConfig(tree)
+
+  if ((tree.amount ?? 0) <= 0) {
+    return null
+  }
+
+  return `${variantConfig.key}_idle_anim`
+}
+
+function getTreeVariantConfig(tree) {
+  const variantIndex = Number.isInteger(tree?.variant) ? tree.variant : 0
+  const clampedIndex = Math.max(0, Math.min(TREE_VARIANT_CONFIGS.length - 1, variantIndex))
+
+  return TREE_VARIANT_CONFIGS[clampedIndex] ?? TREE_VARIANT_CONFIGS[0]
 }
 
 function isTreeBeingHarvested(tree, worldStore) {
@@ -46,10 +70,13 @@ function updateTreeSprite(scene, tree) {
   const x = tree.gridPos.x * TILE_SIZE + TILE_SIZE / 2
   const y = tree.gridPos.y * TILE_SIZE + TILE_SIZE
   const depth = y
+  const variantConfig = getTreeVariantConfig(tree)
   const textureKey = getResourceTextureKey(tree)
-  const hasWood = textureKey === 'tree_0'
-  const displaySize = hasWood ? TREE_DISPLAY_SIZE : STUMP_DISPLAY_SIZE
-  const isHarvested = hasWood && isTreeBeingHarvested(tree, scene.worldStore)
+  const isTreeTexture = (tree.amount ?? 0) > 0
+  const isHarvested = isTreeTexture && isTreeBeingHarvested(tree, scene.worldStore)
+  const animationKey = getResourceAnimationKey(tree)
+  const displayWidth = isTreeTexture ? TREE_DISPLAY_WIDTH : STUMP_DISPLAY_WIDTH
+  const displayHeight = isTreeTexture ? variantConfig.displayHeight : STUMP_DISPLAY_HEIGHT
 
   let sprite = scene.resourceSprites.get(tree.id)
 
@@ -58,11 +85,11 @@ function updateTreeSprite(scene, tree) {
     scene.resourceSprites.set(tree.id, sprite)
     sprite.setData('resourceTextureKey', textureKey)
     sprite.setOrigin(0.5, 1)
-    sprite.setDisplaySize(displaySize, displaySize)
+    sprite.setDisplaySize(displayWidth, displayHeight)
     sprite.setDepth(depth)
 
-    if (isHarvested) {
-      sprite.play('tree_idle_anim', true)
+    if (animationKey && isHarvested) {
+      sprite.play(animationKey, true)
     } else {
       sprite.anims?.stop()
       sprite.setFrame(0)
@@ -72,18 +99,18 @@ function updateTreeSprite(scene, tree) {
     sprite.setTexture(textureKey)
     sprite.setData('resourceTextureKey', textureKey)
     sprite.setOrigin(0.5, 1)
-    sprite.setDisplaySize(displaySize, displaySize)
+    sprite.setDisplaySize(displayWidth, displayHeight)
     sprite.setDepth(depth)
 
-    if (isHarvested) {
-      sprite.play('tree_idle_anim', true)
+    if (animationKey && isHarvested) {
+      sprite.play(animationKey, true)
     } else {
       sprite.anims?.stop()
       sprite.setFrame(0)
     }
-  } else if (hasWood && isHarvested) {
-    if (sprite.anims.currentAnim?.key !== 'tree_idle_anim') {
-      sprite.play('tree_idle_anim', true)
+  } else if (isTreeTexture && isHarvested) {
+    if (animationKey && sprite.anims.currentAnim?.key !== animationKey) {
+      sprite.play(animationKey, true)
     }
   } else {
     sprite.anims?.stop()

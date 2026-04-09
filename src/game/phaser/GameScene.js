@@ -8,6 +8,8 @@ import {
   HUD_MARGIN,
   HUD_TEXT_SIZE,
   TILE_SIZE,
+  TREE_FRAME_COUNT,
+  TREE_VARIANT_CONFIGS,
 } from '../config/constants.js'
 import { PawnSpriteController } from '../rendering/PawnSpriteController.js'
 import { renderGrid } from './renderers/renderGrid.js'
@@ -75,12 +77,14 @@ export class GameScene extends Phaser.Scene {
     this.load.image('castle_blue', '/assets/buildings/blue/castle.png')
     this.load.image('wood_resource_icon', '/assets/terrain/resources/wood/resource.png')
 
-    this.load.spritesheet('tree_0', '/assets/terrain/resources/wood/trees/tree-0.png', {
-      frameWidth: 192,
-      frameHeight: 256,
-    })
+    for (const treeVariant of TREE_VARIANT_CONFIGS) {
+      this.load.spritesheet(treeVariant.key, treeVariant.path, {
+        frameWidth: 192,
+        frameHeight: treeVariant.frameHeight,
+      })
 
-    this.load.image('stump_0', '/assets/terrain/resources/wood/trees/stump-0.png')
+      this.load.image(treeVariant.stumpKey, treeVariant.stumpPath)
+    }
 
     this.load.spritesheet('terrain_tileset', '/assets/terrain/tileset/tilemap-color-0.png', {
       frameWidth: 64,
@@ -155,10 +159,19 @@ export class GameScene extends Phaser.Scene {
       })
     }
 
-    if (!this.anims.exists('tree_idle_anim')) {
+    for (const treeVariant of TREE_VARIANT_CONFIGS) {
+      const animationKey = `${treeVariant.key}_idle_anim`
+
+      if (this.anims.exists(animationKey)) {
+        continue
+      }
+
       this.anims.create({
-        key: 'tree_idle_anim',
-        frames: this.anims.generateFrameNumbers('tree_0', { start: 0, end: 7 }),
+        key: animationKey,
+        frames: this.anims.generateFrameNumbers(treeVariant.key, {
+          start: 0,
+          end: TREE_FRAME_COUNT - 1,
+        }),
         frameRate: 10,
         repeat: -1,
       })
