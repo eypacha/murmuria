@@ -7,7 +7,6 @@ export class KingdomSystem {
 
     for (const key of Object.keys(kingdom.desires)) {
       const value = kingdom.desires[key] ?? 0
-
       if (value > 0) {
         kingdom.desires[key] = Math.max(0, value - DECAY_RATE)
       }
@@ -25,5 +24,15 @@ export class KingdomSystem {
     const currentFood = kingdom.resources.meat ?? 0
 
     kingdom.needs.food = Math.max(0, targetFood - currentFood)
+
+    if (kingdom.hunger == null) {
+      kingdom.hunger = 0
+    }
+    if (targetFood <= 0) {
+      kingdom.hunger = 0
+    } else {
+      const foodRatio = currentFood / targetFood
+      kingdom.hunger = Math.max(0, Math.min(1, 1 - foodRatio))
+    }
   }
 }

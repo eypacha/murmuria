@@ -1,25 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-
-function createKingdomState() {
-  return {
-    resources: {
-      wood: 0,
-      gold: 0,
-      meat: 0,
-    },
-    needs: {
-      wood: 0,
-      gold: 0,
-      food: 0,
-    },
-    desires: {
-      wood: 0,
-      gold: 0,
-      food: 0,
-    },
-  }
-}
+import { createKingdomState } from '../game/core/createKingdomState.js'
 
 export const useWorldStore = defineStore('world', () => {
   const seed = ref(Date.now().toString())

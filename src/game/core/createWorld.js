@@ -22,6 +22,7 @@ import {
 } from '../config/resourceVariants.js'
 import { getOccupiedTiles } from './getOccupiedTiles.js'
 import { seededRandom } from './seededRandom.js'
+import { createKingdomState } from './createKingdomState.js'
 
 const LAND_RATIO = 0.55
 const MAX_ELEVATION_LEVEL = 2
@@ -1605,12 +1606,7 @@ export function createWorld(worldStore) {
 
   worldStore.tick = 0
   worldStore.seed = seed
-  worldStore.kingdom.resources.wood = 0
-  worldStore.kingdom.resources.gold = 0
-  worldStore.kingdom.resources.meat = 0
-  worldStore.kingdom.needs.wood = 0
-  worldStore.kingdom.needs.gold = 0
-  worldStore.kingdom.needs.food = 0
+  worldStore.kingdom = createKingdomState()
   Object.assign(worldStore.world, {
     width,
     height,
