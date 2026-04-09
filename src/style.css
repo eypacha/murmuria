@@ -1,0 +1,11 @@
+@import "tailwindcss";
+@import "./utilities.css";
+
+body {
+  scroll-behavior: smooth;
+  font-weight: 300;
+  font-family: "Albert Sans", sans-serif;
+  font-optical-sizing: auto;
+  font-style: normal;
+  font-variation-settings: "wdth" 87.5;
+}
