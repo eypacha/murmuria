@@ -1,6 +1,5 @@
 export const DEBUG_MODE = false 
 export const FOAM_ANIMATION = true
-
 export const GRID_WIDTH = 40
 export const GRID_HEIGHT = 40
 export const TILE_SIZE = 64
@@ -27,4 +26,4 @@ export const PAWN_CARRY_CAPACITY_GOLD = 10
 export const TREE_WOOD_AMOUNT = 50
 export const INITIAL_GOLD_COUNT = 12
 export const INITIAL_PAWNS = 2
-export const INITIAL_TREE_COUNT = 20
+export const INITIAL_TREE_COUNT = 30

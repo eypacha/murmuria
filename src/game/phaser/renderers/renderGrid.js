@@ -18,14 +18,6 @@ const CLIFF_AUTOTILE = {
   2: 41,
   3: 42,
 }
-const DEBUG_TILE_TEXT_STYLE = {
-  fontFamily: 'monospace',
-  fontSize: '12px',
-  color: '#000000',
-  align: 'center',
-  stroke: '#ffffff',
-  strokeThickness: 4,
-}
 
 export const GRASS_AUTOTILE = {
   0: 30, // isolated
@@ -190,15 +182,6 @@ export function getGrassTileIndex(x, y, tiles) {
   return resolveGrassTileIndex(x, y, tiles).tileIndex
 }
 
-function addDebugTileLabel(scene, x, y, key, value) {
-  const label = scene.add.text(x, y, `${key}\n${value}`, DEBUG_TILE_TEXT_STYLE)
-
-  label.setOrigin(0.5)
-  label.setDepth(DEPTH_GRID + 2)
-
-  return label
-}
-
 function addWaterFoam(scene, x, y) {
   const sprite = scene.add.sprite(x, y, WATER_FOAM_TEXTURE_KEY)
 
@@ -273,17 +256,6 @@ export function renderGrid(scene, worldStore) {
           const cliffTile = resolveCliffTileIndex(tile, tiles)
 
           addTerrainSprite(scene, x, y, PLATEAU_TEXTURE_KEY, cliffTile.tileIndex, CLIFF_DEPTH)
-        }
-
-        if (DEBUG_MODE) {
-          tile.debugMask = isPlateau ? plateauTile.mask : grassTile.mask
-          addDebugTileLabel(
-            scene,
-            x,
-            y,
-            tile.debugMask,
-            isPlateau ? plateauTile.tileIndex : grassTile.tileIndex,
-          )
         }
       }
     }

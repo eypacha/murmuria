@@ -1,11 +1,19 @@
 import {
   GRID_HEIGHT,
   GRID_WIDTH,
+  INITIAL_GOLD_COUNT,
+  INITIAL_TREE_COUNT,
 } from '../config/constants.js'
 import {
   CASTLE_FOOTPRINT,
   createCastle,
 } from '../domain/factories/createCastle.js'
+import { createGoldStone } from '../domain/factories/createGoldStone.js'
+import { createTree } from '../domain/factories/createTree.js'
+import {
+  GOLD_VARIANT_CONFIGS,
+  TREE_VARIANT_CONFIGS,
+} from '../config/resourceVariants.js'
 import { seededRandom } from './seededRandom.js'
 
 const LAND_RATIO = 0.55
@@ -13,6 +21,26 @@ const MAX_ELEVATION_LEVEL = 2
 const PLATEAU_COUNT = 3
 const PLATEAU_SIZE = 24
 const PLATEAU_SMOOTH_PASSES = 2
+const GOLD_CLUSTER_COUNT = 4
+const GOLD_CLUSTER_SIZE_MIN = 3
+const GOLD_CLUSTER_SIZE_MAX = 5
+const GOLD_SEED_SPACING = 4
+const GOLD_ISOLATED_SPACING = 2
+const TREE_CLUSTER_COUNT = 4
+const TREE_CLUSTER_SIZE_MIN = 3
+const TREE_CLUSTER_SIZE_MAX = 5
+const TREE_SEED_SPACING = 6
+const TREE_ISOLATED_SPACING = 3
+const CASTLE_VISUAL_RESERVED_OFFSET_X = -1
+const CASTLE_VISUAL_RESERVED_OFFSET_Y = -3
+const CASTLE_VISUAL_RESERVED_WIDTH = CASTLE_FOOTPRINT.w + 2
+const CASTLE_VISUAL_RESERVED_HEIGHT = CASTLE_FOOTPRINT.h + 4
+const CARDINAL_NEIGHBOR_OFFSETS = [
+  { x: 0, y: -1 },
+  { x: 1, y: 0 },
+  { x: 0, y: 1 },
+  { x: -1, y: 0 },
+]
 const NEIGHBOR_OFFSETS = [
   { x: 0, y: -1 },
   { x: 1, y: 0 },
@@ -60,6 +88,10 @@ function tileKey(tile) {
   return `${tile.x}:${tile.y}`
 }
 
+function positionKey(x, y) {
+  return `${x}:${y}`
+}
+
 function getTile(tiles, x, y) {
   return tiles[y]?.[x] ?? null
 }
@@ -79,6 +111,87 @@ function isCastleDropTile(tile) {
   return tile?.walkable ?? false
 }
 
+function isPlateauTile(tile) {
+  return tile?.terrain === 'grass' && tile.elevation === MAX_ELEVATION_LEVEL
+}
+
+function getPlateauTiles(tiles) {
+  const plateauTiles = []
+
+  for (const row of tiles) {
+    if (!Array.isArray(row)) {
+      continue
+    }
+
+    for (const tile of row) {
+      if (isPlateauTile(tile)) {
+        plateauTiles.push(tile)
+      }
+    }
+  }
+
+  return plateauTiles
+}
+
+function getNearestDistance(tile, targets) {
+  if (targets.length === 0) {
+    return Number.POSITIVE_INFINITY
+  }
+
+  let nearestDistance = Number.POSITIVE_INFINITY
+
+  for (const target of targets) {
+    const distance = Math.max(Math.abs(tile.x - target.x), Math.abs(tile.y - target.y))
+
+    if (distance < nearestDistance) {
+      nearestDistance = distance
+    }
+  }
+
+  return nearestDistance
+}
+
+function pickWeightedItem(items, getWeight, rng) {
+  let totalWeight = 0
+  const weightedItems = []
+
+  for (const item of items) {
+    const weight = Math.max(0, Number(getWeight(item) ?? 0))
+
+    if (weight <= 0) {
+      continue
+    }
+
+    totalWeight += weight
+    weightedItems.push({ item, weight })
+  }
+
+  if (totalWeight <= 0 || weightedItems.length === 0) {
+    return null
+  }
+
+  let cursor = rng.next() * totalWeight
+
+  for (const { item, weight } of weightedItems) {
+    cursor -= weight
+
+    if (cursor <= 0) {
+      return item
+    }
+  }
+
+  return weightedItems[weightedItems.length - 1]?.item ?? null
+}
+
+function shuffleInPlace(items, rng) {
+  for (let i = items.length - 1; i > 0; i -= 1) {
+    const j = rng.nextInt(i + 1)
+    const temp = items[i]
+    items[i] = items[j]
+    items[j] = temp
+  }
+}
+
 function touchesWater(tile, tiles) {
   for (const offset of NEIGHBOR_OFFSETS) {
     const neighbor = getTile(tiles, tile.x + offset.x, tile.y + offset.y)
@@ -89,6 +202,66 @@ function touchesWater(tile, tiles) {
   }
 
   return false
+}
+
+function touchesCliff(tile, tiles) {
+  for (const offset of NEIGHBOR_OFFSETS) {
+    const neighbor = getTile(tiles, tile.x + offset.x, tile.y + offset.y)
+
+    if (neighbor?.cliff) {
+      return true
+    }
+  }
+
+  return false
+}
+
+function isTreeTerrainTile(tile, tiles) {
+  if (!tile) {
+    return false
+  }
+
+  if (tile.terrain !== 'grass' || !tile.walkable) {
+    return false
+  }
+
+  if (tile.cliff) {
+    return false
+  }
+
+  if (touchesWater(tile, tiles)) {
+    return false
+  }
+
+  if (touchesCliff(tile, tiles)) {
+    return false
+  }
+
+  return true
+}
+
+function isGoldTerrainTile(tile, tiles) {
+  if (!tile) {
+    return false
+  }
+
+  if (tile.terrain !== 'grass' || !tile.walkable) {
+    return false
+  }
+
+  if (tile.elevation <= 0) {
+    return false
+  }
+
+  if (tile.cliff) {
+    return false
+  }
+
+  if (touchesWater(tile, tiles)) {
+    return false
+  }
+
+  return true
 }
 
 function isCastlePlacementValid(tiles, width, height, x, y) {
@@ -138,6 +311,74 @@ function findCastlePlacement(tiles, width, height) {
   return bestPosition ?? idealPosition
 }
 
+function flattenCastlePlateau(tiles, castle) {
+  if (!castle) {
+    return false
+  }
+
+  const footprint = castle.footprint ?? CASTLE_FOOTPRINT
+  const seeds = []
+
+  for (let dy = 0; dy < footprint.h; dy += 1) {
+    for (let dx = 0; dx < footprint.w; dx += 1) {
+      const tile = getTile(tiles, castle.gridPos.x + dx, castle.gridPos.y + dy)
+
+      if (isPlateauTile(tile)) {
+        seeds.push(tile)
+      }
+    }
+  }
+
+  if (seeds.length === 0) {
+    return false
+  }
+
+  const visited = new Set()
+  const frontier = [...seeds]
+  let flattenedAny = false
+
+  while (frontier.length > 0) {
+    const current = frontier.pop()
+
+    if (!current) {
+      continue
+    }
+
+    const currentKey = positionKey(current.x, current.y)
+
+    if (visited.has(currentKey)) {
+      continue
+    }
+
+    visited.add(currentKey)
+
+    const tile = getTile(tiles, current.x, current.y)
+
+    if (!isPlateauTile(tile)) {
+      continue
+    }
+
+    tile.elevation = 1
+    flattenedAny = true
+
+    for (const offset of NEIGHBOR_OFFSETS) {
+      const neighbor = getTile(tiles, current.x + offset.x, current.y + offset.y)
+
+      if (!isPlateauTile(neighbor)) {
+        continue
+      }
+
+      const neighborKey = positionKey(neighbor.x, neighbor.y)
+
+      if (!visited.has(neighborKey)) {
+        frontier.push(neighbor)
+      }
+    }
+  }
+
+  return flattenedAny
+}
+
 function getEligibleLandTiles(tiles) {
   const eligibleTiles = []
 
@@ -154,6 +395,475 @@ function getEligibleLandTiles(tiles) {
   }
 
   return eligibleTiles
+}
+
+function getGoldCandidates(tiles, reservedKeys) {
+  const candidates = []
+
+  for (const row of tiles) {
+    if (!Array.isArray(row)) {
+      continue
+    }
+
+    for (const tile of row) {
+      const key = positionKey(tile.x, tile.y)
+
+      if (reservedKeys.has(key)) {
+        continue
+      }
+
+      if (!isGoldTerrainTile(tile, tiles)) {
+        continue
+      }
+
+      candidates.push(tile)
+    }
+  }
+
+  return candidates
+}
+
+function getGoldSeedWeight(tile, plateauTiles) {
+  const distance = getNearestDistance(tile, plateauTiles)
+
+  if (!Number.isFinite(distance)) {
+    return 1
+  }
+
+  return Math.max(1, 8 - distance * 2)
+}
+
+function getCastleReservationKeys(castle) {
+  const reservationKeys = new Set()
+  const reservationX = castle.gridPos.x + CASTLE_VISUAL_RESERVED_OFFSET_X
+  const reservationY = castle.gridPos.y + CASTLE_VISUAL_RESERVED_OFFSET_Y
+  const reservationWidth = CASTLE_VISUAL_RESERVED_WIDTH
+  const reservationHeight = CASTLE_VISUAL_RESERVED_HEIGHT
+
+  // Reserve the visible castle volume plus one-tile padding around it.
+  for (let dy = 0; dy < reservationHeight; dy += 1) {
+    for (let dx = 0; dx < reservationWidth; dx += 1) {
+      reservationKeys.add(positionKey(reservationX + dx, reservationY + dy))
+    }
+  }
+
+  return reservationKeys
+}
+
+function isDistanceFarEnough(tile, points, minimumDistance) {
+  return points.every((point) => {
+    const distance = Math.max(Math.abs(tile.x - point.x), Math.abs(tile.y - point.y))
+    return distance >= minimumDistance
+  })
+}
+
+function getTreeCandidates(tiles, reservedKeys) {
+  const candidates = []
+
+  for (const row of tiles) {
+    if (!Array.isArray(row)) {
+      continue
+    }
+
+    for (const tile of row) {
+      const key = positionKey(tile.x, tile.y)
+
+      if (reservedKeys.has(key)) {
+        continue
+      }
+
+      if (!isTreeTerrainTile(tile, tiles)) {
+        continue
+      }
+
+      candidates.push(tile)
+    }
+  }
+
+  return candidates
+}
+
+function growTreeCluster(seed, targetSize, candidateKeys, occupiedKeys, tiles, rng) {
+  const cluster = [seed]
+  const clusterKeys = new Set([positionKey(seed.x, seed.y)])
+  const frontier = [seed]
+
+  occupiedKeys.add(positionKey(seed.x, seed.y))
+
+  while (frontier.length > 0 && cluster.length < targetSize) {
+    const frontierIndex = rng.nextInt(frontier.length)
+    const current = frontier[frontierIndex]
+
+    frontier[frontierIndex] = frontier[frontier.length - 1]
+    frontier.pop()
+
+    const neighbors = []
+
+    for (const offset of NEIGHBOR_OFFSETS) {
+      const neighbor = getTile(tiles, current.x + offset.x, current.y + offset.y)
+
+      if (!neighbor) {
+        continue
+      }
+
+      const key = positionKey(neighbor.x, neighbor.y)
+
+      if (!candidateKeys.has(key) || occupiedKeys.has(key) || clusterKeys.has(key)) {
+        continue
+      }
+
+      neighbors.push(neighbor)
+    }
+
+    shuffleInPlace(neighbors, rng)
+
+    let addedNeighbor = false
+
+    for (const neighbor of neighbors) {
+      const key = positionKey(neighbor.x, neighbor.y)
+
+      if (occupiedKeys.has(key) || clusterKeys.has(key)) {
+        continue
+      }
+
+      cluster.push(neighbor)
+      clusterKeys.add(key)
+      occupiedKeys.add(key)
+      frontier.push(neighbor)
+      addedNeighbor = true
+      break
+    }
+
+    if (!addedNeighbor && frontier.length === 0) {
+      break
+    }
+  }
+
+  return cluster
+}
+
+function growGoldCluster(seed, targetSize, candidateKeys, occupiedKeys, tiles, plateauTiles, rng) {
+  const cluster = [seed]
+  const clusterKeys = new Set([positionKey(seed.x, seed.y)])
+  const frontier = [seed]
+
+  occupiedKeys.add(positionKey(seed.x, seed.y))
+
+  while (frontier.length > 0 && cluster.length < targetSize) {
+    const frontierIndex = rng.nextInt(frontier.length)
+    const current = frontier[frontierIndex]
+
+    frontier[frontierIndex] = frontier[frontier.length - 1]
+    frontier.pop()
+
+    const neighbors = []
+
+    for (const offset of CARDINAL_NEIGHBOR_OFFSETS) {
+      const neighbor = getTile(tiles, current.x + offset.x, current.y + offset.y)
+
+      if (!neighbor) {
+        continue
+      }
+
+      const key = positionKey(neighbor.x, neighbor.y)
+
+      if (!candidateKeys.has(key) || occupiedKeys.has(key) || clusterKeys.has(key)) {
+        continue
+      }
+
+      neighbors.push(neighbor)
+    }
+
+    const nextNeighbor = pickWeightedItem(
+      neighbors,
+      (neighbor) => getGoldSeedWeight(neighbor, plateauTiles),
+      rng,
+    )
+
+    if (!nextNeighbor) {
+      continue
+    }
+
+    const nextKey = positionKey(nextNeighbor.x, nextNeighbor.y)
+
+    if (occupiedKeys.has(nextKey) || clusterKeys.has(nextKey)) {
+      continue
+    }
+
+    cluster.push(nextNeighbor)
+    clusterKeys.add(nextKey)
+    occupiedKeys.add(nextKey)
+    frontier.push(nextNeighbor)
+  }
+
+  return cluster
+}
+
+function spawnGold(tiles, castle, rng) {
+  const resources = []
+  const reservedKeys = getCastleReservationKeys(castle)
+  const occupiedKeys = new Set(reservedKeys)
+  const plateauTiles = getPlateauTiles(tiles)
+  const candidateTiles = getGoldCandidates(tiles, reservedKeys)
+  const candidateKeys = new Set(candidateTiles.map((tile) => positionKey(tile.x, tile.y)))
+  const goldPositions = []
+  const clusterTargetCount = Math.min(
+    GOLD_CLUSTER_COUNT,
+    Math.max(1, Math.floor(INITIAL_GOLD_COUNT / GOLD_CLUSTER_SIZE_MIN)),
+  )
+  let clusterCount = 0
+
+  while (resources.length < INITIAL_GOLD_COUNT && clusterCount < clusterTargetCount) {
+    const availableSeeds = candidateTiles.filter((tile) => {
+      const key = positionKey(tile.x, tile.y)
+
+      return !occupiedKeys.has(key) && isDistanceFarEnough(tile, goldPositions, GOLD_SEED_SPACING)
+    })
+
+    if (availableSeeds.length === 0) {
+      break
+    }
+
+    const seed = pickWeightedItem(
+      availableSeeds,
+      (tile) => getGoldSeedWeight(tile, plateauTiles),
+      rng,
+    )
+
+    if (!seed) {
+      break
+    }
+
+    const seedKey = positionKey(seed.x, seed.y)
+
+    if (occupiedKeys.has(seedKey)) {
+      continue
+    }
+
+    const remainingGoldSlots = INITIAL_GOLD_COUNT - resources.length
+
+    if (remainingGoldSlots <= 0) {
+      break
+    }
+
+    const desiredClusterSize = Math.min(
+      GOLD_CLUSTER_SIZE_MIN + rng.nextInt(GOLD_CLUSTER_SIZE_MAX - GOLD_CLUSTER_SIZE_MIN + 1),
+      remainingGoldSlots,
+    )
+    const cluster = growGoldCluster(seed, desiredClusterSize, candidateKeys, occupiedKeys, tiles, plateauTiles, rng)
+
+    if (cluster.length < 2) {
+      for (const tile of cluster) {
+        occupiedKeys.delete(positionKey(tile.x, tile.y))
+      }
+
+      continue
+    }
+
+    clusterCount += 1
+
+    for (const tile of cluster) {
+      goldPositions.push(tile)
+      resources.push(createGoldStone(tile.x, tile.y, rng.nextInt(GOLD_VARIANT_CONFIGS.length)))
+    }
+  }
+
+  if (resources.length < INITIAL_GOLD_COUNT) {
+    let remainingCandidates = candidateTiles.filter(
+      (tile) => !occupiedKeys.has(positionKey(tile.x, tile.y)),
+    )
+
+    while (resources.length < INITIAL_GOLD_COUNT && remainingCandidates.length > 0) {
+      const availableCandidates = remainingCandidates.filter((tile) => {
+        const key = positionKey(tile.x, tile.y)
+        return !occupiedKeys.has(key) && isDistanceFarEnough(tile, goldPositions, GOLD_ISOLATED_SPACING)
+      })
+
+      if (availableCandidates.length === 0) {
+        break
+      }
+
+      const tile = pickWeightedItem(
+        availableCandidates,
+        (candidate) => getGoldSeedWeight(candidate, plateauTiles),
+        rng,
+      )
+
+      if (!tile) {
+        break
+      }
+
+      const key = positionKey(tile.x, tile.y)
+
+      if (occupiedKeys.has(key)) {
+        remainingCandidates = remainingCandidates.filter(
+          (candidate) => positionKey(candidate.x, candidate.y) !== key,
+        )
+        continue
+      }
+
+      occupiedKeys.add(key)
+      goldPositions.push(tile)
+      resources.push(createGoldStone(tile.x, tile.y, rng.nextInt(GOLD_VARIANT_CONFIGS.length)))
+      remainingCandidates = remainingCandidates.filter(
+        (candidate) => positionKey(candidate.x, candidate.y) !== key,
+      )
+    }
+  }
+
+  if (resources.length < INITIAL_GOLD_COUNT) {
+    let remainingCandidates = candidateTiles.filter(
+      (tile) => !occupiedKeys.has(positionKey(tile.x, tile.y)),
+    )
+
+    while (resources.length < INITIAL_GOLD_COUNT && remainingCandidates.length > 0) {
+      const tile = pickWeightedItem(
+        remainingCandidates,
+        (candidate) => getGoldSeedWeight(candidate, plateauTiles),
+        rng,
+      )
+
+      if (!tile) {
+        break
+      }
+
+      const key = positionKey(tile.x, tile.y)
+
+      if (occupiedKeys.has(key)) {
+        remainingCandidates = remainingCandidates.filter(
+          (candidate) => positionKey(candidate.x, candidate.y) !== key,
+        )
+        continue
+      }
+
+      occupiedKeys.add(key)
+      goldPositions.push(tile)
+      resources.push(createGoldStone(tile.x, tile.y, rng.nextInt(GOLD_VARIANT_CONFIGS.length)))
+      remainingCandidates = remainingCandidates.filter(
+        (candidate) => positionKey(candidate.x, candidate.y) !== key,
+      )
+    }
+  }
+
+  if (resources.length < INITIAL_GOLD_COUNT) {
+    for (const tile of candidateTiles) {
+      if (resources.length >= INITIAL_GOLD_COUNT) {
+        break
+      }
+
+      const key = positionKey(tile.x, tile.y)
+
+      if (occupiedKeys.has(key)) {
+        continue
+      }
+
+      if (!isDistanceFarEnough(tile, goldPositions, GOLD_ISOLATED_SPACING)) {
+        continue
+      }
+
+      occupiedKeys.add(key)
+      goldPositions.push(tile)
+      resources.push(createGoldStone(tile.x, tile.y, rng.nextInt(GOLD_VARIANT_CONFIGS.length)))
+    }
+  }
+
+  return resources
+}
+
+function spawnTrees(tiles, castle, rng, extraReservedKeys = new Set()) {
+  const resources = []
+  const reservedKeys = new Set([...getCastleReservationKeys(castle), ...extraReservedKeys])
+  const occupiedKeys = new Set(reservedKeys)
+  const candidateTiles = getTreeCandidates(tiles, reservedKeys)
+  const candidateKeys = new Set(candidateTiles.map((tile) => positionKey(tile.x, tile.y)))
+  const validClusterCandidates = [...candidateTiles]
+  const treePositions = []
+
+  shuffleInPlace(validClusterCandidates, rng)
+
+  const clusterTargetCount = Math.min(
+    TREE_CLUSTER_COUNT,
+    Math.max(2, Math.floor(INITIAL_TREE_COUNT / 5)),
+  )
+
+  let clusterCount = 0
+
+  for (const seed of validClusterCandidates) {
+    if (resources.length >= INITIAL_TREE_COUNT || clusterCount >= clusterTargetCount) {
+      break
+    }
+
+    const seedKey = positionKey(seed.x, seed.y)
+
+    if (occupiedKeys.has(seedKey)) {
+      continue
+    }
+
+    if (!isDistanceFarEnough(seed, treePositions, TREE_SEED_SPACING)) {
+      continue
+    }
+
+    const desiredClusterSize = TREE_CLUSTER_SIZE_MIN + rng.nextInt(TREE_CLUSTER_SIZE_MAX - TREE_CLUSTER_SIZE_MIN + 1)
+    const cluster = growTreeCluster(seed, desiredClusterSize, candidateKeys, occupiedKeys, tiles, rng)
+
+    if (cluster.length < 2) {
+      for (const tile of cluster) {
+        occupiedKeys.delete(positionKey(tile.x, tile.y))
+      }
+
+      continue
+    }
+
+    clusterCount += 1
+
+    for (const tile of cluster) {
+      treePositions.push(tile)
+      resources.push(createTree(tile.x, tile.y, rng.nextInt(TREE_VARIANT_CONFIGS.length)))
+    }
+  }
+
+  const remainingCandidates = candidateTiles.filter((tile) => !occupiedKeys.has(positionKey(tile.x, tile.y)))
+  shuffleInPlace(remainingCandidates, rng)
+
+  for (const tile of remainingCandidates) {
+    if (resources.length >= INITIAL_TREE_COUNT) {
+      break
+    }
+
+    const key = positionKey(tile.x, tile.y)
+
+    if (occupiedKeys.has(key)) {
+      continue
+    }
+
+    if (!isDistanceFarEnough(tile, treePositions, TREE_ISOLATED_SPACING)) {
+      continue
+    }
+
+    occupiedKeys.add(key)
+    treePositions.push(tile)
+    resources.push(createTree(tile.x, tile.y, rng.nextInt(TREE_VARIANT_CONFIGS.length)))
+  }
+
+  if (resources.length < INITIAL_TREE_COUNT) {
+    for (const tile of remainingCandidates) {
+      if (resources.length >= INITIAL_TREE_COUNT) {
+        break
+      }
+
+      const key = positionKey(tile.x, tile.y)
+
+      if (occupiedKeys.has(key)) {
+        continue
+      }
+
+      occupiedKeys.add(key)
+      treePositions.push(tile)
+      resources.push(createTree(tile.x, tile.y, rng.nextInt(TREE_VARIANT_CONFIGS.length)))
+    }
+  }
+
+  return resources
 }
 
 export function generatePlateaus(tiles, rng) {
@@ -377,6 +1087,14 @@ export function createWorld(worldStore) {
   detectCliffs(tiles, width, height)
   const castlePosition = findCastlePlacement(tiles, width, height)
   const castle = createCastle(castlePosition.x, castlePosition.y)
+  flattenCastlePlateau(tiles, castle)
+  detectCliffs(tiles, width, height)
+  const goldResources = spawnGold(tiles, castle, rng)
+  const goldReservedKeys = new Set(
+    goldResources.map((resource) => positionKey(resource.gridPos.x, resource.gridPos.y)),
+  )
+  const treeResources = spawnTrees(tiles, castle, rng, goldReservedKeys)
+  const resources = [...goldResources, ...treeResources]
 
   worldStore.tick = 0
   worldStore.seed = seed
@@ -389,7 +1107,7 @@ export function createWorld(worldStore) {
     height,
     tiles,
   })
-  worldStore.resources = []
+  worldStore.resources = resources
   worldStore.buildings = [castle]
   worldStore.units = []
 }
