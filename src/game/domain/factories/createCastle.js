@@ -1,9 +1,14 @@
 import { GRID_HEIGHT, GRID_WIDTH } from '../../config/constants.js'
 
-export function createCastle(
-  x = Math.floor(GRID_WIDTH / 2),
-  y = Math.floor(GRID_HEIGHT / 2),
-) {
+const CASTLE_FOOTPRINT = {
+  w: 5,
+  h: 2,
+}
+
+export function createCastle(worldWidth = GRID_WIDTH, worldHeight = GRID_HEIGHT) {
+  const x = Math.max(0, Math.floor((worldWidth - CASTLE_FOOTPRINT.w) / 2))
+  const y = Math.max(0, Math.floor((worldHeight - CASTLE_FOOTPRINT.h) / 2))
+
   return {
     id: 'castle',
     kind: 'building',
@@ -12,9 +17,6 @@ export function createCastle(
       x,
       y,
     },
-    footprint: {
-      w: 5,
-      h: 2,
-    },
+    footprint: { ...CASTLE_FOOTPRINT },
   }
 }

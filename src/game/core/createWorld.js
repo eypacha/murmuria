@@ -111,7 +111,7 @@ export function createWorld(worldStore) {
   const height = GRID_HEIGHT
 
   const tiles = createTileGrid(width, height)
-  const castle = createCastle()
+  const castle = createCastle(width, height)
   const buildings = [castle]
   const resources = []
   const units = []
