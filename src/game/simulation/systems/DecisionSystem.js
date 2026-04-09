@@ -1,5 +1,4 @@
 import { getOccupiedTiles } from '../../core/getOccupiedTiles.js'
-import { findPath } from '../../core/findPath.js'
 import { isTraversableWorldTile } from '../../core/isTraversableTile.js'
 import { PAWN_PREPARE_TO_TREE_MS } from '../../config/constants.js'
 import { PawnStateSystem } from './PawnStateSystem.js'
@@ -7,6 +6,7 @@ import { PawnStateSystem } from './PawnStateSystem.js'
 export class DecisionSystem {
   static update(worldStore) {
     const pawns = worldStore.units ?? []
+    const occupiedTiles = this.buildOccupiedTileSet(worldStore)
 
     for (const pawn of pawns) {
       if (pawn.role !== 'pawn') {
@@ -21,12 +21,19 @@ export class DecisionSystem {
         continue
       }
 
+      const pawnPosition = this.getGridPosition(pawn)
+
+      if (!pawnPosition) {
+        continue
+      }
+
       const scores = this.computeResourceScores(pawn, worldStore)
 
       if (scores.length === 0) {
         continue
       }
 
+      const reachableTiles = this.buildReachabilityMap(pawnPosition, worldStore, occupiedTiles)
       let availableScores = scores
 
       while (availableScores.length > 0) {
@@ -37,7 +44,13 @@ export class DecisionSystem {
         }
 
         const resources = (worldStore.resources ?? []).filter((resource) => resource.type === resourceType)
-        const selection = this.findNearestAvailableResource(pawn, resources, worldStore)
+        const selection = this.findNearestAvailableResource(
+          pawn,
+          resources,
+          worldStore,
+          occupiedTiles,
+          reachableTiles,
+        )
 
         if (!selection) {
           availableScores = availableScores.filter((score) => score.type !== resourceType)
@@ -114,13 +127,14 @@ export class DecisionSystem {
     return scores.find(({ score }) => score > 0)?.type ?? null
   }
 
-  static findNearestAvailableResource(pawn, resources, worldStore) {
+  static findNearestAvailableResource(pawn, resources, worldStore, occupiedTiles, reachableTiles) {
     const pawnPosition = this.getGridPosition(pawn)
 
     if (!pawnPosition) {
       return null
     }
 
+    const pathMap = reachableTiles ?? this.buildReachabilityMap(pawnPosition, worldStore, occupiedTiles)
     let nearestResource = null
     let nearestTargetTile = null
     let nearestDistance = Number.POSITIVE_INFINITY
@@ -130,7 +144,7 @@ export class DecisionSystem {
         continue
       }
 
-      const selection = this.findReachableAdjacentTile(resource, pawnPosition, worldStore)
+      const selection = this.findReachableAdjacentTile(resource, pathMap)
 
       if (!selection) {
         continue
@@ -155,7 +169,7 @@ export class DecisionSystem {
     }
   }
 
-  static findReachableAdjacentTile(resource, pawnPosition, worldStore) {
+  static findReachableAdjacentTile(resource, reachableTiles) {
     const footprint = resource.footprint ?? { w: 1, h: 1 }
     const candidates = []
 
@@ -164,34 +178,18 @@ export class DecisionSystem {
       candidates.push({ x: resource.gridPos.x + footprint.w, y: resource.gridPos.y + dy })
     }
 
-    const validCandidates = candidates.filter((tile) => {
-      if (!this.isInsideWorld(tile, worldStore)) {
-        return false
-      }
-
-      if (!this.isWalkable(tile, worldStore)) {
-        return false
-      }
-
-      return !this.isTileOccupied(tile, worldStore)
-    })
-
-    if (validCandidates.length === 0) {
-      return null
-    }
-
     let closestTile = null
     let shortestPathLength = Number.POSITIVE_INFINITY
 
-    for (const candidate of validCandidates) {
-      const path = findPath(worldStore, pawnPosition, candidate)
+    for (const candidate of candidates) {
+      const pathLength = reachableTiles.get(this.tileKey(candidate))
 
-      if (!Array.isArray(path) || path.length === 0) {
+      if (pathLength === undefined) {
         continue
       }
 
-      if (path.length < shortestPathLength) {
-        shortestPathLength = path.length
+      if (pathLength < shortestPathLength) {
+        shortestPathLength = pathLength
         closestTile = candidate
       }
     }
@@ -204,6 +202,41 @@ export class DecisionSystem {
       targetTile: closestTile,
       pathLength: shortestPathLength,
     }
+  }
+
+  static buildReachabilityMap(startTile, worldStore, occupiedTiles) {
+    const queue = [startTile]
+    const distances = new Map([[this.tileKey(startTile), 0]])
+
+    for (let index = 0; index < queue.length; index += 1) {
+      const current = queue[index]
+      const currentDistance = distances.get(this.tileKey(current)) ?? 0
+
+      for (const neighbor of this.getNeighbors(current)) {
+        const neighborKey = this.tileKey(neighbor)
+
+        if (distances.has(neighborKey)) {
+          continue
+        }
+
+        if (!this.isInsideWorld(neighbor, worldStore)) {
+          continue
+        }
+
+        if (!this.isWalkable(neighbor, worldStore)) {
+          continue
+        }
+
+        if (occupiedTiles?.has(neighborKey) || this.isTileOccupied(neighbor, worldStore)) {
+          continue
+        }
+
+        distances.set(neighborKey, currentDistance + 1)
+        queue.push(neighbor)
+      }
+    }
+
+    return distances
   }
 
   static getTargetResource(worldStore, unit) {
@@ -254,6 +287,27 @@ export class DecisionSystem {
     return entities.some((entity) => this.entityOccupiesTile(entity, tile))
   }
 
+  static buildOccupiedTileSet(worldStore) {
+    const occupiedTiles = new Set()
+    const entities = [
+      ...(worldStore.buildings ?? []),
+      ...(worldStore.resources ?? []),
+      ...(worldStore.units ?? []),
+    ]
+
+    for (const entity of entities) {
+      if (!entity?.gridPos) {
+        continue
+      }
+
+      for (const tile of getOccupiedTiles(entity)) {
+        occupiedTiles.add(this.tileKey(tile))
+      }
+    }
+
+    return occupiedTiles
+  }
+
   static entityOccupiesTile(entity, tile) {
     if (!entity?.gridPos) {
       return false
@@ -268,7 +322,16 @@ export class DecisionSystem {
     return entity.gridPos ?? entity.pos ?? null
   }
 
-  static getManhattanDistance(a, b) {
-    return Math.abs(a.x - b.x) + Math.abs(a.y - b.y)
+  static getNeighbors(tile) {
+    return [
+      { x: tile.x + 1, y: tile.y },
+      { x: tile.x - 1, y: tile.y },
+      { x: tile.x, y: tile.y + 1 },
+      { x: tile.x, y: tile.y - 1 },
+    ]
+  }
+
+  static tileKey(tile) {
+    return `${tile.x}:${tile.y}`
   }
 }

@@ -12,27 +12,34 @@ function isInsideWorld(worldStore, tile) {
   return tile.x >= 0 && tile.y >= 0 && tile.x < width && tile.y < height
 }
 
-function isOccupied(worldStore, tile, startKey, goalKey) {
+function buildOccupiedTileSet(worldStore) {
+  const occupiedTiles = new Set()
+  const entities = [
+    ...(worldStore.buildings ?? []),
+    ...(worldStore.resources ?? []),
+  ]
+
+  for (const entity of entities) {
+    if (!entity?.gridPos) {
+      continue
+    }
+
+    for (const occupiedTile of getOccupiedTiles(entity)) {
+      occupiedTiles.add(tileKey(occupiedTile))
+    }
+  }
+
+  return occupiedTiles
+}
+
+function isOccupied(occupiedTiles, tile, startKey, goalKey) {
   const key = tileKey(tile)
 
   if (key === startKey || key === goalKey) {
     return false
   }
 
-  const entities = [
-    ...(worldStore.buildings ?? []),
-    ...(worldStore.resources ?? []),
-  ]
-
-  return entities.some((entity) => {
-    if (!entity?.gridPos) {
-      return false
-    }
-
-    return getOccupiedTiles(entity).some((occupiedTile) => {
-      return occupiedTile.x === tile.x && occupiedTile.y === tile.y
-    })
-  })
+  return occupiedTiles.has(key)
 }
 
 function getNeighbors(tile) {
@@ -51,6 +58,7 @@ export function findPath(worldStore, startTile, goalTile) {
 
   const startKey = tileKey(startTile)
   const goalKey = tileKey(goalTile)
+  const occupiedTiles = buildOccupiedTileSet(worldStore)
 
   if (startKey === goalKey) {
     return []
@@ -83,7 +91,7 @@ export function findPath(worldStore, startTile, goalTile) {
         continue
       }
 
-      if (isOccupied(worldStore, neighbor, startKey, goalKey)) {
+      if (isOccupied(occupiedTiles, neighbor, startKey, goalKey)) {
         continue
       }
 
