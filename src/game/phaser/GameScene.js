@@ -28,6 +28,7 @@ const CAMERA_CAPTURE_KEYS = [
 const WATER_FOAM_TEXTURE_KEY = 'water-foam'
 const WATER_FOAM_ANIMATION_KEY = 'water-foam_anim'
 const WATER_FOAM_FRAME_COUNT = 16
+const PLATEAU_TERRAIN_TEXTURE_KEY = 'terrain_tileset_plateau'
 
 const PAWN_ASSETS = [
   {
@@ -130,6 +131,10 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.load.spritesheet('terrain_tileset', '/assets/terrain/tileset/tilemap-color-2.png', {
+      frameWidth: 64,
+      frameHeight: 64,
+    })
+    this.load.spritesheet(PLATEAU_TERRAIN_TEXTURE_KEY, '/assets/terrain/tileset/tilemap-color-0.png', {
       frameWidth: 64,
       frameHeight: 64,
     })

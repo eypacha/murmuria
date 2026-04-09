@@ -1,12 +1,23 @@
 import { FOAM_ANIMATION, DEBUG_MODE, DEPTH_GRID, TILE_SIZE } from '../../config/constants.js'
 
 const TERRAIN_TEXTURE_KEY = 'terrain_tileset'
+const PLATEAU_TEXTURE_KEY = 'terrain_tileset_plateau'
 const WATER_FOAM_TEXTURE_KEY = 'water-foam'
 const WATER_FOAM_ANIMATION_KEY = 'water-foam_anim'
 const SKY_BACKGROUND_COLOR = 0x87ceeb
 const GRID_LINE_COLOR = 0x000000
 const GRID_LINE_ALPHA = 0.35
 const WATER_FOAM_DEPTH = DEPTH_GRID - 1
+const PLATEAU_TOP_DEPTH = DEPTH_GRID + 0.5
+const CLIFF_DEPTH = DEPTH_GRID + 0.75
+const PLATEAU_ELEVATION = 2
+const PLATEAU_TILE_INDEX_OFFSET = 5
+const CLIFF_AUTOTILE = {
+  0: 43,
+  1: 43,
+  2: 41,
+  3: 42,
+}
 const DEBUG_TILE_TEXT_STYLE = {
   fontFamily: 'monospace',
   fontSize: '12px',
@@ -39,6 +50,14 @@ function getTileTerrain(tiles, x, y) {
   return tiles[y]?.[x]?.terrain
 }
 
+function getTileElevation(tiles, x, y) {
+  return tiles[y]?.[x]?.elevation
+}
+
+function getTileCliff(tiles, x, y) {
+  return tiles[y]?.[x]?.cliff ?? false
+}
+
 export function computeGrassMask(x, y, tiles) {
   let mask = 0
 
@@ -61,12 +80,98 @@ export function computeGrassMask(x, y, tiles) {
   return mask
 }
 
+function computeElevationOneMask(x, y, tiles) {
+  let mask = 0
+
+  if (getTileElevation(tiles, x, y - 1) === 1) {
+    mask |= 1
+  }
+
+  if (getTileElevation(tiles, x + 1, y) === 1) {
+    mask |= 2
+  }
+
+  if (getTileElevation(tiles, x, y + 1) === 1) {
+    mask |= 4
+  }
+
+  if (getTileElevation(tiles, x - 1, y) === 1) {
+    mask |= 8
+  }
+
+  return mask
+}
+
+function computeElevationMask(x, y, tiles, elevation) {
+  let mask = 0
+
+  if (getTileElevation(tiles, x, y - 1) === elevation) {
+    mask |= 1
+  }
+
+  if (getTileElevation(tiles, x + 1, y) === elevation) {
+    mask |= 2
+  }
+
+  if (getTileElevation(tiles, x, y + 1) === elevation) {
+    mask |= 4
+  }
+
+  if (getTileElevation(tiles, x - 1, y) === elevation) {
+    mask |= 8
+  }
+
+  return mask
+}
+
+function computeCliffMask(x, y, tiles) {
+  let mask = 0
+
+  if (getTileCliff(tiles, x - 1, y)) {
+    mask |= 1
+  }
+
+  if (getTileCliff(tiles, x + 1, y)) {
+    mask |= 2
+  }
+
+  return mask
+}
+
 function resolveGrassTileIndex(x, y, tiles) {
   const mask = computeGrassMask(x, y, tiles)
 
   return {
     mask,
     tileIndex: GRASS_AUTOTILE[mask],
+  }
+}
+
+function resolveElevationTileIndex(x, y, tiles, elevation) {
+  const mask = computeElevationMask(x, y, tiles, elevation)
+  const baseTileIndex = GRASS_AUTOTILE[mask]
+
+  return {
+    mask,
+    tileIndex: baseTileIndex + PLATEAU_TILE_INDEX_OFFSET,
+  }
+}
+
+function resolveElevationOneTileIndex(x, y, tiles) {
+  const mask = computeElevationOneMask(x, y, tiles)
+
+  return {
+    mask,
+    tileIndex: GRASS_AUTOTILE[mask],
+  }
+}
+
+function resolveCliffTileIndex(x, y, tiles) {
+  const mask = computeCliffMask(x, y, tiles)
+
+  return {
+    mask,
+    tileIndex: CLIFF_AUTOTILE[mask],
   }
 }
 
@@ -92,6 +197,14 @@ function addWaterFoam(scene, x, y) {
   return sprite
 }
 
+function addTerrainSprite(scene, x, y, textureKey, tileIndex, depth = DEPTH_GRID) {
+  const sprite = scene.add.image(x, y, textureKey, tileIndex)
+
+  sprite.setDepth(depth)
+
+  return sprite
+}
+
 export function renderGrid(scene, worldStore) {
   const tiles = worldStore.world.tiles
   const worldWidth = worldStore.world.width * TILE_SIZE
@@ -109,20 +222,49 @@ export function renderGrid(scene, worldStore) {
       }
 
       if (tile.terrain === 'grass') {
+        const isPlateau = tile.elevation === PLATEAU_ELEVATION
         const grassTile = resolveGrassTileIndex(tile.x, tile.y, tiles)
+        const plateauTile = isPlateau
+          ? resolveElevationTileIndex(tile.x, tile.y, tiles, PLATEAU_ELEVATION)
+          : null
+        const supportTile = isPlateau
+          ? resolveElevationOneTileIndex(tile.x, tile.y, tiles)
+          : null
 
-        if (FOAM_ANIMATION && grassTile.mask !== 15) {
+        if (!isPlateau && FOAM_ANIMATION && grassTile.mask !== 15) {
           addWaterFoam(scene, x, y)
         }
 
-        const sprite = scene.add.image(x, y, TERRAIN_TEXTURE_KEY, grassTile.tileIndex)
-
-        if (DEBUG_MODE) {
-          tile.debugMask = grassTile.mask
-          addDebugTileLabel(scene, x, y, grassTile.mask, grassTile.tileIndex)
+        if (isPlateau) {
+          addTerrainSprite(scene, x, y, TERRAIN_TEXTURE_KEY, supportTile.tileIndex)
         }
 
-        sprite.setDepth(DEPTH_GRID)
+        addTerrainSprite(
+          scene,
+          x,
+          y,
+          isPlateau ? PLATEAU_TEXTURE_KEY : TERRAIN_TEXTURE_KEY,
+          isPlateau ? plateauTile.tileIndex : grassTile.tileIndex,
+          isPlateau ? PLATEAU_TOP_DEPTH : DEPTH_GRID,
+        )
+
+        if (tile.cliff) {
+          const cliffTile = resolveCliffTileIndex(tile.x, tile.y, tiles)
+          const cliffY = y + TILE_SIZE
+
+          addTerrainSprite(scene, x, cliffY, PLATEAU_TEXTURE_KEY, cliffTile.tileIndex, CLIFF_DEPTH)
+        }
+
+        if (DEBUG_MODE) {
+          tile.debugMask = isPlateau ? plateauTile.mask : grassTile.mask
+          addDebugTileLabel(
+            scene,
+            x,
+            y,
+            tile.debugMask,
+            isPlateau ? plateauTile.tileIndex : grassTile.tileIndex,
+          )
+        }
       }
     }
   }
