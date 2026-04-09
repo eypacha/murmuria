@@ -1,5 +1,11 @@
 import Phaser from 'phaser'
-import { GRID_HEIGHT, GRID_WIDTH, TILE_SIZE } from '../config/constants.js'
+import {
+  GRID_HEIGHT,
+  GRID_WIDTH,
+  SIMULATION_TICK_MS,
+  TILE_SIZE,
+  UNIT_RENDER_OFFSET_Y,
+} from '../config/constants.js'
 import { renderGrid } from './renderers/renderGrid.js'
 import { syncBuildings } from './renderers/syncBuildings.js'
 import { syncResources } from './renderers/syncResources.js'
@@ -9,10 +15,16 @@ export class GameScene extends Phaser.Scene {
   constructor() {
     super({ key: 'GameScene' })
     this.worldStore = null
+    this.unitSprites = new Map()
   }
 
   preload() {
     this.load.spritesheet('pawn_idle', '/assets/units/blue/pawn/pawn-idle.png', {
+      frameWidth: 192,
+      frameHeight: 192,
+    })
+
+    this.load.spritesheet('pawn_run', '/assets/units/blue/pawn/pawn-run.png', {
       frameWidth: 192,
       frameHeight: 192,
     })
@@ -46,7 +58,10 @@ export class GameScene extends Phaser.Scene {
     renderGrid(this, this.worldStore)
     syncBuildings(this, this.worldStore)
     syncResources(this, this.worldStore)
-    syncUnits(this, this.worldStore)
+    const unitSprites = syncUnits(this, this.worldStore)
+    this.unitSprites = new Map(
+      unitSprites.map((sprite) => [sprite.getData('entityId'), sprite]),
+    )
   }
 
   centerCameraOnCastle() {
@@ -67,7 +82,16 @@ export class GameScene extends Phaser.Scene {
     if (!this.anims.exists('pawn_idle_anim')) {
       this.anims.create({
         key: 'pawn_idle_anim',
-        frames: this.anims.generateFrameNumbers('pawn_idle', { start: 0, end: 7 }),
+        frames: this.anims.generateFrameNumbers('pawn_idle'),
+        frameRate: 10,
+        repeat: -1,
+      })
+    }
+
+    if (!this.anims.exists('pawn_run_anim')) {
+      this.anims.create({
+        key: 'pawn_run_anim',
+        frames: this.anims.generateFrameNumbers('pawn_run'),
         frameRate: 10,
         repeat: -1,
       })
@@ -83,5 +107,58 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  update() {}
+  update(time, delta) {
+    this.syncUnitSprites(delta)
+  }
+
+  syncUnitSprites(delta) {
+    if (!this.worldStore || this.unitSprites.size === 0) {
+      return
+    }
+
+    for (const pawn of this.worldStore.units) {
+      if (pawn.role !== 'pawn') {
+        continue
+      }
+
+      const sprite = this.unitSprites.get(pawn.id)
+
+      if (!sprite) {
+        continue
+      }
+
+      const position = pawn.pos ?? {
+        x: pawn.gridPos.x * TILE_SIZE + TILE_SIZE / 2,
+        y: pawn.gridPos.y * TILE_SIZE + TILE_SIZE / 2,
+      }
+
+      const targetX = position.x
+      const targetY = position.y + UNIT_RENDER_OFFSET_Y
+      const storedTargetX = sprite.getData('targetX')
+      const storedTargetY = sprite.getData('targetY')
+
+      if (storedTargetX !== targetX || storedTargetY !== targetY) {
+        sprite.setData('movementStartX', sprite.x)
+        sprite.setData('movementStartY', sprite.y)
+        sprite.setData('movementElapsed', 0)
+        sprite.setData('targetX', targetX)
+        sprite.setData('targetY', targetY)
+      }
+
+      const startX = sprite.getData('movementStartX') ?? sprite.x
+      const startY = sprite.getData('movementStartY') ?? sprite.y
+      const elapsed = (sprite.getData('movementElapsed') ?? 0) + delta
+      const progress = SIMULATION_TICK_MS > 0 ? Math.min(1, elapsed / SIMULATION_TICK_MS) : 1
+      const nextX = Phaser.Math.Linear(startX, targetX, progress)
+      const nextY = Phaser.Math.Linear(startY, targetY, progress)
+      const animationKey = pawn.state === 'moving' ? 'pawn_run_anim' : 'pawn_idle_anim'
+      const facingLeft = pawn.facing === 'left'
+
+      sprite.setData('movementElapsed', elapsed)
+      sprite.setPosition(nextX, nextY)
+      sprite.setFlipX(facingLeft)
+      sprite.setDepth(nextY)
+      sprite.anims.play(animationKey, true)
+    }
+  }
 }
