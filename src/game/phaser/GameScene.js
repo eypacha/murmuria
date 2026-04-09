@@ -129,6 +129,7 @@ export class GameScene extends Phaser.Scene {
       frameWidth: 64,
       frameHeight: 64,
     })
+    this.load.image('water-background', '/assets/terrain/tileset/water-background.png')
   }
 
   init(data = {}) {
