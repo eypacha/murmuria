@@ -1,4 +1,5 @@
 import { getOccupiedTiles } from '../../core/getOccupiedTiles.js'
+import { isTraversableWorldTile } from '../../core/isTraversableTile.js'
 import { PAWN_PREPARE_TO_TREE_MS } from '../../config/constants.js'
 import { PawnStateSystem } from './PawnStateSystem.js'
 
@@ -231,7 +232,7 @@ export class DecisionSystem {
   }
 
   static isWalkable(tile, worldStore) {
-    return worldStore.world?.tiles?.[tile.y]?.[tile.x]?.walkable ?? false
+    return isTraversableWorldTile(worldStore, tile)
   }
 
   static isTileOccupied(tile, worldStore) {

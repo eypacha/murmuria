@@ -135,7 +135,14 @@ export class MovementSystem {
     pawn.pathGoalKey = null
 
     if (pawn.target?.type === 'castle') {
-      pawn.state = this.resolveDeliveryState(pawn)
+      // Keep the carry animation active for one more tick so the pawn reaches the castle visually
+      // before the delivery state clears the resource.
+      PawnStateSystem.queueTimedTransition(
+        pawn,
+        worldStore,
+        this.resolveDeliveryState(pawn),
+        SIMULATION_TICK_MS,
+      )
       return
     }
 

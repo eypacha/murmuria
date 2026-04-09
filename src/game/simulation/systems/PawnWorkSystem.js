@@ -7,6 +7,7 @@ import {
   PAWN_WOOD_HARVEST_CHUNK,
 } from '../../config/constants.js'
 import { getOccupiedTiles } from '../../core/getOccupiedTiles.js'
+import { isTraversableWorldTile } from '../../core/isTraversableTile.js'
 import { PawnStateSystem } from './PawnStateSystem.js'
 
 export class PawnWorkSystem {
@@ -202,7 +203,7 @@ export class PawnWorkSystem {
   }
 
   static isWalkable(tile, worldStore) {
-    return worldStore.world?.tiles?.[tile.y]?.[tile.x]?.walkable ?? false
+    return isTraversableWorldTile(worldStore, tile)
   }
 
   static isTileOccupied(tile, worldStore) {

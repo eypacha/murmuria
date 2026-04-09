@@ -1,4 +1,5 @@
 import { getOccupiedTiles } from './getOccupiedTiles.js'
+import { isTraversableWorldTile } from './isTraversableTile.js'
 
 function tileKey(tile) {
   return `${tile.x}:${tile.y}`
@@ -9,10 +10,6 @@ function isInsideWorld(worldStore, tile) {
   const height = worldStore.world?.height ?? 0
 
   return tile.x >= 0 && tile.y >= 0 && tile.x < width && tile.y < height
-}
-
-function isWalkable(worldStore, tile) {
-  return worldStore.world?.tiles?.[tile.y]?.[tile.x]?.walkable ?? false
 }
 
 function isOccupied(worldStore, tile, startKey, goalKey) {
@@ -82,7 +79,7 @@ export function findPath(worldStore, startTile, goalTile) {
         continue
       }
 
-      if (!isWalkable(worldStore, neighbor)) {
+      if (!isTraversableWorldTile(worldStore, neighbor)) {
         continue
       }
 

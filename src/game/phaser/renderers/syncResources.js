@@ -190,7 +190,10 @@ function updateResourceSprite(scene, resource) {
       sprite.setFrame(0)
     }
   } else if ((resource.type === 'gold' || isTreeTexture) && isHarvested) {
-    if (animationKey && sprite.anims.currentAnim?.key !== animationKey) {
+    if (
+      animationKey &&
+      (!sprite.anims.isPlaying || sprite.anims.currentAnim?.key !== animationKey)
+    ) {
       sprite.play(animationKey, true)
     }
   } else {

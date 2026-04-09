@@ -12,6 +12,7 @@ import {
 import { createGoldStone } from '../domain/factories/createGoldStone.js'
 import { createPawn } from '../domain/factories/createPawn.js'
 import { createTree } from '../domain/factories/createTree.js'
+import { isTraversableTile } from './isTraversableTile.js'
 import {
   GOLD_VARIANT_CONFIGS,
   TREE_VARIANT_CONFIGS,
@@ -244,19 +245,7 @@ function isTreeTerrainTile(tile, tiles) {
 }
 
 function isPawnSpawnTile(tile) {
-  if (!tile) {
-    return false
-  }
-
-  if (tile.terrain !== 'grass' || !tile.walkable) {
-    return false
-  }
-
-  if (tile.cliff) {
-    return false
-  }
-
-  return true
+  return isTraversableTile(tile)
 }
 
 function isGoldTerrainTile(tile, tiles) {
@@ -841,10 +830,10 @@ function spawnGold(tiles, castle, rng, extraReservedKeys = new Set()) {
   return resources
 }
 
-function spawnPawns(tiles, castle, rng) {
+function spawnPawns(tiles, castle, width, height, rng) {
   const units = []
   const occupiedKeys = new Set(getOccupiedTiles(castle).map((tile) => positionKey(tile.x, tile.y)))
-  const pawnPositions = createPawnPositions(castle, tiles, GRID_WIDTH, GRID_HEIGHT, occupiedKeys, rng)
+  const pawnPositions = createPawnPositions(castle, tiles, width, height, occupiedKeys, rng)
 
   for (const position of pawnPositions) {
     const facing = rng.nextInt(2) === 0 ? 'left' : 'right'
@@ -1175,7 +1164,7 @@ export function createWorld(worldStore) {
   const castle = createCastle(castlePosition.x, castlePosition.y)
   flattenCastlePlateau(tiles, castle)
   detectCliffs(tiles, width, height)
-  const pawnUnits = spawnPawns(tiles, castle, rng)
+  const pawnUnits = spawnPawns(tiles, castle, width, height, rng)
   const pawnReservedKeys = new Set(
     pawnUnits.map((pawn) => positionKey(pawn.gridPos.x, pawn.gridPos.y)),
   )
