@@ -4,12 +4,6 @@ import { PawnStateSystem } from './PawnStateSystem.js'
 
 export class DecisionSystem {
   static update(worldStore) {
-    const scores = this.computeResourceScores(worldStore)
-
-    if (scores.length === 0) {
-      return
-    }
-
     const pawns = worldStore.units ?? []
 
     for (const pawn of pawns) {
@@ -22,6 +16,12 @@ export class DecisionSystem {
       }
 
       if ((pawn.inventory?.wood ?? 0) > 0 || (pawn.inventory?.gold ?? 0) > 0) {
+        continue
+      }
+
+      const scores = this.computeResourceScores(pawn, worldStore)
+
+      if (scores.length === 0) {
         continue
       }
 
@@ -76,7 +76,7 @@ export class DecisionSystem {
     }
   }
 
-  static computeResourceScores(worldStore) {
+  static computeResourceScores(pawn, worldStore) {
     const gatherWood = Number(worldStore.kingdom?.desires?.gatherWood ?? 0)
     const gatherGold = Number(worldStore.kingdom?.desires?.gatherGold ?? 0)
 

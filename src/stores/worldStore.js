@@ -1,21 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
-function defineDesireAlias(target, legacyKey, desiredKey) {
-  Object.defineProperty(target, legacyKey, {
-    enumerable: false,
-    configurable: true,
-    get() {
-      return this[desiredKey]
-    },
-    set(value) {
-      this[desiredKey] = value
-    },
-  })
-}
-
 function createKingdomState() {
-  const kingdomState = {
+  return {
     resources: {
       wood: 0,
       gold: 0,
@@ -25,26 +12,6 @@ function createKingdomState() {
       gatherGold: 0,
     },
   }
-
-  defineDesireAlias(kingdomState.desires, 'woodPriority', 'gatherWood')
-  defineDesireAlias(kingdomState.desires, 'goldPriority', 'gatherGold')
-
-  Object.defineProperty(kingdomState, 'policies', {
-    enumerable: false,
-    configurable: true,
-    get() {
-      return this.desires
-    },
-    set(value) {
-      if (!value || typeof value !== 'object' || Array.isArray(value)) {
-        return
-      }
-
-      Object.assign(this.desires, value)
-    },
-  })
-
-  return kingdomState
 }
 
 export const useWorldStore = defineStore('world', () => {

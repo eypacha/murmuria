@@ -191,8 +191,8 @@ export function createWorld(worldStore) {
   worldStore.seed = seed
   worldStore.kingdom.resources.wood = 0
   worldStore.kingdom.resources.gold = 0
-  worldStore.kingdom.policies.woodPriority = 0
-  worldStore.kingdom.policies.goldPriority = 0
+  worldStore.kingdom.desires.gatherWood = 0
+  worldStore.kingdom.desires.gatherGold = 0
   Object.assign(worldStore.world, {
     width,
     height,
