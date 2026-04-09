@@ -317,10 +317,6 @@ export class DecisionSystem {
   }
 
   static isResourceAvailable(resource) {
-    if (resource.type === 'sheep' && (resource.state ?? 'idle') !== 'idle') {
-      return false
-    }
-
     return (
       (resource.reservedBy === null || resource.reservedBy === undefined) &&
       (resource.amount ?? 0) > 0

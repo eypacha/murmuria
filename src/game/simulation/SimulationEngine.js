@@ -3,6 +3,7 @@ import { DecisionSystem } from './systems/DecisionSystem.js'
 import { MovementSystem } from './systems/MovementSystem.js'
 import { PawnStateSystem } from './systems/PawnStateSystem.js'
 import { PawnWorkSystem } from './systems/PawnWorkSystem.js'
+import { SheepMovementSystem } from './systems/SheepMovementSystem.js'
 
 export class SimulationEngine {
   constructor(worldStore) {
@@ -34,6 +35,7 @@ export class SimulationEngine {
     PawnStateSystem.update(this.worldStore)
     MovementSystem.update(this.worldStore)
     PawnWorkSystem.update(this.worldStore)
+    SheepMovementSystem.update(this.worldStore)
     this.worldStore.tick++
   }
 }

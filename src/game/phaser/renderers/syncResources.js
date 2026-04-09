@@ -1,5 +1,6 @@
 import {
   DEBUG_MODE,
+  SIMULATION_TICK_MS,
   TILE_SIZE,
 } from '../../config/constants.js'
 import { getOccupiedTiles } from '../../core/getOccupiedTiles.js'
@@ -20,6 +21,11 @@ const SHEEP_HIT_FLASH_MS = 90
 const SHEEP_HIT_FLASH_FRAME_INDEX = 2
 const SHEEP_HIT_FLASH_BOUND_KEY = 'sheepHitFlashBound'
 const SHEEP_HIT_FLASH_TIMER_KEY = 'sheepHitFlashTimer'
+const RESOURCE_RENDER_START_X_KEY = 'resourceRenderStartX'
+const RESOURCE_RENDER_START_Y_KEY = 'resourceRenderStartY'
+const RESOURCE_RENDER_TARGET_X_KEY = 'resourceRenderTargetX'
+const RESOURCE_RENDER_TARGET_Y_KEY = 'resourceRenderTargetY'
+const RESOURCE_RENDER_ELAPSED_KEY = 'resourceRenderElapsed'
 
 function drawDebugOccupiedTiles(scene, resource, depth) {
   const border = scene.add.graphics()
@@ -210,6 +216,10 @@ function getResourceDisplaySize(resource) {
 }
 
 function getResourceWorldPosition(resource) {
+  if (resource?.pos && Number.isFinite(resource.pos.x) && Number.isFinite(resource.pos.y)) {
+    return resource.pos
+  }
+
   if (resource.type === 'gold' || resource.type === 'sheep') {
     return {
       x: resource.gridPos.x * TILE_SIZE + TILE_SIZE / 2,
@@ -225,6 +235,41 @@ function getResourceWorldPosition(resource) {
     x: centerX,
     y: baseY,
   }
+}
+
+function updateInterpolatedResourcePosition(scene, sprite, targetPosition) {
+  const currentTargetX = sprite.getData(RESOURCE_RENDER_TARGET_X_KEY)
+  const currentTargetY = sprite.getData(RESOURCE_RENDER_TARGET_Y_KEY)
+  const targetChanged =
+    !Number.isFinite(currentTargetX) ||
+    !Number.isFinite(currentTargetY) ||
+    currentTargetX !== targetPosition.x ||
+    currentTargetY !== targetPosition.y
+
+  if (targetChanged) {
+    sprite.setData(RESOURCE_RENDER_START_X_KEY, sprite.x)
+    sprite.setData(RESOURCE_RENDER_START_Y_KEY, sprite.y)
+    sprite.setData(RESOURCE_RENDER_TARGET_X_KEY, targetPosition.x)
+    sprite.setData(RESOURCE_RENDER_TARGET_Y_KEY, targetPosition.y)
+    sprite.setData(RESOURCE_RENDER_ELAPSED_KEY, 0)
+  }
+
+  const startX = sprite.getData(RESOURCE_RENDER_START_X_KEY) ?? targetPosition.x
+  const startY = sprite.getData(RESOURCE_RENDER_START_Y_KEY) ?? targetPosition.y
+  const targetX = sprite.getData(RESOURCE_RENDER_TARGET_X_KEY) ?? targetPosition.x
+  const targetY = sprite.getData(RESOURCE_RENDER_TARGET_Y_KEY) ?? targetPosition.y
+  const elapsed = Math.min(
+    SIMULATION_TICK_MS,
+    (sprite.getData(RESOURCE_RENDER_ELAPSED_KEY) ?? 0) + (scene.game.loop.delta ?? 0),
+  )
+
+  sprite.setData(RESOURCE_RENDER_ELAPSED_KEY, elapsed)
+
+  const progress = SIMULATION_TICK_MS > 0 ? elapsed / SIMULATION_TICK_MS : 1
+  const nextX = startX + (targetX - startX) * progress
+  const nextY = startY + (targetY - startY) * progress
+
+  sprite.setPosition(nextX, nextY)
 }
 
 function isResourceBeingHarvested(resource, worldStore) {
@@ -329,7 +374,12 @@ function updateResourceSprite(scene, resource) {
     ensureSheepHitFlashBinding(scene, sprite, resource)
   }
 
-  sprite.setPosition(x, y)
+  if (isSheep) {
+    updateInterpolatedResourcePosition(scene, sprite, { x, y })
+  } else {
+    sprite.setPosition(x, y)
+  }
+
   sprite.setDepth(depth)
   sprite.setFlipX(isResourceFacingLeft(resource))
 

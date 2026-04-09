@@ -51,6 +51,10 @@ export class PawnWorkSystem {
     const resourceAmount = Math.max(0, resource?.amount ?? 0)
     const gatherDurationMs = this.getGatherDuration(resourceType, resourceAmount)
 
+    if (resourceType === 'sheep' && resource) {
+      resource.state = 'idle'
+    }
+
     PawnStateSystem.queueTimedTransition(pawn, worldStore, 'gathering_complete', gatherDurationMs)
   }
 
@@ -74,6 +78,10 @@ export class PawnWorkSystem {
       pawn.inventory[inventoryKey] = currentAmount + transferAmount
 
       if (resource) {
+        if (resourceType === 'sheep') {
+          resource.state = 'idle'
+        }
+
         resource.amount = Math.max(0, resourceAmount - transferAmount)
       }
     }

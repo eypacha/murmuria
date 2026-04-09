@@ -5,6 +5,7 @@ import {
   INITIAL_PAWNS,
   INITIAL_SHEEP_COUNT,
   INITIAL_TREE_COUNT,
+  TILE_SIZE,
 } from '../config/constants.js'
 import {
   CASTLE_FOOTPRINT,
@@ -201,6 +202,33 @@ function shuffleInPlace(items, rng) {
 function getSpawnFacing(seed, entityType, x, y) {
   const facingRng = seededRandom(`${seed}:${entityType}:${x}:${y}`)
   return facingRng.nextInt(2) === 0 ? 'left' : 'right'
+}
+
+function createSheepStateBag(seed) {
+  const stateRng = seededRandom(`${seed}:sheep-states`)
+  const states = ['idle', 'moving', 'eating'].slice(0, Math.min(3, INITIAL_SHEEP_COUNT))
+  const fallbackStates = ['idle', 'idle', 'moving', 'moving', 'eating']
+
+  while (states.length < INITIAL_SHEEP_COUNT) {
+    states.push(fallbackStates[stateRng.nextInt(fallbackStates.length)] ?? 'idle')
+  }
+
+  shuffleInPlace(states, stateRng)
+  return states
+}
+
+function createSheepMotionState(seed, x, y, facing) {
+  const motionRng = seededRandom(`${seed}:sheep-motion:${x}:${y}`)
+  const turnIntervalTicks = 4 + motionRng.nextInt(4)
+
+  return {
+    seed: `${seed}:sheep-motion:${x}:${y}`,
+    cycle: 0,
+    direction: facing === 'left' ? 'left' : 'right',
+    speed: 36 + motionRng.nextInt(9),
+    turnIntervalTicks,
+    nextTurnTick: turnIntervalTicks,
+  }
 }
 
 const GOLD_CLUSTER_PATTERNS = {
@@ -1179,11 +1207,20 @@ function spawnSheep(tiles, castle, worldSeed, rng, extraReservedKeys = new Set()
   const candidateTiles = getTreeCandidates(tiles, reservedKeys)
   const candidateKeys = new Set(candidateTiles.map((tile) => positionKey(tile.x, tile.y)))
   const sheepPositions = []
+  const sheepStates = createSheepStateBag(worldSeed)
+  let sheepStateIndex = 0
   const clusterTargetCount = Math.min(
     4,
     Math.max(1, Math.floor(INITIAL_SHEEP_COUNT / 2)),
   )
   let clusterCount = 0
+
+  function nextSheepState() {
+    const nextState = sheepStates[sheepStateIndex]
+    sheepStateIndex += 1
+
+    return nextState ?? 'idle'
+  }
 
   while (resources.length < INITIAL_SHEEP_COUNT && clusterCount < clusterTargetCount) {
     const availableSeeds = candidateTiles.filter((tile) => {
@@ -1233,14 +1270,22 @@ function spawnSheep(tiles, castle, worldSeed, rng, extraReservedKeys = new Set()
     for (const tile of cluster) {
       occupiedKeys.add(positionKey(tile.x, tile.y))
       sheepPositions.push(tile)
-      resources.push(
-        createSheep(
-          tile.x,
-          tile.y,
-          rng.nextInt(SHEEP_VARIANT_CONFIGS.length),
-          getSpawnFacing(worldSeed, 'sheep', tile.x, tile.y),
-        ),
+      const facing = getSpawnFacing(worldSeed, 'sheep', tile.x, tile.y)
+      const sheep = createSheep(
+        tile.x,
+        tile.y,
+        rng.nextInt(SHEEP_VARIANT_CONFIGS.length),
+        facing,
+        nextSheepState(),
       )
+
+      sheep.pos = {
+        x: tile.x * TILE_SIZE + TILE_SIZE / 2,
+        y: tile.y * TILE_SIZE + TILE_SIZE / 2,
+      }
+      sheep.motion = createSheepMotionState(worldSeed, tile.x, tile.y, facing)
+
+      resources.push(sheep)
     }
   }
 
@@ -1264,14 +1309,22 @@ function spawnSheep(tiles, castle, worldSeed, rng, extraReservedKeys = new Set()
 
     occupiedKeys.add(key)
     sheepPositions.push(tile)
-    resources.push(
-      createSheep(
-        tile.x,
-        tile.y,
-        rng.nextInt(SHEEP_VARIANT_CONFIGS.length),
-        getSpawnFacing(worldSeed, 'sheep', tile.x, tile.y),
-      ),
+    const facing = getSpawnFacing(worldSeed, 'sheep', tile.x, tile.y)
+    const sheep = createSheep(
+      tile.x,
+      tile.y,
+      rng.nextInt(SHEEP_VARIANT_CONFIGS.length),
+      facing,
+      nextSheepState(),
     )
+
+    sheep.pos = {
+      x: tile.x * TILE_SIZE + TILE_SIZE / 2,
+      y: tile.y * TILE_SIZE + TILE_SIZE / 2,
+    }
+    sheep.motion = createSheepMotionState(worldSeed, tile.x, tile.y, facing)
+
+    resources.push(sheep)
   }
 
   if (resources.length < INITIAL_SHEEP_COUNT) {
@@ -1286,17 +1339,25 @@ function spawnSheep(tiles, castle, worldSeed, rng, extraReservedKeys = new Set()
         continue
       }
 
-      occupiedKeys.add(key)
-      sheepPositions.push(tile)
-      resources.push(
-        createSheep(
-          tile.x,
-          tile.y,
-          rng.nextInt(SHEEP_VARIANT_CONFIGS.length),
-          getSpawnFacing(worldSeed, 'sheep', tile.x, tile.y),
-        ),
-      )
+    occupiedKeys.add(key)
+    sheepPositions.push(tile)
+    const facing = getSpawnFacing(worldSeed, 'sheep', tile.x, tile.y)
+    const sheep = createSheep(
+      tile.x,
+      tile.y,
+      rng.nextInt(SHEEP_VARIANT_CONFIGS.length),
+      facing,
+      nextSheepState(),
+    )
+
+    sheep.pos = {
+      x: tile.x * TILE_SIZE + TILE_SIZE / 2,
+      y: tile.y * TILE_SIZE + TILE_SIZE / 2,
     }
+    sheep.motion = createSheepMotionState(worldSeed, tile.x, tile.y, facing)
+
+    resources.push(sheep)
+  }
   }
 
   return resources
