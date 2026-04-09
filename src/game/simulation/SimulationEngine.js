@@ -1,4 +1,5 @@
 import { SIMULATION_TICK_MS } from '../config/constants.js'
+import { KingdomSystem } from './systems/KingdomSystem.js'
 import { DecisionSystem } from './systems/DecisionSystem.js'
 import { MovementSystem } from './systems/MovementSystem.js'
 import { PawnStateSystem } from './systems/PawnStateSystem.js'
@@ -31,6 +32,7 @@ export class SimulationEngine {
       return
     }
 
+    KingdomSystem.update(this.worldStore)
     DecisionSystem.update(this.worldStore)
     PawnStateSystem.update(this.worldStore)
     MovementSystem.update(this.worldStore)

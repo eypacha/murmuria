@@ -7,17 +7,17 @@ const worldStore = useWorldStore()
 const resources = computed(() => [
   {
     key: 'wood',
-    value: Number(worldStore.kingdom?.resources?.wood ?? 0),
+    value: Math.round(worldStore.kingdom?.resources?.wood ?? 0),
     icon: '/assets/ui/elements/icons/wood.png',
   },
   {
     key: 'gold',
-    value: Number(worldStore.kingdom?.resources?.gold ?? 0),
+    value: Math.round(worldStore.kingdom?.resources?.gold ?? 0),
     icon: '/assets/ui/elements/icons/coin.png',
   },
   {
     key: 'meat',
-    value: Number(worldStore.kingdom?.resources?.meat ?? 0),
+    value: Math.round(worldStore.kingdom?.resources?.meat ?? 0),
     icon: '/assets/ui/elements/icons/meat.png',
   },
 ])
