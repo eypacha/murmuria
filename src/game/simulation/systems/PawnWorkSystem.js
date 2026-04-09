@@ -87,38 +87,15 @@ export class PawnWorkSystem {
       y: castle.gridPos.y + footprint.h,
     }
 
-    if (
-      this.isInsideWorld(centerTile, worldStore) &&
-      this.isWalkable(centerTile, worldStore) &&
-      !this.isTileOccupied(centerTile, worldStore)
-    ) {
-      return centerTile
+    if (!this.isInsideWorld(centerTile, worldStore)) {
+      return null
     }
 
-    return this.findAdjacentFallbackTile(castle, worldStore)
-  }
-
-  static findAdjacentFallbackTile(castle, worldStore) {
-    const footprint = castle.footprint ?? { w: 1, h: 1 }
-    const candidates = []
-
-    for (let dx = 0; dx < footprint.w; dx += 1) {
-      candidates.push({ x: castle.gridPos.x + dx, y: castle.gridPos.y + footprint.h })
+    if (!this.isWalkable(centerTile, worldStore)) {
+      return null
     }
 
-    const validCandidates = candidates.filter((tile) => {
-      if (!this.isInsideWorld(tile, worldStore)) {
-        return false
-      }
-
-      if (!this.isWalkable(tile, worldStore)) {
-        return false
-      }
-
-      return !this.isTileOccupied(tile, worldStore)
-    })
-
-    return validCandidates[0] ?? null
+    return centerTile
   }
 
   static completeDelivery(pawn, worldStore) {

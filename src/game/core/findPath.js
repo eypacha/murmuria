@@ -25,7 +25,6 @@ function isOccupied(worldStore, tile, startKey, goalKey) {
   const entities = [
     ...(worldStore.buildings ?? []),
     ...(worldStore.resources ?? []),
-    ...(worldStore.units ?? []),
   ]
 
   return entities.some((entity) => {
