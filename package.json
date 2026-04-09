@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "phaser": "^3.90.0",
     "pinia": "^3",
     "vite-plugin-webfont-dl": "^3.10.5",
     "vue": "^3.5.13",
