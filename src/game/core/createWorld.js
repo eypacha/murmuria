@@ -16,7 +16,6 @@ import { createSheep } from '../domain/factories/createSheep.js'
 import { createTree } from '../domain/factories/createTree.js'
 import { isTraversableTile } from './isTraversableTile.js'
 import {
-  GOLD_VARIANT_CONFIGS,
   SHEEP_VARIANT_CONFIGS,
   TREE_VARIANT_CONFIGS,
 } from '../config/resourceVariants.js'
@@ -197,6 +196,159 @@ function shuffleInPlace(items, rng) {
     items[i] = items[j]
     items[j] = temp
   }
+}
+
+function getSpawnFacing(seed, entityType, x, y) {
+  const facingRng = seededRandom(`${seed}:${entityType}:${x}:${y}`)
+  return facingRng.nextInt(2) === 0 ? 'left' : 'right'
+}
+
+const GOLD_CLUSTER_PATTERNS = {
+  1: [[{ x: 0, y: 0 }]],
+  2: [
+    [{ x: 0, y: 0 }, { x: 1, y: 0 }],
+    [{ x: 0, y: 0 }, { x: -1, y: 0 }],
+    [{ x: 0, y: 0 }, { x: 0, y: 1 }],
+    [{ x: 0, y: 0 }, { x: 0, y: -1 }],
+  ],
+  3: [
+    [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 1 }],
+    [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0, y: -1 }],
+    [{ x: 0, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }],
+    [{ x: 0, y: 0 }, { x: -1, y: 0 }, { x: 0, y: -1 }],
+  ],
+  4: [
+    [
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+      { x: 0, y: 1 },
+      { x: 1, y: 1 },
+    ],
+    [
+      { x: 0, y: 0 },
+      { x: -1, y: 0 },
+      { x: 0, y: 1 },
+      { x: -1, y: 1 },
+    ],
+    [
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+      { x: 0, y: -1 },
+      { x: 1, y: -1 },
+    ],
+    [
+      { x: 0, y: 0 },
+      { x: -1, y: 0 },
+      { x: 0, y: -1 },
+      { x: -1, y: -1 },
+    ],
+  ],
+  5: [
+    [
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+      { x: 0, y: 1 },
+      { x: 1, y: 1 },
+      { x: 2, y: 0 },
+    ],
+    [
+      { x: 0, y: 0 },
+      { x: -1, y: 0 },
+      { x: 0, y: 1 },
+      { x: -1, y: 1 },
+      { x: -2, y: 0 },
+    ],
+    [
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+      { x: 0, y: -1 },
+      { x: 1, y: -1 },
+      { x: 2, y: 0 },
+    ],
+    [
+      { x: 0, y: 0 },
+      { x: -1, y: 0 },
+      { x: 0, y: -1 },
+      { x: -1, y: -1 },
+      { x: -2, y: 0 },
+    ],
+  ],
+}
+
+const GOLD_LARGE_VARIANT_INDICES = [4, 5]
+const GOLD_SMALL_VARIANT_INDICES = [0, 1, 2, 3]
+
+function pickGoldVariantIndex(worldSeed, resourceX, resourceY, goldState, rng) {
+  const smallCandidateIndices = [...GOLD_SMALL_VARIANT_INDICES]
+  const largeCandidateIndices = [...GOLD_LARGE_VARIANT_INDICES]
+
+  if (goldState.largePlaced) {
+    return smallCandidateIndices[rng.nextInt(smallCandidateIndices.length)] ?? 0
+  }
+
+  const variantRng = seededRandom(`${worldSeed}:gold-variant:${resourceX}:${resourceY}`)
+  const shouldUseLargeVariant = variantRng.next() < 0.18
+
+  if (shouldUseLargeVariant) {
+    goldState.largePlaced = true
+    return largeCandidateIndices[variantRng.nextInt(largeCandidateIndices.length)] ?? 4
+  }
+
+  return smallCandidateIndices[rng.nextInt(smallCandidateIndices.length)] ?? 0
+}
+
+function tryBuildGoldCluster(seed, targetSize, candidateKeys, occupiedKeys, tiles, plateauTiles, rng) {
+  const clusterSize = Math.max(1, Math.min(5, targetSize))
+  const patterns = [...(GOLD_CLUSTER_PATTERNS[clusterSize] ?? GOLD_CLUSTER_PATTERNS[1])]
+  shuffleInPlace(patterns, rng)
+
+  for (const offsets of patterns) {
+    const cluster = []
+    let valid = true
+
+    for (const offset of offsets) {
+      const tile = getTile(tiles, seed.x + offset.x, seed.y + offset.y)
+
+      if (!tile) {
+        valid = false
+        break
+      }
+
+      const key = positionKey(tile.x, tile.y)
+
+      if (!candidateKeys.has(key) || occupiedKeys.has(key)) {
+        valid = false
+        break
+      }
+
+      if (!isGoldTerrainTile(tile, tiles)) {
+        valid = false
+        break
+      }
+
+      cluster.push(tile)
+    }
+
+    if (valid) {
+      return cluster
+    }
+  }
+
+  return []
+}
+
+function growGoldCluster(seed, targetSize, candidateKeys, occupiedKeys, tiles, plateauTiles, rng) {
+  const clusterSize = Math.max(1, Math.min(5, targetSize))
+
+  for (let size = clusterSize; size >= 1; size -= 1) {
+    const cluster = tryBuildGoldCluster(seed, size, candidateKeys, occupiedKeys, tiles, plateauTiles, rng)
+
+    if (cluster.length === size) {
+      return cluster
+    }
+  }
+
+  return []
 }
 
 function touchesWater(tile, tiles) {
@@ -605,64 +757,7 @@ function growTreeCluster(seed, targetSize, candidateKeys, occupiedKeys, tiles, r
   return cluster
 }
 
-function growGoldCluster(seed, targetSize, candidateKeys, occupiedKeys, tiles, plateauTiles, rng) {
-  const cluster = [seed]
-  const clusterKeys = new Set([positionKey(seed.x, seed.y)])
-  const frontier = [seed]
-
-  occupiedKeys.add(positionKey(seed.x, seed.y))
-
-  while (frontier.length > 0 && cluster.length < targetSize) {
-    const frontierIndex = rng.nextInt(frontier.length)
-    const current = frontier[frontierIndex]
-
-    frontier[frontierIndex] = frontier[frontier.length - 1]
-    frontier.pop()
-
-    const neighbors = []
-
-    for (const offset of CARDINAL_NEIGHBOR_OFFSETS) {
-      const neighbor = getTile(tiles, current.x + offset.x, current.y + offset.y)
-
-      if (!neighbor) {
-        continue
-      }
-
-      const key = positionKey(neighbor.x, neighbor.y)
-
-      if (!candidateKeys.has(key) || occupiedKeys.has(key) || clusterKeys.has(key)) {
-        continue
-      }
-
-      neighbors.push(neighbor)
-    }
-
-    const nextNeighbor = pickWeightedItem(
-      neighbors,
-      (neighbor) => getGoldSeedWeight(neighbor, plateauTiles),
-      rng,
-    )
-
-    if (!nextNeighbor) {
-      continue
-    }
-
-    const nextKey = positionKey(nextNeighbor.x, nextNeighbor.y)
-
-    if (occupiedKeys.has(nextKey) || clusterKeys.has(nextKey)) {
-      continue
-    }
-
-    cluster.push(nextNeighbor)
-    clusterKeys.add(nextKey)
-    occupiedKeys.add(nextKey)
-    frontier.push(nextNeighbor)
-  }
-
-  return cluster
-}
-
-function spawnGold(tiles, castle, rng, extraReservedKeys = new Set()) {
+function spawnGold(tiles, castle, worldSeed, rng, extraReservedKeys = new Set()) {
   const resources = []
   const reservedKeys = new Set([...getCastleReservationKeys(castle), ...extraReservedKeys])
   const occupiedKeys = new Set(reservedKeys)
@@ -670,6 +765,9 @@ function spawnGold(tiles, castle, rng, extraReservedKeys = new Set()) {
   const candidateTiles = getGoldCandidates(tiles, reservedKeys)
   const candidateKeys = new Set(candidateTiles.map((tile) => positionKey(tile.x, tile.y)))
   const goldPositions = []
+  const goldState = {
+    largePlaced: false,
+  }
   const clusterTargetCount = Math.min(
     GOLD_CLUSTER_COUNT,
     Math.max(1, Math.floor(INITIAL_GOLD_COUNT / GOLD_CLUSTER_SIZE_MIN)),
@@ -687,17 +785,17 @@ function spawnGold(tiles, castle, rng, extraReservedKeys = new Set()) {
       break
     }
 
-    const seed = pickWeightedItem(
+    const seedTile = pickWeightedItem(
       availableSeeds,
       (tile) => getGoldSeedWeight(tile, plateauTiles),
       rng,
     )
 
-    if (!seed) {
+    if (!seedTile) {
       break
     }
 
-    const seedKey = positionKey(seed.x, seed.y)
+    const seedKey = positionKey(seedTile.x, seedTile.y)
 
     if (occupiedKeys.has(seedKey)) {
       continue
@@ -713,7 +811,15 @@ function spawnGold(tiles, castle, rng, extraReservedKeys = new Set()) {
       GOLD_CLUSTER_SIZE_MIN + rng.nextInt(GOLD_CLUSTER_SIZE_MAX - GOLD_CLUSTER_SIZE_MIN + 1),
       remainingGoldSlots,
     )
-    const cluster = growGoldCluster(seed, desiredClusterSize, candidateKeys, occupiedKeys, tiles, plateauTiles, rng)
+    const cluster = growGoldCluster(
+      seedTile,
+      desiredClusterSize,
+      candidateKeys,
+      occupiedKeys,
+      tiles,
+      plateauTiles,
+      rng,
+    )
 
     if (cluster.length < 2) {
       for (const tile of cluster) {
@@ -726,8 +832,16 @@ function spawnGold(tiles, castle, rng, extraReservedKeys = new Set()) {
     clusterCount += 1
 
     for (const tile of cluster) {
+      occupiedKeys.add(positionKey(tile.x, tile.y))
       goldPositions.push(tile)
-      resources.push(createGoldStone(tile.x, tile.y, rng.nextInt(GOLD_VARIANT_CONFIGS.length)))
+      resources.push(
+        createGoldStone(
+          tile.x,
+          tile.y,
+          pickGoldVariantIndex(worldSeed, tile.x, tile.y, goldState, rng),
+          getSpawnFacing(worldSeed, 'gold', tile.x, tile.y),
+        ),
+      )
     }
   }
 
@@ -767,7 +881,14 @@ function spawnGold(tiles, castle, rng, extraReservedKeys = new Set()) {
 
       occupiedKeys.add(key)
       goldPositions.push(tile)
-      resources.push(createGoldStone(tile.x, tile.y, rng.nextInt(GOLD_VARIANT_CONFIGS.length)))
+      resources.push(
+        createGoldStone(
+          tile.x,
+          tile.y,
+          pickGoldVariantIndex(worldSeed, tile.x, tile.y, goldState, rng),
+          getSpawnFacing(worldSeed, 'gold', tile.x, tile.y),
+        ),
+      )
       remainingCandidates = remainingCandidates.filter(
         (candidate) => positionKey(candidate.x, candidate.y) !== key,
       )
@@ -801,7 +922,14 @@ function spawnGold(tiles, castle, rng, extraReservedKeys = new Set()) {
 
       occupiedKeys.add(key)
       goldPositions.push(tile)
-      resources.push(createGoldStone(tile.x, tile.y, rng.nextInt(GOLD_VARIANT_CONFIGS.length)))
+      resources.push(
+        createGoldStone(
+          tile.x,
+          tile.y,
+          pickGoldVariantIndex(worldSeed, tile.x, tile.y, goldState, rng),
+          getSpawnFacing(worldSeed, 'gold', tile.x, tile.y),
+        ),
+      )
       remainingCandidates = remainingCandidates.filter(
         (candidate) => positionKey(candidate.x, candidate.y) !== key,
       )
@@ -826,7 +954,14 @@ function spawnGold(tiles, castle, rng, extraReservedKeys = new Set()) {
 
       occupiedKeys.add(key)
       goldPositions.push(tile)
-      resources.push(createGoldStone(tile.x, tile.y, rng.nextInt(GOLD_VARIANT_CONFIGS.length)))
+      resources.push(
+        createGoldStone(
+          tile.x,
+          tile.y,
+          pickGoldVariantIndex(worldSeed, tile.x, tile.y, goldState, rng),
+          getSpawnFacing(worldSeed, 'gold', tile.x, tile.y),
+        ),
+      )
     }
   }
 
@@ -848,7 +983,7 @@ function spawnPawns(tiles, castle, width, height, rng) {
   return units
 }
 
-function spawnTrees(tiles, castle, rng, extraReservedKeys = new Set()) {
+function spawnTrees(tiles, castle, worldSeed, rng, extraReservedKeys = new Set()) {
   const resources = []
   const reservedKeys = new Set([...getCastleReservationKeys(castle), ...extraReservedKeys])
   const occupiedKeys = new Set(reservedKeys)
@@ -866,23 +1001,30 @@ function spawnTrees(tiles, castle, rng, extraReservedKeys = new Set()) {
 
   let clusterCount = 0
 
-  for (const seed of validClusterCandidates) {
+  for (const seedTile of validClusterCandidates) {
     if (resources.length >= INITIAL_TREE_COUNT || clusterCount >= clusterTargetCount) {
       break
     }
 
-    const seedKey = positionKey(seed.x, seed.y)
+    const seedKey = positionKey(seedTile.x, seedTile.y)
 
     if (occupiedKeys.has(seedKey)) {
       continue
     }
 
-    if (!isDistanceFarEnough(seed, treePositions, TREE_SEED_SPACING)) {
+    if (!isDistanceFarEnough(seedTile, treePositions, TREE_SEED_SPACING)) {
       continue
     }
 
     const desiredClusterSize = TREE_CLUSTER_SIZE_MIN + rng.nextInt(TREE_CLUSTER_SIZE_MAX - TREE_CLUSTER_SIZE_MIN + 1)
-    const cluster = growTreeCluster(seed, desiredClusterSize, candidateKeys, occupiedKeys, tiles, rng)
+    const cluster = growTreeCluster(
+      seedTile,
+      desiredClusterSize,
+      candidateKeys,
+      occupiedKeys,
+      tiles,
+      rng,
+    )
 
     if (cluster.length < 2) {
       for (const tile of cluster) {
@@ -896,7 +1038,14 @@ function spawnTrees(tiles, castle, rng, extraReservedKeys = new Set()) {
 
     for (const tile of cluster) {
       treePositions.push(tile)
-      resources.push(createTree(tile.x, tile.y, rng.nextInt(TREE_VARIANT_CONFIGS.length)))
+      resources.push(
+        createTree(
+          tile.x,
+          tile.y,
+          rng.nextInt(TREE_VARIANT_CONFIGS.length),
+          getSpawnFacing(worldSeed, 'tree', tile.x, tile.y),
+        ),
+      )
     }
   }
 
@@ -920,7 +1069,14 @@ function spawnTrees(tiles, castle, rng, extraReservedKeys = new Set()) {
 
     occupiedKeys.add(key)
     treePositions.push(tile)
-    resources.push(createTree(tile.x, tile.y, rng.nextInt(TREE_VARIANT_CONFIGS.length)))
+    resources.push(
+      createTree(
+        tile.x,
+        tile.y,
+        rng.nextInt(TREE_VARIANT_CONFIGS.length),
+        getSpawnFacing(worldSeed, 'tree', tile.x, tile.y),
+      ),
+    )
   }
 
   if (resources.length < INITIAL_TREE_COUNT) {
@@ -937,69 +1093,86 @@ function spawnTrees(tiles, castle, rng, extraReservedKeys = new Set()) {
 
       occupiedKeys.add(key)
       treePositions.push(tile)
-      resources.push(createTree(tile.x, tile.y, rng.nextInt(TREE_VARIANT_CONFIGS.length)))
+      resources.push(
+        createTree(
+          tile.x,
+          tile.y,
+          rng.nextInt(TREE_VARIANT_CONFIGS.length),
+          getSpawnFacing(worldSeed, 'tree', tile.x, tile.y),
+        ),
+      )
     }
   }
 
   return resources
 }
 
-function growSheepCluster(seed, targetSize, candidateKeys, occupiedKeys, tiles, rng) {
-  const cluster = [seed]
-  const clusterKeys = new Set([positionKey(seed.x, seed.y)])
-  const frontier = [seed]
-
-  occupiedKeys.add(positionKey(seed.x, seed.y))
-
-  while (frontier.length > 0 && cluster.length < targetSize) {
-    const frontierIndex = rng.nextInt(frontier.length)
-    const current = frontier[frontierIndex]
-
-    frontier[frontierIndex] = frontier[frontier.length - 1]
-    frontier.pop()
-
-    const neighbors = []
-
-    for (const offset of CARDINAL_NEIGHBOR_OFFSETS) {
-      const neighbor = getTile(tiles, current.x + offset.x, current.y + offset.y)
-
-      if (!neighbor) {
-        continue
-      }
-
-      const key = positionKey(neighbor.x, neighbor.y)
-
-      if (!candidateKeys.has(key) || occupiedKeys.has(key) || clusterKeys.has(key)) {
-        continue
-      }
-
-      neighbors.push(neighbor)
-    }
-
-    shuffleInPlace(neighbors, rng)
-
-    const nextNeighbor = neighbors[0]
-
-    if (!nextNeighbor) {
-      continue
-    }
-
-    const nextKey = positionKey(nextNeighbor.x, nextNeighbor.y)
-
-    if (occupiedKeys.has(nextKey) || clusterKeys.has(nextKey)) {
-      continue
-    }
-
-    cluster.push(nextNeighbor)
-    clusterKeys.add(nextKey)
-    occupiedKeys.add(nextKey)
-    frontier.push(nextNeighbor)
-  }
-
-  return cluster
+const SHEEP_CLUSTER_PATTERNS = {
+  1: [[{ x: 0, y: 0 }]],
+  2: [
+    [{ x: 0, y: 0 }, { x: 1, y: 0 }],
+    [{ x: 0, y: 0 }, { x: -1, y: 0 }],
+    [{ x: 0, y: 0 }, { x: 0, y: 1 }],
+    [{ x: 0, y: 0 }, { x: 0, y: -1 }],
+  ],
+  3: [
+    [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 1 }],
+    [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0, y: -1 }],
+    [{ x: 0, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }],
+    [{ x: 0, y: 0 }, { x: -1, y: 0 }, { x: 0, y: -1 }],
+  ],
 }
 
-function spawnSheep(tiles, castle, rng, extraReservedKeys = new Set()) {
+function tryBuildSheepCluster(seed, targetSize, candidateKeys, occupiedKeys, tiles, rng) {
+  const clusterSize = Math.max(1, Math.min(3, targetSize))
+  const patterns = [...(SHEEP_CLUSTER_PATTERNS[clusterSize] ?? SHEEP_CLUSTER_PATTERNS[1])]
+  shuffleInPlace(patterns, rng)
+
+  for (const offsets of patterns) {
+    const cluster = []
+    let valid = true
+
+    for (const offset of offsets) {
+      const tile = getTile(tiles, seed.x + offset.x, seed.y + offset.y)
+
+      if (!tile) {
+        valid = false
+        break
+      }
+
+      const key = positionKey(tile.x, tile.y)
+
+      if (!candidateKeys.has(key) || occupiedKeys.has(key)) {
+        valid = false
+        break
+      }
+
+      cluster.push(tile)
+    }
+
+    if (valid) {
+      return cluster
+    }
+  }
+
+  return []
+}
+
+function growSheepCluster(seed, targetSize, candidateKeys, occupiedKeys, tiles, rng) {
+  const clusterSize = Math.max(1, Math.min(3, targetSize))
+
+  for (let size = clusterSize; size >= 1; size -= 1) {
+    const cluster = tryBuildSheepCluster(seed, size, candidateKeys, occupiedKeys, tiles, rng)
+
+    if (cluster.length === size) {
+      return cluster
+    }
+  }
+
+  return []
+}
+
+function spawnSheep(tiles, castle, worldSeed, rng, extraReservedKeys = new Set()) {
   const resources = []
   const reservedKeys = new Set([...getCastleReservationKeys(castle), ...extraReservedKeys])
   const occupiedKeys = new Set(reservedKeys)
@@ -1023,13 +1196,13 @@ function spawnSheep(tiles, castle, rng, extraReservedKeys = new Set()) {
       break
     }
 
-    const seed = availableSeeds[rng.nextInt(availableSeeds.length)]
+    const seedTile = availableSeeds[rng.nextInt(availableSeeds.length)]
 
-    if (!seed) {
+    if (!seedTile) {
       break
     }
 
-    const seedKey = positionKey(seed.x, seed.y)
+    const seedKey = positionKey(seedTile.x, seedTile.y)
 
     if (occupiedKeys.has(seedKey)) {
       continue
@@ -1041,8 +1214,15 @@ function spawnSheep(tiles, castle, rng, extraReservedKeys = new Set()) {
       break
     }
 
-    const desiredClusterSize = Math.min(1 + rng.nextInt(2), remainingSlots)
-    const cluster = growSheepCluster(seed, desiredClusterSize, candidateKeys, occupiedKeys, tiles, rng)
+    const desiredClusterSize = Math.min(1 + rng.nextInt(3), remainingSlots)
+    const cluster = growSheepCluster(
+      seedTile,
+      desiredClusterSize,
+      candidateKeys,
+      occupiedKeys,
+      tiles,
+      rng,
+    )
 
     if (cluster.length === 0) {
       continue
@@ -1051,8 +1231,16 @@ function spawnSheep(tiles, castle, rng, extraReservedKeys = new Set()) {
     clusterCount += 1
 
     for (const tile of cluster) {
+      occupiedKeys.add(positionKey(tile.x, tile.y))
       sheepPositions.push(tile)
-      resources.push(createSheep(tile.x, tile.y, rng.nextInt(SHEEP_VARIANT_CONFIGS.length)))
+      resources.push(
+        createSheep(
+          tile.x,
+          tile.y,
+          rng.nextInt(SHEEP_VARIANT_CONFIGS.length),
+          getSpawnFacing(worldSeed, 'sheep', tile.x, tile.y),
+        ),
+      )
     }
   }
 
@@ -1076,7 +1264,14 @@ function spawnSheep(tiles, castle, rng, extraReservedKeys = new Set()) {
 
     occupiedKeys.add(key)
     sheepPositions.push(tile)
-    resources.push(createSheep(tile.x, tile.y, rng.nextInt(SHEEP_VARIANT_CONFIGS.length)))
+    resources.push(
+      createSheep(
+        tile.x,
+        tile.y,
+        rng.nextInt(SHEEP_VARIANT_CONFIGS.length),
+        getSpawnFacing(worldSeed, 'sheep', tile.x, tile.y),
+      ),
+    )
   }
 
   if (resources.length < INITIAL_SHEEP_COUNT) {
@@ -1093,7 +1288,14 @@ function spawnSheep(tiles, castle, rng, extraReservedKeys = new Set()) {
 
       occupiedKeys.add(key)
       sheepPositions.push(tile)
-      resources.push(createSheep(tile.x, tile.y, rng.nextInt(SHEEP_VARIANT_CONFIGS.length)))
+      resources.push(
+        createSheep(
+          tile.x,
+          tile.y,
+          rng.nextInt(SHEEP_VARIANT_CONFIGS.length),
+          getSpawnFacing(worldSeed, 'sheep', tile.x, tile.y),
+        ),
+      )
     }
   }
 
@@ -1327,17 +1529,17 @@ export function createWorld(worldStore) {
   const pawnReservedKeys = new Set(
     pawnUnits.map((pawn) => positionKey(pawn.gridPos.x, pawn.gridPos.y)),
   )
-  const goldResources = spawnGold(tiles, castle, rng, pawnReservedKeys)
+  const goldResources = spawnGold(tiles, castle, seed, rng, pawnReservedKeys)
   const goldReservedKeys = new Set(
     goldResources.map((resource) => positionKey(resource.gridPos.x, resource.gridPos.y)),
   )
   const treeReservedKeys = new Set([...pawnReservedKeys, ...goldReservedKeys])
-  const treeResources = spawnTrees(tiles, castle, rng, treeReservedKeys)
+  const treeResources = spawnTrees(tiles, castle, seed, rng, treeReservedKeys)
   const treeResourceKeys = new Set(
     treeResources.map((resource) => positionKey(resource.gridPos.x, resource.gridPos.y)),
   )
   const sheepReservedKeys = new Set([...treeReservedKeys, ...treeResourceKeys])
-  const sheepResources = spawnSheep(tiles, castle, rng, sheepReservedKeys)
+  const sheepResources = spawnSheep(tiles, castle, seed, rng, sheepReservedKeys)
   const resources = [...goldResources, ...treeResources, ...sheepResources]
 
   worldStore.tick = 0

@@ -15,6 +15,11 @@ const STUMP_DISPLAY_HEIGHT = 256
 const DEBUG_TREE_BORDER_COLOR = 0x58d96f
 const DEBUG_GOLD_BORDER_COLOR = 0xf2c94c
 const DEBUG_SHEEP_BORDER_COLOR = 0xe7a07f
+const SHEEP_HIT_TINT_COLOR = 0xff6b6b
+const SHEEP_HIT_FLASH_MS = 90
+const SHEEP_HIT_FLASH_FRAME_INDEX = 2
+const SHEEP_HIT_FLASH_BOUND_KEY = 'sheepHitFlashBound'
+const SHEEP_HIT_FLASH_TIMER_KEY = 'sheepHitFlashTimer'
 
 function drawDebugOccupiedTiles(scene, resource, depth) {
   const border = scene.add.graphics()
@@ -123,6 +128,68 @@ function getSheepAnimationKey(resource) {
   return `${getSheepVariantTextureKey(resource)}_anim`
 }
 
+function isResourceFacingLeft(resource) {
+  return resource?.facing === 'left'
+}
+
+function clearSheepHitFlash(sprite) {
+  const timer = sprite.getData(SHEEP_HIT_FLASH_TIMER_KEY)
+
+  if (timer) {
+    timer.remove(false)
+    sprite.setData(SHEEP_HIT_FLASH_TIMER_KEY, null)
+  }
+
+  sprite.clearTint()
+}
+
+function flashSheepHit(scene, sprite) {
+  if (!sprite?.active) {
+    return
+  }
+
+  clearSheepHitFlash(sprite)
+  sprite.setTint(SHEEP_HIT_TINT_COLOR)
+
+  const timer = scene.time.delayedCall(SHEEP_HIT_FLASH_MS, () => {
+    if (sprite.active) {
+      sprite.clearTint()
+    }
+
+    sprite.setData(SHEEP_HIT_FLASH_TIMER_KEY, null)
+  })
+
+  sprite.setData(SHEEP_HIT_FLASH_TIMER_KEY, timer)
+}
+
+function ensureSheepHitFlashBinding(scene, sprite, resource) {
+  if (sprite.getData(SHEEP_HIT_FLASH_BOUND_KEY)) {
+    return
+  }
+
+  const handleAnimationUpdate = (_animation, frame) => {
+    if (!isResourceBeingHarvested(resource, scene.worldStore)) {
+      return
+    }
+
+    const frameIndex = Number.isInteger(frame?.index)
+      ? frame.index
+      : sprite.anims?.currentFrame?.index
+
+    if (frameIndex !== SHEEP_HIT_FLASH_FRAME_INDEX) {
+      return
+    }
+
+    flashSheepHit(scene, sprite)
+  }
+
+  sprite.on('animationupdate', handleAnimationUpdate)
+  sprite.once('destroy', () => {
+    clearSheepHitFlash(sprite)
+  })
+  sprite.setData(SHEEP_HIT_FLASH_BOUND_KEY, true)
+}
+
 function getResourceDisplaySize(resource) {
   if (resource.type === 'sheep') {
     const variantConfig = getSheepVariantConfig(resource)
@@ -175,7 +242,10 @@ function isResourceBeingHarvested(resource, worldStore) {
 }
 
 function updateResourceSprite(scene, resource) {
-  if (resource.type === 'gold' && (resource.amount ?? 0) <= 0) {
+  if (
+    (resource.type === 'gold' || resource.type === 'sheep') &&
+    (resource.amount ?? 0) <= 0
+  ) {
     const existingSprite = scene.resourceSprites.get(resource.id)
 
     if (existingSprite) {
@@ -255,8 +325,13 @@ function updateResourceSprite(scene, resource) {
     sprite.setFrame(0)
   }
 
+  if (isSheep) {
+    ensureSheepHitFlashBinding(scene, sprite, resource)
+  }
+
   sprite.setPosition(x, y)
   sprite.setDepth(depth)
+  sprite.setFlipX(isResourceFacingLeft(resource))
 
   if (DEBUG_MODE) {
     let border = scene.resourceDebugBorders.get(resource.id)

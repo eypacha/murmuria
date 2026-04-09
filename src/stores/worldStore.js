@@ -17,7 +17,7 @@ function createKingdomState() {
 }
 
 export const useWorldStore = defineStore('world', () => {
-  const seed = ref(1)
+  const seed = ref(Date.now().toString())
   const tick = ref(0)
 
   const kingdom = ref(createKingdomState())

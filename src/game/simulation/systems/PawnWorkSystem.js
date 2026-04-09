@@ -46,7 +46,12 @@ export class PawnWorkSystem {
       return
     }
 
-    PawnStateSystem.queueTimedTransition(pawn, worldStore, 'gathering_complete', PAWN_GATHER_DURATION_MS)
+    const resource = this.getResourceById(worldStore, pawn.workTargetId ?? pawn.targetId)
+    const resourceType = this.getWorkTargetType(pawn, resource)
+    const resourceAmount = Math.max(0, resource?.amount ?? 0)
+    const gatherDurationMs = this.getGatherDuration(resourceType, resourceAmount)
+
+    PawnStateSystem.queueTimedTransition(pawn, worldStore, 'gathering_complete', gatherDurationMs)
   }
 
   static completeGather(pawn, worldStore) {
@@ -60,7 +65,10 @@ export class PawnWorkSystem {
     pawn.inventory = pawn.inventory ?? { wood: 0, gold: 0, meat: 0 }
     const currentAmount = Math.max(0, pawn.inventory[inventoryKey] ?? 0)
     const availableCapacity = Math.max(0, carryCapacity - currentAmount)
-    const transferAmount = Math.min(harvestChunk, availableCapacity, resourceAmount)
+    const transferAmount =
+      resourceType === 'sheep'
+        ? resourceAmount
+        : Math.min(harvestChunk, availableCapacity, resourceAmount)
 
     if (transferAmount > 0) {
       pawn.inventory[inventoryKey] = currentAmount + transferAmount
@@ -68,6 +76,10 @@ export class PawnWorkSystem {
       if (resource) {
         resource.amount = Math.max(0, resourceAmount - transferAmount)
       }
+    }
+
+    if (resourceType === 'sheep') {
+      this.removeResourceById(worldStore, resource?.id ?? pawn.workTargetId ?? pawn.targetId)
     }
 
     this.beginReturnToCastle(pawn, worldStore)
@@ -231,6 +243,29 @@ export class PawnWorkSystem {
     }
 
     return PAWN_WOOD_HARVEST_CHUNK
+  }
+
+  static getGatherDuration(resourceType, resourceAmount) {
+    if (resourceType === 'sheep') {
+      const batches = Math.max(1, Math.ceil(resourceAmount / PAWN_MEAT_HARVEST_CHUNK))
+
+      return PAWN_GATHER_DURATION_MS * batches
+    }
+
+    return PAWN_GATHER_DURATION_MS
+  }
+
+  static removeResourceById(worldStore, resourceId) {
+    if (!resourceId) {
+      return
+    }
+
+    const resources = worldStore.resources ?? []
+    const resourceIndex = resources.findIndex((resource) => resource.id === resourceId)
+
+    if (resourceIndex >= 0) {
+      resources.splice(resourceIndex, 1)
+    }
   }
 
   static isInsideWorld(tile, worldStore) {
