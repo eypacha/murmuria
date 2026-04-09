@@ -111,7 +111,10 @@ export function createWorld(worldStore) {
     occupiedTiles.add(positionKey(position.x, position.y))
   }
 
+  worldStore.tick = 0
   worldStore.seed = seed
+  worldStore.kingdom.resources.wood = 0
+  worldStore.kingdom.policies.woodPriority = 0
   Object.assign(worldStore.world, {
     width,
     height,
