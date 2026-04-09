@@ -1,21 +1,22 @@
-import { DEPTH_UNITS, TILE_SIZE } from '../../config/constants.js'
+import { TILE_SIZE } from '../../config/constants.js'
 
-const VILLAGER_COLORS = [0xf59e0b, 0x38bdf8, 0xfb7185]
+const PAWN_SCALE = TILE_SIZE / 192
 
 export function syncUnits(scene, worldStore) {
   const villagers = worldStore.units.filter((unit) => unit.role === 'villager')
 
-  return villagers.map((villager, index) => {
+  return villagers.map((villager) => {
     const pos = villager.pos ?? villager.gridPos
-    const centerX = pos.x * TILE_SIZE + TILE_SIZE / 2
-    const centerY = pos.y * TILE_SIZE + TILE_SIZE / 2
-    const color = VILLAGER_COLORS[index % VILLAGER_COLORS.length]
+    const x = pos.x * TILE_SIZE + TILE_SIZE / 2
+    const y = pos.y * TILE_SIZE + TILE_SIZE
+    const depth = y
 
-    const shape = scene.add.circle(centerX, centerY, TILE_SIZE * 0.16, color)
+    const sprite = scene.add.sprite(x, y, 'pawn_idle')
+    sprite.setOrigin(0.5, 0.9)
+    sprite.setScale(PAWN_SCALE)
+    sprite.setDepth(depth)
+    sprite.play('pawn_idle_anim')
 
-    shape.setStrokeStyle(2, 0xffffff, 0.65)
-    shape.setDepth(DEPTH_UNITS)
-
-    return shape
+    return sprite
   })
 }

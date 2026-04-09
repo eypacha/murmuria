@@ -1,18 +1,22 @@
 import Phaser from 'phaser'
-import { GRID_HEIGHT, GRID_WIDTH, TILE_SIZE } from '../config/constants.js'
 import { GameScene } from './GameScene.js'
 
 export function createPhaserGame(containerId, worldStore) {
+  const parentElement =
+    typeof containerId === 'string' ? document.getElementById(containerId) : containerId
+  const width = parentElement?.clientWidth ?? window.innerWidth
+  const height = parentElement?.clientHeight ?? window.innerHeight
+
   const game = new Phaser.Game({
     type: Phaser.AUTO,
     parent: containerId,
     backgroundColor: '#0f172a',
+    width,
+    height,
     scene: [],
     scale: {
-      mode: Phaser.Scale.FIT,
-      autoCenter: Phaser.Scale.CENTER_BOTH,
-      width: GRID_WIDTH * TILE_SIZE,
-      height: GRID_HEIGHT * TILE_SIZE,
+      mode: Phaser.Scale.NONE,
+      autoCenter: Phaser.Scale.NO_CENTER,
     },
     callbacks: {
       postBoot: (bootedGame) => {
