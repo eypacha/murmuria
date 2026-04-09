@@ -7,6 +7,7 @@ import {
 import { createCastle } from '../domain/factories/createCastle.js'
 import { createPawn } from '../domain/factories/createPawn.js'
 import { createTree } from '../domain/factories/createTree.js'
+import { getOccupiedTiles } from './getOccupiedTiles.js'
 import { seededRandom } from './seededRandom.js'
 
 function createTileGrid(width, height) {
@@ -45,26 +46,53 @@ function shuffleInPlace(items, rng) {
   }
 }
 
-function createPawnPositions(castle, width, height, rng) {
-  const positions = []
+function createPawnPositions(castle, width, height, occupiedTiles, rng) {
+  const footprint = castle.footprint ?? { w: 1, h: 1 }
+  const preferredPositions = [
+    { x: castle.gridPos.x - 1, y: castle.gridPos.y + 3 },
+    { x: castle.gridPos.x + footprint.w, y: castle.gridPos.y + 3 },
+  ]
 
-  for (let y = castle.gridPos.y - 1; y <= castle.gridPos.y + 1; y += 1) {
-    for (let x = castle.gridPos.x - 1; x <= castle.gridPos.x + 1; x += 1) {
+  const validPreferredPositions = preferredPositions.filter((position) => {
+    if (position.x < 0 || position.y < 0 || position.x >= width || position.y >= height) {
+      return false
+    }
+
+    return !occupiedTiles.has(positionKey(position.x, position.y))
+  })
+
+  if (validPreferredPositions.length >= INITIAL_PAWNS) {
+    return validPreferredPositions.slice(0, INITIAL_PAWNS)
+  }
+
+  const fallbackPositions = []
+
+  const minX = Math.max(0, castle.gridPos.x - 3)
+  const maxX = Math.min(width - 1, castle.gridPos.x + footprint.w + 2)
+  const minY = Math.max(0, castle.gridPos.y + 1)
+  const maxY = Math.min(height - 1, castle.gridPos.y + 5)
+
+  for (let y = minY; y <= maxY; y += 1) {
+    for (let x = minX; x <= maxX; x += 1) {
       if (x < 0 || y < 0 || x >= width || y >= height) {
         continue
       }
 
-      if (x === castle.gridPos.x && y === castle.gridPos.y) {
+      if (preferredPositions.some((position) => position.x === x && position.y === y)) {
         continue
       }
 
-      positions.push({ x, y })
+      if (occupiedTiles.has(positionKey(x, y))) {
+        continue
+      }
+
+      fallbackPositions.push({ x, y })
     }
   }
 
-  shuffleInPlace(positions, rng)
+  shuffleInPlace(fallbackPositions, rng)
 
-  return positions.slice(0, Math.min(INITIAL_PAWNS, positions.length))
+  return [...validPreferredPositions, ...fallbackPositions].slice(0, INITIAL_PAWNS)
 }
 
 export function createWorld(worldStore) {
@@ -78,9 +106,13 @@ export function createWorld(worldStore) {
   const buildings = [castle]
   const resources = []
   const units = []
-  const occupiedTiles = new Set([positionKey(castle.gridPos.x, castle.gridPos.y)])
+  const occupiedTiles = new Set()
 
-  const pawnPositions = createPawnPositions(castle, width, height, rng)
+  for (const tile of getOccupiedTiles(castle)) {
+    occupiedTiles.add(positionKey(tile.x, tile.y))
+  }
+
+  const pawnPositions = createPawnPositions(castle, width, height, occupiedTiles, rng)
 
   for (const position of pawnPositions) {
     units.push(createPawn(position.x, position.y))

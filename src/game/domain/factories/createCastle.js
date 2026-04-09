@@ -5,12 +5,16 @@ export function createCastle(
   y = Math.floor(GRID_HEIGHT / 2),
 ) {
   return {
-    id: `castle-${x}-${y}`,
+    id: 'castle',
     kind: 'building',
     type: 'castle',
     gridPos: {
       x,
       y,
+    },
+    footprint: {
+      w: 5,
+      h: 2,
     },
   }
 }

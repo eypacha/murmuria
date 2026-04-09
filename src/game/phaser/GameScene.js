@@ -17,6 +17,8 @@ export class GameScene extends Phaser.Scene {
       frameHeight: 192,
     })
 
+    this.load.image('castle_blue', '/assets/buildings/blue/castle.png')
+
     this.load.spritesheet('tree_0', '/assets/terrain/resources/wood/trees/tree-0.png', {
       frameWidth: 192,
       frameHeight: 256,
@@ -54,8 +56,9 @@ export class GameScene extends Phaser.Scene {
       return
     }
 
-    const centerX = castle.gridPos.x * TILE_SIZE + TILE_SIZE / 2
-    const centerY = castle.gridPos.y * TILE_SIZE + TILE_SIZE / 2
+    const footprint = castle.footprint ?? { w: 1, h: 1 }
+    const centerX = (castle.gridPos.x + footprint.w / 2) * TILE_SIZE
+    const centerY = (castle.gridPos.y + footprint.h / 2) * TILE_SIZE
 
     this.cameras.main.centerOn(centerX, centerY)
   }
