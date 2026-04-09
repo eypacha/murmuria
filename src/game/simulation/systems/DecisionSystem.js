@@ -4,9 +4,9 @@ import { PawnStateSystem } from './PawnStateSystem.js'
 
 export class DecisionSystem {
   static update(worldStore) {
-    const resourceTypes = this.resolvePreferredResourceTypes(worldStore)
+    const scores = this.computeResourceScores(worldStore)
 
-    if (resourceTypes.length === 0) {
+    if (scores.length === 0) {
       return
     }
 
@@ -25,67 +25,96 @@ export class DecisionSystem {
         continue
       }
 
-      let resource = null
-      let selectedResourceType = null
+      let availableScores = scores
 
-      for (const resourceType of resourceTypes) {
-        const resources = (worldStore.resources ?? []).filter((resource) => resource.type === resourceType)
-        resource = this.findNearestAvailableResource(pawn, resources)
+      while (availableScores.length > 0) {
+        const resourceType = this.chooseWeightedResource(availableScores)
 
-        if (resource) {
-          selectedResourceType = resourceType
+        if (!resourceType) {
           break
         }
-      }
 
-      if (!resource) {
-        continue
-      }
+        const resources = (worldStore.resources ?? []).filter((resource) => resource.type === resourceType)
+        const resource = this.findNearestAvailableResource(pawn, resources)
 
-      const targetTile = this.findAdjacentTile(resource, pawn, worldStore)
+        if (!resource) {
+          availableScores = availableScores.filter((score) => score.type !== resourceType)
+          continue
+        }
 
-      if (!targetTile) {
-        continue
-      }
+        const targetTile = this.findAdjacentTile(resource, pawn, worldStore)
 
-      resource.reservedBy = pawn.id
-      pawn.targetId = resource.id
-      pawn.workTargetId = resource.id
-      pawn.workTargetType = resource.type
-      pawn.target = {
-        type: resource.type,
-        id: resource.id,
-        tile: targetTile,
+        if (!targetTile) {
+          availableScores = availableScores.filter((score) => score.type !== resourceType)
+          continue
+        }
+
+        resource.reservedBy = pawn.id
+        pawn.targetId = resource.id
+        pawn.workTargetId = resource.id
+        pawn.workTargetType = resource.type
+        pawn.target = {
+          type: resource.type,
+          id: resource.id,
+          tile: targetTile,
+        }
+        pawn.path = []
+        pawn.pathGoalKey = null
+        pawn.interactionFacing = this.getFacingForResource(resource, targetTile)
+        pawn.facing = pawn.interactionFacing
+        pawn.equipment = pawn.equipment ?? { tool: null }
+        pawn.equipment.tool = resourceType === 'gold' ? 'pickaxe' : 'axe'
+        pawn.state = resourceType === 'gold' ? 'preparing_to_gold' : 'preparing_to_tree'
+        PawnStateSystem.queueTimedTransition(
+          pawn,
+          worldStore,
+          resourceType === 'gold' ? 'moving_to_gold' : 'moving_to_tree',
+          PAWN_PREPARE_TO_TREE_MS,
+        )
+        break
       }
-      pawn.path = []
-      pawn.pathGoalKey = null
-      pawn.interactionFacing = this.getFacingForResource(resource, targetTile)
-      pawn.facing = pawn.interactionFacing
-      pawn.equipment = pawn.equipment ?? { tool: null }
-      pawn.equipment.tool = selectedResourceType === 'gold' ? 'pickaxe' : 'axe'
-      pawn.state = selectedResourceType === 'gold' ? 'preparing_to_gold' : 'preparing_to_tree'
-      PawnStateSystem.queueTimedTransition(
-        pawn,
-        worldStore,
-        selectedResourceType === 'gold' ? 'moving_to_gold' : 'moving_to_tree',
-        PAWN_PREPARE_TO_TREE_MS,
-      )
     }
   }
 
-  static resolvePreferredResourceTypes(worldStore) {
-    const woodPriority = worldStore.kingdom?.policies?.woodPriority ?? 0
-    const goldPriority = worldStore.kingdom?.policies?.goldPriority ?? 0
+  static computeResourceScores(worldStore) {
+    const gatherWood = Number(worldStore.kingdom?.desires?.gatherWood ?? 0)
+    const gatherGold = Number(worldStore.kingdom?.desires?.gatherGold ?? 0)
 
-    if (woodPriority <= 0 && goldPriority <= 0) {
-      return []
+    return [
+      { type: 'tree', score: gatherWood },
+      { type: 'gold', score: gatherGold },
+    ].filter(({ score }) => score > 0)
+  }
+
+  static chooseWeightedResource(scores) {
+    let totalScore = 0
+
+    for (const { score } of scores) {
+      if (score > 0) {
+        totalScore += score
+      }
     }
 
-    if (goldPriority > woodPriority) {
-      return goldPriority > 0 ? ['gold', 'tree'] : ['tree']
+    if (totalScore <= 0) {
+      return null
     }
 
-    return woodPriority > 0 ? ['tree', 'gold'] : ['gold']
+    const targetScore = Math.random() * totalScore
+    let accumulatedScore = 0
+
+    for (const { type, score } of scores) {
+      if (score <= 0) {
+        continue
+      }
+
+      accumulatedScore += score
+
+      if (targetScore < accumulatedScore) {
+        return type
+      }
+    }
+
+    return scores.find(({ score }) => score > 0)?.type ?? null
   }
 
   static findNearestAvailableResource(pawn, resources) {
