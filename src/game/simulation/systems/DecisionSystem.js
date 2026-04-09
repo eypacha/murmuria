@@ -1,23 +1,13 @@
 import { getOccupiedTiles } from '../../core/getOccupiedTiles.js'
 import { isTraversableWorldTile } from '../../core/isTraversableTile.js'
 import { PAWN_PREPARE_TO_TREE_MS } from '../../config/constants.js'
-import { weightedPick } from '../../ai/utils/weightedPick.js'
-import { BuildHouseAction } from '../../ai/actions/BuildHouseAction.js'
-import { GatherGoldAction } from '../../ai/actions/GatherGoldAction.js'
-import { GatherMeatAction } from '../../ai/actions/GatherMeatAction.js'
-import { GatherWoodAction } from '../../ai/actions/GatherWoodAction.js'
 import { PawnStateSystem } from './PawnStateSystem.js'
-
-const ACTIONS = [
-  GatherWoodAction,
-  GatherGoldAction,
-  GatherMeatAction,
-  BuildHouseAction,
-]
 
 export class DecisionSystem {
   static update(worldStore) {
     const pawns = worldStore.units ?? []
+    const occupiedTiles = this.buildOccupiedTileSet(worldStore)
+    const blockedTiles = this.buildOccupiedTileSet(worldStore, { includeUnits: false })
 
     for (const pawn of pawns) {
       if (pawn.role !== 'pawn') {
@@ -36,147 +26,113 @@ export class DecisionSystem {
         continue
       }
 
-      if (!this.getGridPosition(pawn)) {
+      const pawnPosition = this.getGridPosition(pawn)
+
+      if (!pawnPosition) {
         continue
       }
 
-      const scoredActions = ACTIONS.map((action) => {
-        return {
-          action,
-          score: action.score(pawn, worldStore),
-        }
-      }).filter(({ score }) => score > 0)
+      const scores = this.computeResourceScores(pawn, worldStore)
 
-      if (scoredActions.length === 0) {
+      if (scores.length === 0) {
         continue
       }
 
-      while (scoredActions.length > 0) {
-        const selected = weightedPick(scoredActions)
+      const reachableTiles = this.buildReachabilityMap(pawnPosition, worldStore, blockedTiles)
+      let availableScores = scores
 
-        if (!selected) {
+      while (availableScores.length > 0) {
+        const resourceType = this.chooseWeightedResource(availableScores)
+
+        if (!resourceType) {
           break
         }
 
-        if (selected.action.perform(pawn, worldStore, this)) {
-          break
+        const resources = (worldStore.resources ?? []).filter((resource) => resource.type === resourceType)
+        const selection = this.findNearestAvailableResource(
+          pawn,
+          resources,
+          worldStore,
+          occupiedTiles,
+          blockedTiles,
+          reachableTiles,
+        )
+
+        if (!selection) {
+          availableScores = availableScores.filter((score) => score.type !== resourceType)
+          continue
         }
 
-        const selectedIndex = scoredActions.indexOf(selected)
+        const { resource, targetTile } = selection
 
-        if (selectedIndex >= 0) {
-          scoredActions.splice(selectedIndex, 1)
+        resource.reservedBy = pawn.id
+        pawn.targetId = resource.id
+        pawn.workTargetId = resource.id
+        pawn.workTargetType = resource.type
+        pawn.target = {
+          type: resource.type,
+          id: resource.id,
+          tile: targetTile,
         }
+        pawn.path = []
+        pawn.pathGoalKey = null
+        pawn.interactionFacing = this.getFacingForResource(resource, targetTile)
+        pawn.facing = pawn.interactionFacing
+        pawn.equipment = pawn.equipment ?? { tool: null }
+        pawn.equipment.tool = this.getToolForResourceType(resourceType)
+        pawn.state = this.getPreparingStateForResourceType(resourceType)
+        PawnStateSystem.queueTimedTransition(
+          pawn,
+          worldStore,
+          this.getMovingStateForResourceType(resourceType),
+          PAWN_PREPARE_TO_TREE_MS,
+        )
+        break
       }
     }
   }
 
-  static assignResourceJob(pawn, worldStore, resourceType) {
-    const pawnPosition = this.getGridPosition(pawn)
+  static computeResourceScores(pawn, worldStore) {
+    const gatherWood = Number(worldStore.kingdom?.desires?.gatherWood ?? 0)
+    const gatherGold = Number(worldStore.kingdom?.desires?.gatherGold ?? 0)
+    const gatherMeat = Number(worldStore.kingdom?.desires?.gatherMeat ?? 0)
 
-    if (!pawnPosition) {
-      return false
-    }
-
-    const occupiedTiles = this.buildOccupiedTileSet(worldStore)
-    const blockedTiles = this.buildOccupiedTileSet(worldStore, { includeUnits: false })
-    const reachableTiles = this.buildReachabilityMap(pawnPosition, worldStore, blockedTiles)
-    const resources = (worldStore.resources ?? []).filter((resource) => resource.type === resourceType)
-    const selection = this.findNearestAvailableResource(
-      pawn,
-      resources,
-      worldStore,
-      occupiedTiles,
-      blockedTiles,
-      reachableTiles,
-    )
-
-    if (!selection) {
-      return false
-    }
-
-    const { resource, targetTile } = selection
-
-    resource.reservedBy = pawn.id
-    pawn.targetId = resource.id
-    pawn.workTargetId = resource.id
-    pawn.workTargetType = resource.type
-    pawn.target = {
-      type: resource.type,
-      id: resource.id,
-      tile: targetTile,
-    }
-    pawn.path = []
-    pawn.pathGoalKey = null
-    pawn.interactionFacing = this.getFacingForResource(resource, targetTile)
-    pawn.facing = pawn.interactionFacing
-    pawn.equipment = pawn.equipment ?? { tool: null }
-    pawn.equipment.tool = this.getToolForResourceType(resourceType)
-    pawn.state = this.getPreparingStateForResourceType(resourceType)
-    PawnStateSystem.queueTimedTransition(
-      pawn,
-      worldStore,
-      this.getMovingStateForResourceType(resourceType),
-      PAWN_PREPARE_TO_TREE_MS,
-    )
-
-    return true
+    return [
+      { type: 'tree', score: gatherWood },
+      { type: 'gold', score: gatherGold },
+      { type: 'sheep', score: gatherMeat },
+    ].filter(({ score }) => score > 0)
   }
 
-  static proposeHouseConstruction(pawn, worldStore) {
-    const pawnPosition = this.getGridPosition(pawn)
+  static chooseWeightedResource(scores) {
+    let totalScore = 0
 
-    if (!pawnPosition) {
-      return false
+    for (const { score } of scores) {
+      if (score > 0) {
+        totalScore += score
+      }
     }
 
-    if (
-      (worldStore.buildings ?? []).some(
-        (building) => building.kind === 'constructionSite' && building.buildingType === 'house',
-      )
-    ) {
-      return false
+    if (totalScore <= 0) {
+      return null
     }
 
-    const occupiedTiles = this.buildOccupiedTileSet(worldStore)
-    const tile = this.findBuildLocation(pawnPosition, worldStore, occupiedTiles)
+    const targetScore = Math.random() * totalScore
+    let accumulatedScore = 0
 
-    if (!tile) {
-      return false
+    for (const { type, score } of scores) {
+      if (score <= 0) {
+        continue
+      }
+
+      accumulatedScore += score
+
+      if (targetScore < accumulatedScore) {
+        return type
+      }
     }
 
-    const site = {
-      id: `site-${Date.now()}`,
-      kind: 'constructionSite',
-      buildingType: 'house',
-      gridPos: tile,
-      footprint: { w: 2, h: 2 },
-      state: 'planned',
-      cost: {
-        wood: 20,
-      },
-      delivered: {
-        wood: 0,
-      },
-      progress: 0,
-      maxProgress: 100,
-      initiator: pawn.id,
-      workers: [],
-    }
-
-    worldStore.buildings = worldStore.buildings ?? []
-    worldStore.buildings.push(site)
-
-    pawn.state = 'proposing_construction'
-    pawn.target = {
-      type: 'constructionSite',
-      id: site.id,
-      tile,
-    }
-    pawn.path = []
-    pawn.pathGoalKey = null
-
-    return true
+    return scores.find(({ score }) => score > 0)?.type ?? null
   }
 
   static findNearestAvailableResource(
@@ -304,6 +260,16 @@ export class DecisionSystem {
     return distances
   }
 
+  static getTargetResource(worldStore, unit) {
+    const targetId = unit.target?.id ?? unit.targetId
+
+    if (!targetId) {
+      return null
+    }
+
+    return (worldStore.resources ?? []).find((resource) => resource.id === targetId) ?? null
+  }
+
   static getFacingForResource(resource, targetTile) {
     const footprint = resource.footprint ?? { w: 1, h: 1 }
 
@@ -366,59 +332,6 @@ export class DecisionSystem {
 
   static isWalkable(tile, worldStore) {
     return isTraversableWorldTile(worldStore, tile)
-  }
-
-  static findBuildLocation(pawnPosition, worldStore, occupiedTiles) {
-    const footprint = { w: 2, h: 2 }
-    const searchRadius = 6
-
-    for (let radius = 0; radius <= searchRadius; radius += 1) {
-      for (let dy = -radius; dy <= radius; dy += 1) {
-        for (let dx = -radius; dx <= radius; dx += 1) {
-          if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) {
-            continue
-          }
-
-          const tile = {
-            x: pawnPosition.x + dx,
-            y: pawnPosition.y + dy,
-          }
-
-          if (!this.canPlaceFootprint(tile, footprint, worldStore, occupiedTiles)) {
-            continue
-          }
-
-          return tile
-        }
-      }
-    }
-
-    return null
-  }
-
-  static canPlaceFootprint(tile, footprint, worldStore, occupiedTiles) {
-    for (let dy = 0; dy < footprint.h; dy += 1) {
-      for (let dx = 0; dx < footprint.w; dx += 1) {
-        const footprintTile = {
-          x: tile.x + dx,
-          y: tile.y + dy,
-        }
-
-        if (!this.isInsideWorld(footprintTile, worldStore)) {
-          return false
-        }
-
-        if (!this.isWalkable(footprintTile, worldStore)) {
-          return false
-        }
-
-        if (occupiedTiles?.has(this.tileKey(footprintTile))) {
-          return false
-        }
-      }
-    }
-
-    return true
   }
 
   static isTileOccupied(tile, worldStore) {

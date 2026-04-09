@@ -12,7 +12,6 @@ function createKingdomState() {
       gatherWood: 0,
       gatherGold: 0,
       gatherMeat: 0,
-      buildHousing: 0,
     },
   }
 }
