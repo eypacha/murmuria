@@ -1,17 +1,17 @@
 import {
-  PAWN_CARRY_CAPACITY_GOLD,
-  PAWN_CARRY_CAPACITY_MEAT,
-  PAWN_CARRY_CAPACITY_WOOD,
-  PAWN_GATHER_DURATION_MS,
-  PAWN_GOLD_HARVEST_CHUNK,
-  PAWN_MEAT_HARVEST_CHUNK,
-  PAWN_PREPARE_TO_RETURN_MS,
-  PAWN_WOOD_HARVEST_CHUNK,
+  VILLAGER_CARRY_CAPACITY_GOLD,
+  VILLAGER_CARRY_CAPACITY_MEAT,
+  VILLAGER_CARRY_CAPACITY_WOOD,
+  VILLAGER_GATHER_DURATION_MS,
+  VILLAGER_GOLD_HARVEST_CHUNK,
+  VILLAGER_MEAT_HARVEST_CHUNK,
+  VILLAGER_PREPARE_TO_RETURN_MS,
+  VILLAGER_WOOD_HARVEST_CHUNK,
   TILE_SIZE,
 } from '../../config/constants.js'
 import { getOccupiedTiles } from '../../core/getOccupiedTiles.js'
 import { isTraversableWorldTile } from '../../core/isTraversableTile.js'
-import { PawnStateSystem } from './PawnStateSystem.js'
+import { UnitStateSystem } from './UnitStateSystem.js'
 import { computeWorkSpeedMultiplier } from './KingSpeechIntentSystem.js'
 
 function clamp(value, min, max) {
@@ -23,12 +23,12 @@ export function computeTaskAbandonChance(kingdom) {
   return clamp(0.05 - morale * 0.003, 0.01, 0.08)
 }
 
-export class PawnWorkSystem {
+export class VillagerWorkSystem {
   static update(worldStore) {
     const units = worldStore.units ?? []
 
     for (const unit of units) {
-      if (unit.role !== 'pawn') {
+      if (unit.role !== 'villager') {
         continue
       }
 
@@ -77,7 +77,7 @@ export class PawnWorkSystem {
       resource.state = 'idle'
     }
 
-    PawnStateSystem.queueTimedTransition(unit, worldStore, 'gathering_complete', gatherDurationMs)
+    UnitStateSystem.queueTimedTransition(unit, worldStore, 'gathering_complete', gatherDurationMs)
   }
 
   static completeGather(unit, worldStore) {
@@ -166,7 +166,7 @@ export class PawnWorkSystem {
     }
 
     unit.state = 'preparing_to_return'
-    PawnStateSystem.queueTimedTransition(unit, worldStore, 'returning_to_castle', PAWN_PREPARE_TO_RETURN_MS)
+    UnitStateSystem.queueTimedTransition(unit, worldStore, 'returning_to_castle', VILLAGER_PREPARE_TO_RETURN_MS)
   }
 
   static findCastleDropTile(castle, worldStore) {
@@ -251,26 +251,26 @@ export class PawnWorkSystem {
     return (worldStore.resources ?? []).find((resource) => resource.id === resourceId) ?? null
   }
 
-  static getFacingTowardResource(pawn, resource) {
-    const pawnX = this.getWorldCenterX(pawn)
+  static getFacingTowardResource(unit, resource) {
+    const unitX = this.getWorldCenterX(unit)
     const resourceX = this.getResourceCenterX(resource)
 
-    if (!Number.isFinite(pawnX) || !Number.isFinite(resourceX)) {
+    if (!Number.isFinite(unitX) || !Number.isFinite(resourceX)) {
       return null
     }
 
-    if (resourceX > pawnX) {
+    if (resourceX > unitX) {
       return 'right'
     }
 
-    if (resourceX < pawnX) {
+    if (resourceX < unitX) {
       return 'left'
     }
 
-    return pawn.interactionFacing === 'left' || pawn.interactionFacing === 'right'
-      ? pawn.interactionFacing
-      : pawn.facing === 'left' || pawn.facing === 'right'
-        ? pawn.facing
+    return unit.interactionFacing === 'left' || unit.interactionFacing === 'right'
+      ? unit.interactionFacing
+      : unit.facing === 'left' || unit.facing === 'right'
+        ? unit.facing
         : null
   }
 
@@ -298,24 +298,24 @@ export class PawnWorkSystem {
     return null
   }
 
-  static getWorkTargetType(pawn, resource) {
-    return pawn.workTargetType ?? resource?.type ?? 'tree'
+  static getWorkTargetType(unit, resource) {
+    return unit.workTargetType ?? resource?.type ?? 'tree'
   }
 
-  static getCarriedResourceType(pawn) {
-    if ((pawn.inventory?.meat ?? 0) > 0) {
+  static getCarriedResourceType(unit) {
+    if ((unit.inventory?.meat ?? 0) > 0) {
       return 'meat'
     }
 
-    if ((pawn.inventory?.gold ?? 0) > 0) {
+    if ((unit.inventory?.gold ?? 0) > 0) {
       return 'gold'
     }
 
-    if ((pawn.inventory?.wood ?? 0) > 0) {
+    if ((unit.inventory?.wood ?? 0) > 0) {
       return 'wood'
     }
 
-    return pawn.workTargetType ?? 'wood'
+    return unit.workTargetType ?? 'wood'
   }
 
   static getInventoryKey(resourceType) {
@@ -342,38 +342,38 @@ export class PawnWorkSystem {
     return 'wood'
   }
 
-  static getCarryCapacity(pawn, resourceType) {
+  static getCarryCapacity(unit, resourceType) {
     if (resourceType === 'gold') {
-      return pawn.stats?.carryCapacityGold ?? PAWN_CARRY_CAPACITY_GOLD
+      return unit.stats?.carryCapacityGold ?? VILLAGER_CARRY_CAPACITY_GOLD
     }
 
     if (resourceType === 'sheep' || resourceType === 'meat') {
-      return pawn.stats?.carryCapacityMeat ?? PAWN_CARRY_CAPACITY_MEAT
+      return unit.stats?.carryCapacityMeat ?? VILLAGER_CARRY_CAPACITY_MEAT
     }
 
-    return pawn.stats?.carryCapacityWood ?? PAWN_CARRY_CAPACITY_WOOD
+    return unit.stats?.carryCapacityWood ?? VILLAGER_CARRY_CAPACITY_WOOD
   }
 
   static getHarvestChunk(resourceType) {
     if (resourceType === 'gold') {
-      return PAWN_GOLD_HARVEST_CHUNK
+      return VILLAGER_GOLD_HARVEST_CHUNK
     }
 
     if (resourceType === 'sheep' || resourceType === 'meat') {
-      return PAWN_MEAT_HARVEST_CHUNK
+      return VILLAGER_MEAT_HARVEST_CHUNK
     }
 
-    return PAWN_WOOD_HARVEST_CHUNK
+    return VILLAGER_WOOD_HARVEST_CHUNK
   }
 
   static getGatherDuration(resourceType, resourceAmount) {
     if (resourceType === 'sheep') {
-      const batches = Math.max(1, Math.ceil(resourceAmount / PAWN_MEAT_HARVEST_CHUNK))
+      const batches = Math.max(1, Math.ceil(resourceAmount / VILLAGER_MEAT_HARVEST_CHUNK))
 
-      return PAWN_GATHER_DURATION_MS * batches
+      return VILLAGER_GATHER_DURATION_MS * batches
     }
 
-    return PAWN_GATHER_DURATION_MS
+    return VILLAGER_GATHER_DURATION_MS
   }
 
   static removeResourceById(worldStore, resourceId) {

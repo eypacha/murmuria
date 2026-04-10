@@ -56,14 +56,14 @@ function getUnitGridTile(unit) {
   }
 }
 
-export class PawnStateSystem {
+export class UnitStateSystem {
   static update(worldStore) {
     const units = worldStore.units ?? []
     const currentTick = worldStore.tick ?? 0
-    const claimedPawnIds = new Set()
+    const claimedUnitIds = new Set()
 
     for (const unit of units) {
-      if (unit.role !== 'pawn') {
+      if (unit.kind !== 'unit') {
         continue
       }
 
@@ -84,7 +84,7 @@ export class PawnStateSystem {
     }
 
     for (const unit of units) {
-      if (unit.role !== 'pawn') {
+      if (unit.kind !== 'unit') {
         continue
       }
 
@@ -94,7 +94,7 @@ export class PawnStateSystem {
     }
 
     for (const unit of units) {
-      if (unit.role !== 'pawn') {
+      if (unit.kind !== 'unit') {
         continue
       }
 
@@ -102,7 +102,7 @@ export class PawnStateSystem {
         continue
       }
 
-      if (claimedPawnIds.has(unit.id)) {
+      if (claimedUnitIds.has(unit.id)) {
         continue
       }
 
@@ -115,99 +115,99 @@ export class PawnStateSystem {
       const shouldTalk = Math.random() < 0.7
 
       if (shouldTalk) {
-        const partner = this.findTalkPartner(unit, units, claimedPawnIds)
+        const partner = this.findTalkPartner(unit, units, claimedUnitIds)
 
         if (partner) {
           this.startTalkPair(unit, partner, worldStore, currentTick)
-          claimedPawnIds.add(unit.id)
-          claimedPawnIds.add(partner.id)
+          claimedUnitIds.add(unit.id)
+          claimedUnitIds.add(partner.id)
           continue
         }
       }
 
       if (this.startWanderBehavior(unit, worldStore, currentTick)) {
-        claimedPawnIds.add(unit.id)
+        claimedUnitIds.add(unit.id)
       }
     }
   }
 
-  static ensureIdleMetadata(pawn, currentTick) {
-    if (pawn.idleSince == null && pawn.state === 'idle') {
-      pawn.idleSince = currentTick
+  static ensureIdleMetadata(unit, currentTick) {
+    if (unit.idleSince == null && unit.state === 'idle') {
+      unit.idleSince = currentTick
     }
 
-    if (pawn.idleAction !== 'wander' && pawn.idleAction !== 'talk') {
-      pawn.idleAction = null
+    if (unit.idleAction !== 'wander' && unit.idleAction !== 'talk') {
+      unit.idleAction = null
     }
 
-    if (pawn.talkPartner === undefined) {
-      pawn.talkPartner = null
+    if (unit.talkPartner === undefined) {
+      unit.talkPartner = null
     }
 
-    if (pawn.talkTargetTile === undefined) {
-      pawn.talkTargetTile = null
+    if (unit.talkTargetTile === undefined) {
+      unit.talkTargetTile = null
     }
 
-    if (pawn.talkStartedTick === undefined) {
-      pawn.talkStartedTick = null
+    if (unit.talkStartedTick === undefined) {
+      unit.talkStartedTick = null
     }
 
-    if (pawn.talkUntilTick === undefined) {
-      pawn.talkUntilTick = null
+    if (unit.talkUntilTick === undefined) {
+      unit.talkUntilTick = null
     }
   }
 
-  static updateTalkPair(pawn, worldStore, currentTick) {
-    if (pawn.state === 'talking') {
-      if (pawn.talkUntilTick != null && currentTick >= pawn.talkUntilTick) {
-        this.finishTalkPair(pawn, worldStore, currentTick)
+  static updateTalkPair(unit, worldStore, currentTick) {
+    if (unit.state === 'talking') {
+      if (unit.talkUntilTick != null && currentTick >= unit.talkUntilTick) {
+        this.finishTalkPair(unit, worldStore, currentTick)
         return
       }
 
-      if (!this.isTalkPairValid(pawn, worldStore)) {
-        this.cancelIdleBehavior(pawn, worldStore, currentTick)
+      if (!this.isTalkPairValid(unit, worldStore)) {
+        this.cancelIdleBehavior(unit, worldStore, currentTick)
         return
       }
 
-      const partner = this.getTalkPartnerPawn(pawn, worldStore)
+      const partner = this.getTalkPartnerUnit(unit, worldStore)
 
       if (!partner) {
-        this.cancelIdleBehavior(pawn, worldStore, currentTick)
+        this.cancelIdleBehavior(unit, worldStore, currentTick)
         return
       }
 
-      this.syncTalkBubble(pawn, partner, currentTick)
+      this.syncTalkBubble(unit, partner, currentTick)
       return
     }
 
-    if (pawn.state !== 'moving' && pawn.state !== 'waiting_to_talk') {
-      this.cancelIdleBehavior(pawn, worldStore, currentTick)
+    if (unit.state !== 'moving' && unit.state !== 'waiting_to_talk') {
+      this.cancelIdleBehavior(unit, worldStore, currentTick)
       return
     }
 
-    if (!this.isTalkPairValid(pawn, worldStore)) {
-      this.cancelIdleBehavior(pawn, worldStore, currentTick)
+    if (!this.isTalkPairValid(unit, worldStore)) {
+      this.cancelIdleBehavior(unit, worldStore, currentTick)
       return
     }
 
-    const partner = this.getTalkPartnerPawn(pawn, worldStore)
+    const partner = this.getTalkPartnerUnit(unit, worldStore)
 
     if (!partner) {
-      this.cancelIdleBehavior(pawn, worldStore, currentTick)
+      this.cancelIdleBehavior(unit, worldStore, currentTick)
       return
     }
 
-    if (this.areBothAtTalkTargets(pawn, partner)) {
-      this.startTalkConversation(pawn, partner, worldStore, currentTick)
+    if (this.areBothAtTalkTargets(unit, partner)) {
+      this.startTalkConversation(unit, partner, worldStore, currentTick)
     }
   }
 
-  static syncTalkBubble(pawn, partner, currentTick) {
-    if (!pawn) {
+  static syncTalkBubble(unit, partner, currentTick) {
+    if (!unit) {
       return
     }
 
-    const startedTick = Number.isFinite(pawn.talkStartedTick) ? pawn.talkStartedTick : null
+    const startedTick = Number.isFinite(unit.talkStartedTick) ? unit.talkStartedTick : null
 
     if (startedTick == null) {
       return
@@ -221,39 +221,35 @@ export class PawnStateSystem {
 
     const switchTicks = delayToTicks(TALK_BUBBLE_SWITCH_MS)
     const turnIndex = Math.floor(Math.max(0, currentTick - startedTick) / switchTicks)
-    const leadId = pawn.id <= partnerId ? pawn.id : partnerId
+    const leadId = unit.id <= partnerId ? unit.id : partnerId
     const activeSpeakerId =
-      turnIndex % 2 === 0 ? leadId : (leadId === pawn.id ? partnerId : pawn.id)
+      turnIndex % 2 === 0 ? leadId : (leadId === unit.id ? partnerId : unit.id)
 
-    if (activeSpeakerId !== pawn.id) {
+    if (activeSpeakerId !== unit.id) {
       return
     }
 
-    const bubble = pawn.bubble
+    const bubble = unit.bubble
 
     if (bubble && Number.isFinite(bubble.untilTick) && bubble.untilTick > currentTick) {
       return
     }
 
-    pawn.bubble = {
+    unit.bubble = {
       emoji: TALK_EMOJIS[Math.floor(Math.random() * TALK_EMOJIS.length)] ?? TALK_EMOJIS[0],
       text: null,
       untilTick: currentTick + switchTicks,
     }
   }
 
-  static isTalkPairValid(pawn, worldStore) {
-    const partner = this.getTalkPartnerPawn(pawn, worldStore)
+  static isTalkPairValid(unit, worldStore) {
+    const partner = this.getTalkPartnerUnit(unit, worldStore)
 
     if (!partner) {
       return false
     }
 
-    if (partner.role !== 'pawn') {
-      return false
-    }
-
-    if (partner.talkPartner !== pawn) {
+    if (partner.talkPartner !== unit) {
       return false
     }
 
@@ -269,55 +265,55 @@ export class PawnStateSystem {
       return false
     }
 
-    const pawnTargetTile = normalizeTile(pawn.talkTargetTile)
+    const unitTargetTile = normalizeTile(unit.talkTargetTile)
     const partnerTargetTile = normalizeTile(partner.talkTargetTile)
 
-    if (!pawnTargetTile || !partnerTargetTile) {
+    if (!unitTargetTile || !partnerTargetTile) {
       return false
     }
 
     return true
   }
 
-  static areBothAtTalkTargets(pawn, partner) {
-    const pawnTargetTile = normalizeTile(pawn.talkTargetTile)
+  static areBothAtTalkTargets(unit, partner) {
+    const unitTargetTile = normalizeTile(unit.talkTargetTile)
     const partnerTargetTile = normalizeTile(partner.talkTargetTile)
 
-    if (!pawnTargetTile || !partnerTargetTile) {
+    if (!unitTargetTile || !partnerTargetTile) {
       return false
     }
 
-    const pawnGridTile = getUnitGridTile(pawn)
+    const unitGridTile = getUnitGridTile(unit)
     const partnerGridTile = getUnitGridTile(partner)
 
-    if (!pawnGridTile || !partnerGridTile) {
+    if (!unitGridTile || !partnerGridTile) {
       return false
     }
 
     return (
-      pawnGridTile.x === pawnTargetTile.x &&
-      pawnGridTile.y === pawnTargetTile.y &&
+      unitGridTile.x === unitTargetTile.x &&
+      unitGridTile.y === unitTargetTile.y &&
       partnerGridTile.x === partnerTargetTile.x &&
       partnerGridTile.y === partnerTargetTile.y
     )
   }
 
-  static findTalkPartner(pawn, pawns, claimedPawnIds) {
-    const pawnGridTile = getUnitGridTile(pawn)
+  static findTalkPartner(unit, units, claimedUnitIds) {
+    const unitGridTile = getUnitGridTile(unit)
 
-    if (!pawnGridTile) {
+    if (!unitGridTile) {
       return null
     }
 
     let bestPartner = null
     let bestDistance = Number.POSITIVE_INFINITY
 
-    for (const candidate of pawns) {
-      if (candidate.role !== 'pawn' || candidate.id === pawn.id) {
+    for (const candidate of units) {
+      if (candidate.kind !== 'unit' || candidate.id === unit.id) {
         continue
       }
 
-      if (claimedPawnIds.has(candidate.id)) {
+      if (claimedUnitIds.has(candidate.id)) {
         continue
       }
 
@@ -331,10 +327,7 @@ export class PawnStateSystem {
         continue
       }
 
-      const distance = Math.hypot(
-        candidateGridTile.x - pawnGridTile.x,
-        candidateGridTile.y - pawnGridTile.y,
-      )
+      const distance = Math.hypot(candidateGridTile.x - unitGridTile.x, candidateGridTile.y - unitGridTile.y)
 
       if (distance > TALK_DISTANCE_LIMIT_TILES) {
         continue
@@ -349,39 +342,39 @@ export class PawnStateSystem {
     return bestPartner
   }
 
-  static startTalkPair(pawnA, pawnB, worldStore, currentTick) {
-    const assignment = this.findTalkAssignment(pawnA, pawnB, worldStore)
+  static startTalkPair(unitA, unitB, worldStore, currentTick) {
+    const assignment = this.findTalkAssignment(unitA, unitB, worldStore)
 
     if (!assignment) {
       return false
     }
 
-    const { pawnLeft, pawnRight, leftTile, rightTile } = assignment
+    const { unitLeft, unitRight, leftTile, rightTile } = assignment
 
-    if (!this.prepareTalkPawn(pawnLeft, pawnRight, leftTile, worldStore)) {
+    if (!this.prepareTalkUnit(unitLeft, unitRight, leftTile, worldStore)) {
       return false
     }
 
-    if (!this.prepareTalkPawn(pawnRight, pawnLeft, rightTile, worldStore)) {
+    if (!this.prepareTalkUnit(unitRight, unitLeft, rightTile, worldStore)) {
       return false
     }
 
-    if (this.areBothAtTalkTargets(pawnLeft, pawnRight)) {
-      this.startTalkConversation(pawnLeft, pawnRight, worldStore, currentTick)
+    if (this.areBothAtTalkTargets(unitLeft, unitRight)) {
+      this.startTalkConversation(unitLeft, unitRight, worldStore, currentTick)
     }
 
     return true
   }
 
-  static findTalkAssignment(pawnA, pawnB, worldStore) {
-    const pawnATile = getUnitGridTile(pawnA)
-    const pawnBTile = getUnitGridTile(pawnB)
+  static findTalkAssignment(unitA, unitB, worldStore) {
+    const unitATile = getUnitGridTile(unitA)
+    const unitBTile = getUnitGridTile(unitB)
 
-    if (!pawnATile || !pawnBTile) {
+    if (!unitATile || !unitBTile) {
       return null
     }
 
-    const path = findPath(worldStore, pawnATile, pawnBTile)
+    const path = findPath(worldStore, unitATile, unitBTile)
 
     if (path.length === 0) {
       return null
@@ -406,7 +399,7 @@ export class PawnStateSystem {
     let bestAssignment = null
 
     for (const pivotTile of pivotTiles) {
-      const meetingPair = this.findAdjacentMeetingPair(worldStore, pivotTile, pawnA, pawnB)
+      const meetingPair = this.findAdjacentMeetingPair(worldStore, pivotTile, unitA, unitB)
 
       if (!meetingPair) {
         continue
@@ -420,8 +413,8 @@ export class PawnStateSystem {
     return bestAssignment
   }
 
-  static findAdjacentMeetingPair(worldStore, pivotTile, pawnA, pawnB) {
-    const ignoredIds = new Set([pawnA.id, pawnB.id])
+  static findAdjacentMeetingPair(worldStore, pivotTile, unitA, unitB) {
+    const ignoredIds = new Set([unitA.id, unitB.id])
     let bestAssignment = null
 
     for (let radius = 0; radius <= TALK_MEETING_SEARCH_RADIUS; radius += 1) {
@@ -440,8 +433,8 @@ export class PawnStateSystem {
             continue
           }
 
-          const directAssignment = this.scoreTalkAssignment(worldStore, pawnA, pawnB, leftTile, rightTile)
-          const swappedAssignment = this.scoreTalkAssignment(worldStore, pawnA, pawnB, rightTile, leftTile)
+          const directAssignment = this.scoreTalkAssignment(worldStore, unitA, unitB, leftTile, rightTile)
+          const swappedAssignment = this.scoreTalkAssignment(worldStore, unitA, unitB, rightTile, leftTile)
 
           if (!directAssignment && !swappedAssignment) {
             continue
@@ -449,19 +442,19 @@ export class PawnStateSystem {
 
           const candidateAssignment = !swappedAssignment
             ? {
-                pawnLeft: pawnA,
-                pawnRight: pawnB,
+                unitLeft: unitA,
+                unitRight: unitB,
                 leftTile,
                 rightTile,
-                score: this.getTalkScore(worldStore, leftTile, rightTile, pawnA, pawnB),
+                score: this.getTalkScore(worldStore, leftTile, rightTile, unitA, unitB),
               }
             : !directAssignment
               ? {
-                  pawnLeft: pawnA,
-                  pawnRight: pawnB,
+                  unitLeft: unitA,
+                  unitRight: unitB,
                   leftTile: rightTile,
                   rightTile: leftTile,
-                  score: this.getTalkScore(worldStore, rightTile, leftTile, pawnA, pawnB),
+                  score: this.getTalkScore(worldStore, rightTile, leftTile, unitA, unitB),
                 }
               : (this.compareTalkAssignments(directAssignment, swappedAssignment) <= 0
                   ? directAssignment
@@ -477,35 +470,35 @@ export class PawnStateSystem {
     return bestAssignment
   }
 
-  static scoreTalkAssignment(worldStore, pawnA, pawnB, leftTile, rightTile) {
-    if (!this.isValidMeetingPair(worldStore, leftTile, rightTile, new Set([pawnA.id, pawnB.id]))) {
+  static scoreTalkAssignment(worldStore, unitA, unitB, leftTile, rightTile) {
+    if (!this.isValidMeetingPair(worldStore, leftTile, rightTile, new Set([unitA.id, unitB.id]))) {
       return null
     }
 
-    const pawnATile = getUnitGridTile(pawnA)
-    const pawnBTile = getUnitGridTile(pawnB)
+    const unitATile = getUnitGridTile(unitA)
+    const unitBTile = getUnitGridTile(unitB)
 
-    if (!pawnATile || !pawnBTile) {
+    if (!unitATile || !unitBTile) {
       return null
     }
 
-    const pathA = findPath(worldStore, pawnATile, leftTile)
-    const pathB = findPath(worldStore, pawnBTile, rightTile)
+    const pathA = findPath(worldStore, unitATile, leftTile)
+    const pathB = findPath(worldStore, unitBTile, rightTile)
 
-    if (!this.isReachablePath(pawnATile, leftTile, pathA)) {
+    if (!this.isReachablePath(unitATile, leftTile, pathA)) {
       return null
     }
 
-    if (!this.isReachablePath(pawnBTile, rightTile, pathB)) {
+    if (!this.isReachablePath(unitBTile, rightTile, pathB)) {
       return null
     }
 
     return {
-      pawnLeft: pawnA,
-      pawnRight: pawnB,
+      unitLeft: unitA,
+      unitRight: unitB,
       leftTile,
       rightTile,
-      score: this.getTalkScore(worldStore, leftTile, rightTile, pawnA, pawnB),
+      score: this.getTalkScore(worldStore, leftTile, rightTile, unitA, unitB),
     }
   }
 
@@ -517,19 +510,19 @@ export class PawnStateSystem {
     return Array.isArray(path) && path.length > 0
   }
 
-  static getTalkScore(worldStore, leftTile, rightTile, pawnA, pawnB) {
-    const pawnATile = getUnitGridTile(pawnA)
-    const pawnBTile = getUnitGridTile(pawnB)
+  static getTalkScore(worldStore, leftTile, rightTile, unitA, unitB) {
+    const unitATile = getUnitGridTile(unitA)
+    const unitBTile = getUnitGridTile(unitB)
 
-    if (!pawnATile || !pawnBTile) {
+    if (!unitATile || !unitBTile) {
       return {
         balance: Number.POSITIVE_INFINITY,
         total: Number.POSITIVE_INFINITY,
       }
     }
 
-    const pathA = findPath(worldStore, pawnATile, leftTile)
-    const pathB = findPath(worldStore, pawnBTile, rightTile)
+    const pathA = findPath(worldStore, unitATile, leftTile)
+    const pathB = findPath(worldStore, unitBTile, rightTile)
 
     return {
       balance: Math.abs(pathA.length - pathB.length),
@@ -589,75 +582,75 @@ export class PawnStateSystem {
     return occupiedTiles
   }
 
-  static startTalkConversation(pawnA, pawnB, worldStore, currentTick) {
-    pawnA.state = 'talking'
-    pawnB.state = 'talking'
-    pawnA.talkStartedTick = currentTick
-    pawnB.talkStartedTick = currentTick
-    pawnA.talkUntilTick = currentTick + delayToTicks(TALK_DURATION_MS)
-    pawnB.talkUntilTick = currentTick + delayToTicks(TALK_DURATION_MS)
-    pawnA.path = []
-    pawnB.path = []
-    pawnA.pathGoalKey = null
-    pawnB.pathGoalKey = null
-    pawnA.target = null
-    pawnB.target = null
-    pawnA.idleSince = null
-    pawnB.idleSince = null
-    this.syncFacingForConversation(pawnA, pawnB)
-    this.syncTalkBubble(pawnA, pawnB, currentTick)
-    this.syncTalkBubble(pawnB, pawnA, currentTick)
+  static startTalkConversation(unitA, unitB, worldStore, currentTick) {
+    unitA.state = 'talking'
+    unitB.state = 'talking'
+    unitA.talkStartedTick = currentTick
+    unitB.talkStartedTick = currentTick
+    unitA.talkUntilTick = currentTick + delayToTicks(TALK_DURATION_MS)
+    unitB.talkUntilTick = currentTick + delayToTicks(TALK_DURATION_MS)
+    unitA.path = []
+    unitB.path = []
+    unitA.pathGoalKey = null
+    unitB.pathGoalKey = null
+    unitA.target = null
+    unitB.target = null
+    unitA.idleSince = null
+    unitB.idleSince = null
+    this.syncFacingForConversation(unitA, unitB)
+    this.syncTalkBubble(unitA, unitB, currentTick)
+    this.syncTalkBubble(unitB, unitA, currentTick)
   }
 
-  static syncFacingForConversation(pawnA, pawnB) {
-    const pawnATile = normalizeTile(pawnA.talkTargetTile)
-    const pawnBTile = normalizeTile(pawnB.talkTargetTile)
+  static syncFacingForConversation(unitA, unitB) {
+    const unitATile = normalizeTile(unitA.talkTargetTile)
+    const unitBTile = normalizeTile(unitB.talkTargetTile)
 
-    if (!pawnATile || !pawnBTile) {
+    if (!unitATile || !unitBTile) {
       return
     }
 
-    if (pawnATile.x < pawnBTile.x) {
-      pawnA.facing = 'right'
-      pawnB.facing = 'left'
+    if (unitATile.x < unitBTile.x) {
+      unitA.facing = 'right'
+      unitB.facing = 'left'
       return
     }
 
-    if (pawnATile.x > pawnBTile.x) {
-      pawnA.facing = 'left'
-      pawnB.facing = 'right'
+    if (unitATile.x > unitBTile.x) {
+      unitA.facing = 'left'
+      unitB.facing = 'right'
     }
   }
 
-  static startWanderBehavior(pawn, worldStore, currentTick) {
-    const targetTile = this.findWanderTarget(pawn, worldStore)
+  static startWanderBehavior(unit, worldStore, currentTick) {
+    const targetTile = this.findWanderTarget(unit, worldStore)
 
     if (!targetTile) {
       return false
     }
 
-    pawn.idleAction = 'wander'
-    pawn.state = 'moving'
-    pawn.idleSince = null
-    pawn.talkPartner = null
-    pawn.talkTargetTile = null
-    pawn.talkStartedTick = null
-    pawn.talkUntilTick = null
-    pawn.target = {
+    unit.idleAction = 'wander'
+    unit.state = 'moving'
+    unit.idleSince = null
+    unit.talkPartner = null
+    unit.talkTargetTile = null
+    unit.talkStartedTick = null
+    unit.talkUntilTick = null
+    unit.target = {
       type: 'wander',
-      id: `${pawn.id}-wander-${currentTick}`,
+      id: `${unit.id}-wander-${currentTick}`,
       tile: targetTile,
     }
-    pawn.path = []
-    pawn.pathGoalKey = null
+    unit.path = []
+    unit.pathGoalKey = null
 
     return true
   }
 
-  static findWanderTarget(pawn, worldStore) {
-    const pawnTile = getUnitGridTile(pawn)
+  static findWanderTarget(unit, worldStore) {
+    const unitTile = getUnitGridTile(unit)
 
-    if (!pawnTile) {
+    if (!unitTile) {
       return null
     }
 
@@ -680,11 +673,11 @@ export class PawnStateSystem {
 
     for (const offset of offsets) {
       const candidate = {
-        x: pawnTile.x + offset.dx,
-        y: pawnTile.y + offset.dy,
+        x: unitTile.x + offset.dx,
+        y: unitTile.y + offset.dy,
       }
 
-      if (candidate.x === pawnTile.x && candidate.y === pawnTile.y) {
+      if (candidate.x === unitTile.x && candidate.y === unitTile.y) {
         continue
       }
 
@@ -692,7 +685,7 @@ export class PawnStateSystem {
         continue
       }
 
-      const path = findPath(worldStore, pawnTile, candidate)
+      const path = findPath(worldStore, unitTile, candidate)
 
       if (path.length > 0) {
         return candidate
@@ -702,21 +695,21 @@ export class PawnStateSystem {
     return null
   }
 
-  static prepareTalkPawn(pawn, partner, targetTile, worldStore) {
-    const currentTile = getUnitGridTile(pawn)
+  static prepareTalkUnit(unit, partner, targetTile, worldStore) {
+    const currentTile = getUnitGridTile(unit)
 
     if (!currentTile) {
       return false
     }
 
-    pawn.idleAction = 'talk'
-    pawn.talkPartner = partner
-    pawn.talkTargetTile = [targetTile.x, targetTile.y]
-    pawn.talkStartedTick = null
-    pawn.talkUntilTick = null
-    pawn.state = 'moving'
-    pawn.idleSince = null
-    pawn.target = {
+    unit.idleAction = 'talk'
+    unit.talkPartner = partner
+    unit.talkTargetTile = [targetTile.x, targetTile.y]
+    unit.talkStartedTick = null
+    unit.talkUntilTick = null
+    unit.state = 'moving'
+    unit.idleSince = null
+    unit.target = {
       type: 'talk',
       id: partner.id,
       tile: {
@@ -724,8 +717,8 @@ export class PawnStateSystem {
         y: targetTile.y,
       },
     }
-    pawn.path = []
-    pawn.pathGoalKey = null
+    unit.path = []
+    unit.pathGoalKey = null
 
     const path = findPath(worldStore, currentTile, targetTile)
 
@@ -734,15 +727,15 @@ export class PawnStateSystem {
     }
 
     if (path.length === 0) {
-      this.cancelIdleBehavior(pawn, worldStore, worldStore.tick ?? 0)
+      this.cancelIdleBehavior(unit, worldStore, worldStore.tick ?? 0)
       return false
     }
 
     return true
   }
 
-  static getTalkPartnerPawn(pawn, worldStore) {
-    const partner = pawn.talkPartner
+  static getTalkPartnerUnit(unit, worldStore) {
+    const partner = unit.talkPartner
 
     if (!partner) {
       return null
@@ -755,10 +748,10 @@ export class PawnStateSystem {
     return partner
   }
 
-  static finishTalkPair(pawn, worldStore, currentTick) {
-    const partner = this.getTalkPartnerPawn(pawn, worldStore)
+  static finishTalkPair(unit, worldStore, currentTick) {
+    const partner = this.getTalkPartnerUnit(unit, worldStore)
 
-    for (const subject of [pawn, partner]) {
+    for (const subject of [unit, partner]) {
       if (!subject) {
         continue
       }
@@ -777,11 +770,11 @@ export class PawnStateSystem {
     }
   }
 
-  static cancelIdleBehavior(pawn, worldStore, currentTick) {
-    if (pawn.idleAction === 'talk') {
-      const partner = this.getTalkPartnerPawn(pawn, worldStore)
+  static cancelIdleBehavior(unit, worldStore, currentTick) {
+    if (unit.idleAction === 'talk') {
+      const partner = this.getTalkPartnerUnit(unit, worldStore)
 
-      for (const subject of [pawn, partner]) {
+      for (const subject of [unit, partner]) {
         if (!subject) {
           continue
         }
@@ -805,42 +798,42 @@ export class PawnStateSystem {
       return
     }
 
-    if (pawn.idleAction === 'wander') {
-      this.clearWanderFields(pawn, currentTick)
+    if (unit.idleAction === 'wander') {
+      this.clearWanderFields(unit, currentTick)
     }
   }
 
-  static clearWanderFields(pawn, currentTick) {
-    pawn.idleAction = null
-    pawn.state = 'idle'
-    pawn.idleSince = currentTick
-    pawn.target = null
-    pawn.path = []
-    pawn.pathGoalKey = null
-    pawn.talkPartner = null
-    pawn.talkTargetTile = null
-    pawn.talkStartedTick = null
-    pawn.talkUntilTick = null
+  static clearWanderFields(unit, currentTick) {
+    unit.idleAction = null
+    unit.state = 'idle'
+    unit.idleSince = currentTick
+    unit.target = null
+    unit.path = []
+    unit.pathGoalKey = null
+    unit.talkPartner = null
+    unit.talkTargetTile = null
+    unit.talkStartedTick = null
+    unit.talkUntilTick = null
   }
 
-  static resetTalkFields(pawn) {
-    pawn.idleAction = null
-    pawn.talkPartner = null
-    pawn.talkTargetTile = null
-    pawn.talkStartedTick = null
-    pawn.talkUntilTick = null
+  static resetTalkFields(unit) {
+    unit.idleAction = null
+    unit.talkPartner = null
+    unit.talkTargetTile = null
+    unit.talkStartedTick = null
+    unit.talkUntilTick = null
   }
 
-  static clearBubble(pawn) {
-    if (pawn?.bubble) {
-      pawn.bubble = null
+  static clearBubble(unit) {
+    if (unit?.bubble) {
+      unit.bubble = null
     }
   }
 
-  static queueTimedTransition(pawn, worldStore, nextState, delayMs = DEFAULT_STATE_DELAY_MS) {
+  static queueTimedTransition(unit, worldStore, nextState, delayMs = DEFAULT_STATE_DELAY_MS) {
     const currentTick = worldStore.tick ?? 0
 
-    pawn.stateUntilTick = currentTick + delayToTicks(delayMs)
-    pawn.nextState = nextState
+    unit.stateUntilTick = currentTick + delayToTicks(delayMs)
+    unit.nextState = nextState
   }
 }

@@ -277,16 +277,16 @@ function updateInterpolatedResourcePosition(scene, sprite, targetPosition) {
 }
 
 function isResourceBeingHarvested(resource, worldStore) {
-  return (worldStore.units ?? []).some((pawn) => {
-    if (pawn.role !== 'pawn') {
+  return (worldStore.units ?? []).some((unit) => {
+    if (unit.role !== 'villager') {
       return false
     }
 
-    if (pawn.state !== 'gathering') {
+    if (unit.state !== 'gathering') {
       return false
     }
 
-    return pawn.targetId === resource.id || pawn.workTargetId === resource.id
+    return unit.targetId === resource.id || unit.workTargetId === resource.id
   })
 }
 

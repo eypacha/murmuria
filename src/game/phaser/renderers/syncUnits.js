@@ -1,10 +1,10 @@
 import { DEBUG_MODE, TILE_SIZE, UNIT_RENDER_OFFSET_Y } from '../../config/constants.js'
 
-const PAWN_DISPLAY_SIZE = 192
+const VILLAGER_DISPLAY_SIZE = 192
 const DEBUG_UNIT_BORDER_COLOR = 0x5ad8ff
 
 function getUnitAnimationKey(unit) {
-  return unit.state === 'moving' ? 'pawn_run_anim' : 'pawn_idle_anim'
+  return unit.state === 'moving' ? 'villager-run' : 'villager-idle'
 }
 
 function isUnitFacingLeft(unit) {
@@ -35,7 +35,7 @@ function getUnitWorldPosition(unit) {
 }
 
 export function syncUnits(scene, worldStore) {
-  const units = worldStore.units.filter((unit) => unit.role === 'pawn')
+  const units = worldStore.units.filter((unit) => unit.role === 'villager')
 
   return units.map((unit) => {
     const pos = getUnitWorldPosition(unit)
@@ -45,9 +45,9 @@ export function syncUnits(scene, worldStore) {
     const animationKey = getUnitAnimationKey(unit)
     const facingLeft = isUnitFacingLeft(unit)
 
-    const sprite = scene.add.sprite(x, y, 'pawn_idle')
+    const sprite = scene.add.sprite(x, y, 'villager-idle')
     sprite.setOrigin(0.5, 0.9)
-    sprite.setDisplaySize(PAWN_DISPLAY_SIZE, PAWN_DISPLAY_SIZE)
+    sprite.setDisplaySize(VILLAGER_DISPLAY_SIZE, VILLAGER_DISPLAY_SIZE)
     sprite.setFlipX(facingLeft)
     sprite.setDepth(depth)
     sprite.play(animationKey)

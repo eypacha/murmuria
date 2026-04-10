@@ -1,7 +1,7 @@
 import {
-  PAWN_CARRY_CAPACITY_GOLD,
-  PAWN_CARRY_CAPACITY_MEAT,
-  PAWN_CARRY_CAPACITY_WOOD,
+  VILLAGER_CARRY_CAPACITY_GOLD,
+  VILLAGER_CARRY_CAPACITY_MEAT,
+  VILLAGER_CARRY_CAPACITY_WOOD,
   TILE_SIZE,
 } from '../../config/constants.js'
 
@@ -12,11 +12,11 @@ function getWorldPosition(x, y) {
   }
 }
 
-export function createPawn(x = 0, y = 0, facing = 'right') {
+export function createVillager(x = 0, y = 0, facing = 'right') {
   return {
-    id: `pawn-${x}-${y}`,
+    id: `villager-${x}-${y}`,
     kind: 'unit',
-    role: 'pawn',
+    role: 'villager',
     state: 'idle',
     idleSince: null,
     idleAction: null,
@@ -37,19 +37,19 @@ export function createPawn(x = 0, y = 0, facing = 'right') {
     nextState: null,
     path: [],
     pathGoalKey: null,
-    inventory: {
-      wood: 0,
-      gold: 0,
-      meat: 0,
-    },
+      inventory: {
+        wood: 0,
+        gold: 0,
+        meat: 0,
+      },
     equipment: {
       tool: null,
     },
     stats: {
       moveSpeed: 64,
-      carryCapacityWood: PAWN_CARRY_CAPACITY_WOOD,
-      carryCapacityGold: PAWN_CARRY_CAPACITY_GOLD,
-      carryCapacityMeat: PAWN_CARRY_CAPACITY_MEAT,
+      carryCapacityWood: VILLAGER_CARRY_CAPACITY_WOOD,
+      carryCapacityGold: VILLAGER_CARRY_CAPACITY_GOLD,
+      carryCapacityMeat: VILLAGER_CARRY_CAPACITY_MEAT,
     },
   }
 }

@@ -2,7 +2,7 @@ import {
   GRID_HEIGHT,
   GRID_WIDTH,
   INITIAL_GOLD_COUNT,
-  INITIAL_PAWNS,
+  INITIAL_VILLAGERS,
   INITIAL_SHEEP_COUNT,
   INITIAL_TREE_COUNT,
   TILE_SIZE,
@@ -12,7 +12,7 @@ import {
   createCastle,
 } from '../domain/factories/createCastle.js'
 import { createGoldStone } from '../domain/factories/createGoldStone.js'
-import { createPawn } from '../domain/factories/createPawn.js'
+import { createVillager } from '../domain/factories/createVillager.js'
 import { createSheep } from '../domain/factories/createSheep.js'
 import { createTree } from '../domain/factories/createTree.js'
 import { isTraversableTile } from './isTraversableTile.js'
@@ -428,7 +428,7 @@ function isTreeTerrainTile(tile, tiles) {
   return true
 }
 
-function isPawnSpawnTile(tile) {
+function isVillagerSpawnTile(tile) {
   return isTraversableTile(tile)
 }
 
@@ -642,7 +642,7 @@ function getCastleReservationKeys(castle) {
   return reservationKeys
 }
 
-function createPawnPositions(castle, tiles, width, height, occupiedTiles, rng) {
+function createVillagerPositions(castle, tiles, width, height, occupiedTiles, rng) {
   const footprint = castle.footprint ?? { w: 1, h: 1 }
   const preferredPositions = [
     { x: castle.gridPos.x - 1, y: castle.gridPos.y + 3 },
@@ -658,11 +658,11 @@ function createPawnPositions(castle, tiles, width, height, occupiedTiles, rng) {
       return false
     }
 
-    return isPawnSpawnTile(getTile(tiles, position.x, position.y))
+    return isVillagerSpawnTile(getTile(tiles, position.x, position.y))
   })
 
-  if (validPreferredPositions.length >= INITIAL_PAWNS) {
-    return validPreferredPositions.slice(0, INITIAL_PAWNS)
+  if (validPreferredPositions.length >= INITIAL_VILLAGERS) {
+    return validPreferredPositions.slice(0, INITIAL_VILLAGERS)
   }
 
   const fallbackPositions = []
@@ -681,7 +681,7 @@ function createPawnPositions(castle, tiles, width, height, occupiedTiles, rng) {
         continue
       }
 
-      if (!isPawnSpawnTile(getTile(tiles, x, y))) {
+      if (!isVillagerSpawnTile(getTile(tiles, x, y))) {
         continue
       }
 
@@ -691,7 +691,7 @@ function createPawnPositions(castle, tiles, width, height, occupiedTiles, rng) {
 
   shuffleInPlace(fallbackPositions, rng)
 
-  return [...validPreferredPositions, ...fallbackPositions].slice(0, INITIAL_PAWNS)
+  return [...validPreferredPositions, ...fallbackPositions].slice(0, INITIAL_VILLAGERS)
 }
 
 function isDistanceFarEnough(tile, points, minimumDistance) {
@@ -1008,15 +1008,15 @@ function spawnGold(tiles, castle, worldSeed, rng, extraReservedKeys = new Set())
   return resources
 }
 
-function spawnPawns(tiles, castle, width, height, rng) {
+function spawnVillagers(tiles, castle, width, height, rng) {
   const units = []
   const occupiedKeys = new Set(getOccupiedTiles(castle).map((tile) => positionKey(tile.x, tile.y)))
-  const pawnPositions = createPawnPositions(castle, tiles, width, height, occupiedKeys, rng)
+  const villagerPositions = createVillagerPositions(castle, tiles, width, height, occupiedKeys, rng)
 
-  for (const position of pawnPositions) {
+  for (const position of villagerPositions) {
     const facing = getSpawnFacing()
 
-    units.push(createPawn(position.x, position.y, facing))
+    units.push(createVillager(position.x, position.y, facing))
     occupiedKeys.add(positionKey(position.x, position.y))
   }
 
@@ -1612,15 +1612,15 @@ export function createWorld(worldStore) {
   const castle = createCastle(castlePosition.x, castlePosition.y)
   flattenCastlePlateau(tiles, castle)
   detectCliffs(tiles, width, height)
-  const pawnUnits = spawnPawns(tiles, castle, width, height, rng)
-  const pawnReservedKeys = new Set(
-    pawnUnits.map((pawn) => positionKey(pawn.gridPos.x, pawn.gridPos.y)),
+  const villagerUnits = spawnVillagers(tiles, castle, width, height, rng)
+  const villagerReservedKeys = new Set(
+    villagerUnits.map((villager) => positionKey(villager.gridPos.x, villager.gridPos.y)),
   )
-  const goldResources = spawnGold(tiles, castle, seed, rng, pawnReservedKeys)
+  const goldResources = spawnGold(tiles, castle, seed, rng, villagerReservedKeys)
   const goldReservedKeys = new Set(
     goldResources.map((resource) => positionKey(resource.gridPos.x, resource.gridPos.y)),
   )
-  const treeReservedKeys = new Set([...pawnReservedKeys, ...goldReservedKeys])
+  const treeReservedKeys = new Set([...villagerReservedKeys, ...goldReservedKeys])
   const treeResources = spawnTrees(tiles, castle, seed, rng, treeReservedKeys)
   const treeResourceKeys = new Set(
     treeResources.map((resource) => positionKey(resource.gridPos.x, resource.gridPos.y)),
@@ -1639,6 +1639,6 @@ export function createWorld(worldStore) {
   })
   worldStore.resources = resources
   worldStore.buildings = [castle]
-  worldStore.units = pawnUnits
+  worldStore.units = villagerUnits
   worldStore.constructionSites = []
 }

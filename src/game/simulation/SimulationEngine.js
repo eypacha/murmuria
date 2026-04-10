@@ -1,11 +1,11 @@
 import { SIMULATION_TICK_MS } from '../config/constants.js'
 import { KingdomSystem } from './systems/KingdomSystem.js'
-import { DecisionSystem } from './systems/DecisionSystem.js'
+import { VillagerDecisionSystem } from './systems/VillagerDecisionSystem.js'
 import { ConstructionSystem } from './systems/ConstructionSystem.js'
 import { BubbleSystem } from './systems/BubbleSystem.js'
 import { MovementSystem } from './systems/MovementSystem.js'
-import { PawnStateSystem } from './systems/PawnStateSystem.js'
-import { PawnWorkSystem } from './systems/PawnWorkSystem.js'
+import { UnitStateSystem } from './systems/UnitStateSystem.js'
+import { VillagerWorkSystem } from './systems/VillagerWorkSystem.js'
 import { SheepMovementSystem } from './systems/SheepMovementSystem.js'
 
 export class SimulationEngine {
@@ -36,11 +36,11 @@ export class SimulationEngine {
 
     KingdomSystem.update(this.worldStore)
     ConstructionSystem.update(this.worldStore)
-    DecisionSystem.update(this.worldStore)
+    VillagerDecisionSystem.update(this.worldStore)
     BubbleSystem.update(this.worldStore)
-    PawnStateSystem.update(this.worldStore)
+    UnitStateSystem.update(this.worldStore)
     MovementSystem.update(this.worldStore)
-    PawnWorkSystem.update(this.worldStore)
+    VillagerWorkSystem.update(this.worldStore)
     SheepMovementSystem.update(this.worldStore)
     this.worldStore.tick++
   }

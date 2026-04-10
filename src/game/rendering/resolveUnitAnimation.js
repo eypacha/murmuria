@@ -116,30 +116,30 @@ function hasEquippedKnife(unit) {
 
 function resolveIdleAnimation(unit) {
   if (hasCarriedMeat(unit)) {
-    return 'pawn-idle-meat'
+    return 'villager-idle-meat'
   }
 
   if (hasCarriedWood(unit)) {
-    return 'pawn-idle-wood'
+    return 'villager-idle-wood'
   }
 
   if (hasCarriedGold(unit)) {
-    return 'pawn-idle-gold'
+    return 'villager-idle-gold'
   }
 
   if (hasEquippedAxe(unit)) {
-    return 'pawn-idle-axe'
+    return 'villager-idle-axe'
   }
 
   if (hasEquippedPickaxe(unit)) {
-    return 'pawn-idle-pickaxe'
+    return 'villager-idle-pickaxe'
   }
 
   if (hasEquippedKnife(unit)) {
-    return 'pawn-idle-knife'
+    return 'villager-idle-knife'
   }
 
-  return 'pawn-idle'
+  return 'villager-idle'
 }
 
 function resolveMovingAnimation(unit) {
@@ -148,51 +148,51 @@ function resolveMovingAnimation(unit) {
 
   if (targetType === 'castle') {
     if (hasCarriedMeat(unit) || workTargetType === 'sheep') {
-      return 'pawn-run-meat'
+      return 'villager-run-meat'
     }
 
     if (hasCarriedGold(unit) || workTargetType === 'gold') {
-      return 'pawn-run-gold'
+      return 'villager-run-gold'
     }
 
     if (hasCarriedWood(unit) || workTargetType === 'tree') {
-      return 'pawn-run-wood'
+      return 'villager-run-wood'
     }
   }
 
   if (targetType === 'tree' || workTargetType === 'tree') {
-    return 'pawn-run-axe'
+    return 'villager-run-axe'
   }
 
   if (targetType === 'gold' || workTargetType === 'gold') {
-    return 'pawn-run-pickaxe'
+    return 'villager-run-pickaxe'
   }
 
   if (targetType === 'sheep' || workTargetType === 'sheep') {
-    return 'pawn-run-knife'
+    return 'villager-run-knife'
   }
 
   if (hasCarriedMeat(unit)) {
-    return 'pawn-run-meat'
+    return 'villager-run-meat'
   }
 
   if (hasCarriedGold(unit)) {
-    return 'pawn-run-gold'
+    return 'villager-run-gold'
   }
 
   if (hasCarriedWood(unit)) {
-    return 'pawn-run-wood'
+    return 'villager-run-wood'
   }
 
   if (hasEquippedAxe(unit)) {
-    return 'pawn-run-axe'
+    return 'villager-run-axe'
   }
 
   if (hasEquippedPickaxe(unit)) {
-    return 'pawn-run-pickaxe'
+    return 'villager-run-pickaxe'
   }
 
-  return 'pawn-run'
+  return 'villager-run'
 }
 
 export function resolveUnitAnimation(unit) {
@@ -200,51 +200,51 @@ export function resolveUnitAnimation(unit) {
   const workTargetType = unit?.workTargetType
 
   if (state === 'preparing_to_gold') {
-    return 'pawn-idle-pickaxe'
+    return 'villager-idle-pickaxe'
   }
 
   if (state === 'preparing_to_tree') {
-    return 'pawn-idle-axe'
+    return 'villager-idle-axe'
   }
 
   if (state === 'preparing_to_meat') {
-    return 'pawn-idle-knife'
+    return 'villager-idle-knife'
   }
 
   if (state === 'moving_to_tree') {
-    return 'pawn-run-axe'
+    return 'villager-run-axe'
   }
 
   if (state === 'moving_to_meat') {
-    return 'pawn-run-knife'
+    return 'villager-run-knife'
   }
 
   if (state === 'moving_to_gold') {
-    return 'pawn-run-pickaxe'
+    return 'villager-run-pickaxe'
   }
 
   if (state === 'preparing_to_gather') {
     if (workTargetType === 'sheep') {
-      return 'pawn-idle-knife'
+      return 'villager-idle-knife'
     }
 
     if (workTargetType === 'gold') {
-      return 'pawn-idle-pickaxe'
+      return 'villager-idle-pickaxe'
     }
 
-    return 'pawn-idle-axe'
+    return 'villager-idle-axe'
   }
 
   if (state === 'gathering') {
     if (workTargetType === 'sheep') {
-      return 'pawn-interact-knife'
+      return 'villager-interact-knife'
     }
 
     if (workTargetType === 'gold') {
-      return 'pawn-interact-pickaxe'
+      return 'villager-interact-pickaxe'
     }
 
-    return 'pawn-interact-axe'
+    return 'villager-interact-axe'
   }
 
   if (
@@ -254,31 +254,31 @@ export function resolveUnitAnimation(unit) {
     state === 'delivering_wood' ||
     state === 'delivering_gold'
   ) {
-    if (hasCarriedMeat(pawn) || workTargetType === 'sheep' || state === 'delivering_meat') {
-      return 'pawn-idle-meat'
+    if (hasCarriedMeat(unit) || workTargetType === 'sheep' || state === 'delivering_meat') {
+      return 'villager-idle-meat'
     }
 
-    if (hasCarriedGold(pawn) || workTargetType === 'gold' || state === 'delivering_gold') {
-      return 'pawn-idle-gold'
+    if (hasCarriedGold(unit) || workTargetType === 'gold' || state === 'delivering_gold') {
+      return 'villager-idle-gold'
     }
 
-    return 'pawn-idle-wood'
+    return 'villager-idle-wood'
   }
 
   if (state === 'returning_to_castle') {
-    if (hasCarriedMeat(pawn) || workTargetType === 'sheep') {
-      return 'pawn-run-meat'
+    if (hasCarriedMeat(unit) || workTargetType === 'sheep') {
+      return 'villager-run-meat'
     }
 
-    if (hasCarriedGold(pawn) || workTargetType === 'gold') {
-      return 'pawn-run-gold'
+    if (hasCarriedGold(unit) || workTargetType === 'gold') {
+      return 'villager-run-gold'
     }
 
-    return 'pawn-run-wood'
+    return 'villager-run-wood'
   }
 
   if (state === 'moving') {
-    return resolveMovingAnimation(pawn)
+    return resolveMovingAnimation(unit)
   }
 
   return resolveIdleAnimation(unit)

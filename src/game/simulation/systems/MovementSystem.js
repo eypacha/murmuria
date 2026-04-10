@@ -1,19 +1,19 @@
 import {
-  PAWN_ARRIVAL_THRESHOLD,
-  PAWN_PREPARE_TO_GATHER_MS,
+  VILLAGER_ARRIVAL_THRESHOLD,
+  VILLAGER_PREPARE_TO_GATHER_MS,
   SIMULATION_TICK_MS,
   TILE_SIZE,
 } from '../../config/constants.js'
 import { findPath } from '../../core/findPath.js'
-import { PawnStateSystem } from './PawnStateSystem.js'
-import { PawnWorkSystem, computeTaskAbandonChance } from './PawnWorkSystem.js'
+import { UnitStateSystem } from './UnitStateSystem.js'
+import { VillagerWorkSystem, computeTaskAbandonChance } from './VillagerWorkSystem.js'
 
 export class MovementSystem {
   static update(worldStore) {
     const units = worldStore.units ?? []
 
     for (const unit of units) {
-      if (unit.role !== 'pawn') {
+      if (unit.role !== 'villager') {
         continue
       }
 
@@ -33,7 +33,7 @@ export class MovementSystem {
           unit.state === 'moving_to_meat') &&
         Math.random() < computeTaskAbandonChance(worldStore.kingdom)
       ) {
-        PawnWorkSystem.abandonWork(unit, worldStore)
+        VillagerWorkSystem.abandonWork(unit, worldStore)
         continue
       }
 
@@ -66,7 +66,7 @@ export class MovementSystem {
       if (currentTile.x === targetTile.x && currentTile.y === targetTile.y) {
         this.arriveAtTarget(unit, worldStore)
       } else if (unit.idleAction === 'talk' || unit.idleAction === 'wander') {
-        PawnStateSystem.cancelIdleBehavior(unit, worldStore, worldStore.tick ?? 0)
+        UnitStateSystem.cancelIdleBehavior(unit, worldStore, worldStore.tick ?? 0)
       }
 
       return
@@ -89,7 +89,7 @@ export class MovementSystem {
       const dy = targetPosition.y - nextPosition.y
       const distance = Math.hypot(dx, dy)
 
-      if (distance <= PAWN_ARRIVAL_THRESHOLD || remainingStep >= distance) {
+      if (distance <= VILLAGER_ARRIVAL_THRESHOLD || remainingStep >= distance) {
         nextPosition = {
           x: targetPosition.x,
           y: targetPosition.y,
@@ -213,9 +213,9 @@ export class MovementSystem {
     }
 
     if (unit.target?.type === 'castle') {
-      // Keep the carry animation active for one more tick so the pawn reaches the castle visually
+      // Keep the carry animation active for one more tick so the unit reaches the castle visually
       // before the delivery state clears the resource.
-      PawnStateSystem.queueTimedTransition(
+      UnitStateSystem.queueTimedTransition(
         unit,
         worldStore,
         this.resolveDeliveryState(unit),
@@ -229,7 +229,7 @@ export class MovementSystem {
     }
 
     unit.state = 'preparing_to_gather'
-    PawnStateSystem.queueTimedTransition(unit, worldStore, 'gathering', PAWN_PREPARE_TO_GATHER_MS)
+    UnitStateSystem.queueTimedTransition(unit, worldStore, 'gathering', VILLAGER_PREPARE_TO_GATHER_MS)
   }
 
   static resolveDeliveryState(unit) {

@@ -1,11 +1,11 @@
 import { getOccupiedTiles } from '../../core/getOccupiedTiles.js'
 import { isTraversableWorldTile } from '../../core/isTraversableTile.js'
 import { TILE_SIZE } from '../../config/constants.js'
-import { PAWN_PREPARE_TO_TREE_MS } from '../../config/constants.js'
-import { PawnStateSystem } from './PawnStateSystem.js'
+import { VILLAGER_PREPARE_TO_TREE_MS } from '../../config/constants.js'
+import { UnitStateSystem } from './UnitStateSystem.js'
 import { computeObedience } from './KingSpeechIntentSystem.js'
 
-export class DecisionSystem {
+export class VillagerDecisionSystem {
   static update(worldStore) {
     const units = worldStore.units ?? []
     const occupiedTiles = this.buildOccupiedTileSet(worldStore)
@@ -13,7 +13,7 @@ export class DecisionSystem {
     const obedience = computeObedience(worldStore.kingdom)
 
     for (const unit of units) {
-      if (unit.role !== 'pawn') {
+      if (unit.role !== 'villager') {
         continue
       }
 
@@ -85,11 +85,11 @@ export class DecisionSystem {
         unit.equipment = unit.equipment ?? { tool: null }
         unit.equipment.tool = this.getToolForResourceType(resourceType)
         unit.state = this.getPreparingStateForResourceType(resourceType)
-        PawnStateSystem.queueTimedTransition(
+        UnitStateSystem.queueTimedTransition(
           unit,
           worldStore,
           this.getMovingStateForResourceType(resourceType),
-          PAWN_PREPARE_TO_TREE_MS,
+          VILLAGER_PREPARE_TO_TREE_MS,
         )
         break
       }
@@ -147,20 +147,20 @@ export class DecisionSystem {
   }
 
   static findNearestAvailableResource(
-    pawn,
+    villager,
     resources,
     worldStore,
     occupiedTiles,
     blockedTiles,
     reachableTiles,
   ) {
-    const pawnPosition = this.getGridPosition(pawn)
+    const villagerPosition = this.getGridPosition(villager)
 
-    if (!pawnPosition) {
+    if (!villagerPosition) {
       return null
     }
 
-    const pathMap = reachableTiles ?? this.buildReachabilityMap(pawnPosition, worldStore, blockedTiles)
+    const pathMap = reachableTiles ?? this.buildReachabilityMap(villagerPosition, worldStore, blockedTiles)
     let nearestResource = null
     let nearestTargetTile = null
     let nearestDistance = Number.POSITIVE_INFINITY
@@ -170,7 +170,7 @@ export class DecisionSystem {
         continue
       }
 
-      const selection = this.findReachableAdjacentTile(resource, pathMap, occupiedTiles)
+        const selection = this.findReachableAdjacentTile(resource, pathMap, occupiedTiles)
 
       if (!selection) {
         continue

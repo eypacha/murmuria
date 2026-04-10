@@ -7,8 +7,8 @@ import {
 } from '../config/constants.js'
 import { resolveUnitAnimation } from './resolveUnitAnimation.js'
 
-const PAWN_DISPLAY_SIZE = 192
-const TALK_BUBBLE_TEXTURE_KEY = 'pawn-talk-bubble'
+const VILLAGER_DISPLAY_SIZE = 192
+const TALK_BUBBLE_TEXTURE_KEY = 'villager-talk-bubble'
 const TALK_BUBBLE_WIDTH = 98
 const TALK_BUBBLE_HEIGHT = 104
 const TALK_BUBBLE_OFFSET_Y = 170
@@ -113,7 +113,7 @@ export class UnitSpriteController {
 
     this.sprite = scene.add.sprite(initialPosition.x, initialPosition.y, initialAnimationKey)
     this.sprite.setOrigin(0.5, 0.9)
-    this.sprite.setDisplaySize(PAWN_DISPLAY_SIZE, PAWN_DISPLAY_SIZE)
+    this.sprite.setDisplaySize(VILLAGER_DISPLAY_SIZE, VILLAGER_DISPLAY_SIZE)
     this.sprite.setDepth(initialPosition.y)
     this.sprite.play(initialAnimationKey, true)
 
@@ -169,7 +169,7 @@ export class UnitSpriteController {
   updateAnimation() {
     const animationKey = resolveUnitAnimation(this.unit)
 
-    if (this.isVisuallyTraveling() && this.currentAnimationKey?.startsWith('pawn-run')) {
+    if (this.isVisuallyTraveling() && this.currentAnimationKey?.startsWith('villager-run')) {
       return
     }
 

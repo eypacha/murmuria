@@ -24,90 +24,90 @@ const WATER_FOAM_ANIMATION_KEY = 'water-foam_anim'
 const WATER_FOAM_FRAME_COUNT = 16
 const PLATEAU_TERRAIN_TEXTURE_KEY = 'terrain_tileset_plateau'
 
-const PAWN_ASSETS = [
+const VILLAGER_ASSETS = [
   {
-    key: 'pawn-idle',
-    path: '/assets/units/blue/pawn/pawn-idle.png',
+    key: 'villager-idle',
+    path: '/assets/units/blue/villager/villager-idle.png',
     frameCount: 8,
   },
   {
-    key: 'pawn-idle-axe',
-    path: '/assets/units/blue/pawn/pawn-idle-axe.png',
+    key: 'villager-idle-axe',
+    path: '/assets/units/blue/villager/villager-idle-axe.png',
     frameCount: 8,
   },
   {
-    key: 'pawn-idle-pickaxe',
-    path: '/assets/units/blue/pawn/pawn-idle-pickaxe.png',
+    key: 'villager-idle-pickaxe',
+    path: '/assets/units/blue/villager/villager-idle-pickaxe.png',
     frameCount: 8,
   },
   {
-    key: 'pawn-idle-wood',
-    path: '/assets/units/blue/pawn/pawn-idle-wood.png',
+    key: 'villager-idle-wood',
+    path: '/assets/units/blue/villager/villager-idle-wood.png',
     frameCount: 8,
   },
   {
-    key: 'pawn-idle-knife',
-    path: '/assets/units/blue/pawn/pawn-idle-knife.png',
+    key: 'villager-idle-knife',
+    path: '/assets/units/blue/villager/villager-idle-knife.png',
     frameCount: 8,
   },
   {
-    key: 'pawn-run',
-    path: '/assets/units/blue/pawn/pawn-run.png',
+    key: 'villager-run',
+    path: '/assets/units/blue/villager/villager-run.png',
     frameCount: 6,
   },
   {
-    key: 'pawn-run-axe',
-    path: '/assets/units/blue/pawn/pawn-run-axe.png',
+    key: 'villager-run-axe',
+    path: '/assets/units/blue/villager/villager-run-axe.png',
     frameCount: 6,
   },
   {
-    key: 'pawn-run-pickaxe',
-    path: '/assets/units/blue/pawn/pawn-run-pickaxe.png',
+    key: 'villager-run-pickaxe',
+    path: '/assets/units/blue/villager/villager-run-pickaxe.png',
     frameCount: 6,
   },
   {
-    key: 'pawn-run-knife',
-    path: '/assets/units/blue/pawn/pawn-run-knife.png',
+    key: 'villager-run-knife',
+    path: '/assets/units/blue/villager/villager-run-knife.png',
     frameCount: 6,
   },
   {
-    key: 'pawn-interact-knife',
-    path: '/assets/units/blue/pawn/pawn-interact-knife.png',
+    key: 'villager-interact-knife',
+    path: '/assets/units/blue/villager/villager-interact-knife.png',
     frameCount: 4,
   },
   {
-    key: 'pawn-interact-axe',
-    path: '/assets/units/blue/pawn/pawn-interact-axe.png',
+    key: 'villager-interact-axe',
+    path: '/assets/units/blue/villager/villager-interact-axe.png',
     frameCount: 4,
   },
   {
-    key: 'pawn-interact-pickaxe',
-    path: '/assets/units/blue/pawn/pawn-interact-pickaxe.png',
+    key: 'villager-interact-pickaxe',
+    path: '/assets/units/blue/villager/villager-interact-pickaxe.png',
     frameCount: 4,
   },
   {
-    key: 'pawn-run-wood',
-    path: '/assets/units/blue/pawn/pawn-run-wood.png',
+    key: 'villager-run-wood',
+    path: '/assets/units/blue/villager/villager-run-wood.png',
     frameCount: 6,
   },
   {
-    key: 'pawn-idle-meat',
-    path: '/assets/units/blue/pawn/pawn-idle-meat.png',
+    key: 'villager-idle-meat',
+    path: '/assets/units/blue/villager/villager-idle-meat.png',
     frameCount: 8,
   },
   {
-    key: 'pawn-idle-gold',
-    path: '/assets/units/blue/pawn/pawn-idle-gold.png',
+    key: 'villager-idle-gold',
+    path: '/assets/units/blue/villager/villager-idle-gold.png',
     frameCount: 8,
   },
   {
-    key: 'pawn-run-gold',
-    path: '/assets/units/blue/pawn/pawn-run-gold.png',
+    key: 'villager-run-gold',
+    path: '/assets/units/blue/villager/villager-run-gold.png',
     frameCount: 6,
   },
   {
-    key: 'pawn-run-meat',
-    path: '/assets/units/blue/pawn/pawn-run-meat.png',
+    key: 'villager-run-meat',
+    path: '/assets/units/blue/villager/villager-run-meat.png',
     frameCount: 6,
   },
 ]
@@ -132,7 +132,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   preload() {
-    for (const asset of PAWN_ASSETS) {
+    for (const asset of VILLAGER_ASSETS) {
       this.load.spritesheet(asset.key, asset.path, {
         frameWidth: 192,
         frameHeight: 192,
@@ -187,7 +187,7 @@ export class GameScene extends Phaser.Scene {
       frameWidth: 192,
       frameHeight: 192,
     })
-    this.load.image('pawn-talk-bubble', '/assets/ui/elements/papers/bubble-0.png')
+    this.load.image('villager-talk-bubble', '/assets/ui/elements/papers/bubble-0.png')
   }
 
   init(data = {}) {
@@ -406,7 +406,7 @@ export class GameScene extends Phaser.Scene {
       })
     }
 
-    for (const asset of PAWN_ASSETS) {
+    for (const asset of VILLAGER_ASSETS) {
       if (this.anims.exists(asset.key)) {
         continue
       }
@@ -537,7 +537,7 @@ export class GameScene extends Phaser.Scene {
     const activeUnitIds = new Set()
 
     for (const unit of this.worldStore.units) {
-      if (unit.role !== 'pawn') {
+      if (unit.role !== 'villager') {
         continue
       }
 

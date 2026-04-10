@@ -47,13 +47,13 @@ src/
 
 - `src/game/core/createWorld.js`: genera la isla, ubica el castillo y spawnea unidades y recursos iniciales.
 - `src/game/simulation/SimulationEngine.js`: coordina el loop de simulacion.
-- `src/game/simulation/systems/DecisionSystem.js`: decide que recurso buscar segun los deseos del reino.
+- `src/game/simulation/systems/VillagerDecisionSystem.js`: decide que recurso buscar segun los deseos del reino.
 - `src/game/simulation/systems/MovementSystem.js`: resuelve rutas y movimiento de peones.
-- `src/game/simulation/systems/PawnStateSystem.js`: maneja transiciones con delay por tick.
-- `src/game/simulation/systems/PawnWorkSystem.js`: procesa recoleccion, capacidad de carga y entrega.
+- `src/game/simulation/systems/UnitStateSystem.js`: maneja transiciones con delay por tick.
+- `src/game/simulation/systems/VillagerWorkSystem.js`: procesa recoleccion, capacidad de carga y entrega.
 - `src/game/simulation/systems/SheepMovementSystem.js`: mueve ovejas de forma autonoma.
 - `src/game/phaser/GameScene.js`: gestiona carga de assets, camara, animaciones y sincronizacion visual.
-- `src/game/rendering/PawnSpriteController.js`: interpola posicion de peones y resuelve animaciones/facing.
+- `src/game/rendering/UnitSpriteController.js`: interpola posicion de unidades y resuelve animaciones/facing.
 - `src/components/HudPanel.vue`: muestra madera, oro y carne del reino.
 
 ## Tecnologias
