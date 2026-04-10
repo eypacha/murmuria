@@ -3,12 +3,14 @@ import { isTraversableWorldTile } from '../../core/isTraversableTile.js'
 import { TILE_SIZE } from '../../config/constants.js'
 import { PAWN_PREPARE_TO_TREE_MS } from '../../config/constants.js'
 import { PawnStateSystem } from './PawnStateSystem.js'
+import { computeObedience } from './KingSpeechIntentSystem.js'
 
 export class DecisionSystem {
   static update(worldStore) {
     const pawns = worldStore.units ?? []
     const occupiedTiles = this.buildOccupiedTileSet(worldStore)
     const blockedTiles = this.buildOccupiedTileSet(worldStore, { includeUnits: false })
+    const obedience = computeObedience(worldStore.kingdom)
 
     for (const pawn of pawns) {
       if (pawn.role !== 'pawn') {
@@ -33,7 +35,7 @@ export class DecisionSystem {
         continue
       }
 
-      const scores = this.computeResourceScores(pawn, worldStore)
+      const scores = this.computeResourceScores(worldStore, obedience)
 
       if (scores.length === 0) {
         continue
@@ -93,7 +95,7 @@ export class DecisionSystem {
     }
   }
 
-  static computeResourceScores(pawn, worldStore) {
+  static computeResourceScores(worldStore, obedience = 0.5) {
     const woodNeed = Number(worldStore.kingdom?.needs?.wood ?? 0)
     const woodDesire = Number(worldStore.kingdom?.desires?.wood ?? 0)
     const goldNeed = Number(worldStore.kingdom?.needs?.gold ?? 0)
@@ -101,9 +103,9 @@ export class DecisionSystem {
     const foodNeed = Number(worldStore.kingdom?.needs?.food ?? 0)
     const foodDesire = Number(worldStore.kingdom?.desires?.food ?? 0)
 
-    const woodScore = woodNeed + woodDesire * 0.5
-    const goldScore = goldNeed + goldDesire * 0.5
-    const foodScore = foodNeed + foodDesire * 0.5
+    const woodScore = woodNeed + woodDesire * obedience
+    const goldScore = goldNeed + goldDesire * obedience
+    const foodScore = foodNeed + foodDesire * obedience
 
     return [
       { type: 'tree', score: woodScore },

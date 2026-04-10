@@ -1,4 +1,5 @@
 export { DecisionSystem } from './DecisionSystem.js'
+export { applyKingSpeechIntent, computeObedience } from './KingSpeechIntentSystem.js'
 export { MovementSystem } from './MovementSystem.js'
 export { PawnStateSystem } from './PawnStateSystem.js'
 export { PawnWorkSystem } from './PawnWorkSystem.js'
