@@ -17,6 +17,10 @@ export const useWorldStore = defineStore('world', () => {
   const units = ref([])
   const resources = ref([])
   const buildings = ref([])
+  const llm = ref({
+    provider: 'webllm',
+    model: 'gemma-2b',
+  })
 
   return {
     seed,
@@ -26,5 +30,6 @@ export const useWorldStore = defineStore('world', () => {
     units,
     resources,
     buildings,
+    llm,
   }
 })
