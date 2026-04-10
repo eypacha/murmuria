@@ -8,7 +8,30 @@ function normalizeReactionText(value) {
     return ''
   }
 
-  return value.trim()
+  const trimmed = value.trim()
+
+  if (!trimmed) {
+    return ''
+  }
+
+  const decoded = trimmed.replace(/\\u\{([0-9a-fA-F]+)\}|\\u([0-9a-fA-F]{4})/g, (_match, braceHex, plainHex) => {
+    const hex = braceHex ?? plainHex
+    const codePoint = Number.parseInt(hex, 16)
+
+    if (!Number.isFinite(codePoint)) {
+      return ''
+    }
+
+    try {
+      return String.fromCodePoint(codePoint)
+    } catch {
+      return ''
+    }
+  })
+
+  return /^[\p{Extended_Pictographic}\p{Emoji_Component}\u200D\uFE0F]+$/u.test(decoded)
+    ? decoded
+    : ''
 }
 
 function shuffle(array) {

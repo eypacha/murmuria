@@ -20,7 +20,7 @@ Structure:
     "fear": number
   },
   "reactions": {
-    "emojis": [string, string, string],
+    "emojis": [string, string, string], // must be real Unicode emoji characters
     "barks": [string, string, string]
   }
 }
@@ -35,6 +35,15 @@ Reaction rules:
 
 emojis → short emotional reactions villagers might show in speech bubbles  
 barks → very short villager reactions (max 4 words each)
+
+Emoji rules (VERY IMPORTANT):
+
+- emojis MUST be real Unicode emoji characters.
+- Do NOT output text like ":)", ":(", "shrug", "lol", "ok", etc.
+- Do NOT output unicode escape sequences like "\\u1F600" instead of the actual emoji character.
+- Each emoji must be a single emoji symbol such as 😃 😟 😡 😱 🍖 🌳 💰.
+- Do NOT write words describing emotions.
+- Only emoji characters are allowed in the emojis array.
 
 Interpret the tone of the speech:
 
@@ -63,6 +72,71 @@ const MODEL_ALIASES = {
 
 function resolveModelId(model) {
   return MODEL_ALIASES[model] ?? model
+}
+
+function decodeEscapedEmoji(value) {
+  if (typeof value !== 'string') {
+    return ''
+  }
+
+  const trimmed = value.trim()
+
+  if (!trimmed) {
+    return ''
+  }
+
+  if (!/\\u\{[0-9a-fA-F]+\}|\\u[0-9a-fA-F]{4}/.test(trimmed)) {
+    return trimmed
+  }
+
+  return trimmed.replace(/\\u\{([0-9a-fA-F]+)\}|\\u([0-9a-fA-F]{4})/g, (_match, braceHex, plainHex) => {
+    const hex = braceHex ?? plainHex
+    const codePoint = Number.parseInt(hex, 16)
+
+    if (!Number.isFinite(codePoint)) {
+      return ''
+    }
+
+    try {
+      return String.fromCodePoint(codePoint)
+    } catch {
+      return ''
+    }
+  })
+}
+
+function isEmojiLike(value) {
+  if (typeof value !== 'string') {
+    return false
+  }
+
+  const trimmed = value.trim()
+
+  if (!trimmed) {
+    return false
+  }
+
+  return /^[\p{Extended_Pictographic}\p{Emoji_Component}\u200D\uFE0F]+$/u.test(trimmed)
+}
+
+function sanitizeEmojiArray(values) {
+  if (!Array.isArray(values)) {
+    return []
+  }
+
+  const sanitized = []
+
+  for (const value of values) {
+    const decoded = decodeEscapedEmoji(value)
+
+    if (!isEmojiLike(decoded)) {
+      continue
+    }
+
+    sanitized.push(decoded)
+  }
+
+  return sanitized
 }
 
 function extractJsonObject(text) {
@@ -116,7 +190,7 @@ function parseIntent(text) {
       resourceDelta: json.resourceDelta ?? {},
       socialDelta: json.socialDelta ?? {},
       reactions: {
-        emojis: Array.isArray(reactions.emojis) ? reactions.emojis : [],
+        emojis: sanitizeEmojiArray(reactions.emojis),
         barks: Array.isArray(reactions.barks) ? reactions.barks : [],
       },
     }
