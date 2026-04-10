@@ -10,7 +10,7 @@ Structure:
 
 {
   "style": "order | speech | incentive | warning",
-  "resourceFactor": {
+  "resourceDelta": {
     "wood": number,
     "gold": number,
     "meat": number
@@ -18,20 +18,36 @@ Structure:
   "socialDelta": {
     "morale": number,
     "fear": number
+  },
+  "reactions": {
+    "emojis": [string, string, string],
+    "barks": [string, string, string]
   }
 }
 
 Rules:
 
-resourceFactor values must be between 0.6 and 1.5
-socialDelta values must be between -2 and 2
+resourceDelta values must be between -2 and 2
+socialDelta values must be between -2 and 2  
+If a resource is not mentioned or implied in the speech, its delta must be 0
+
+Reaction rules:
+
+emojis → short emotional reactions villagers might show in speech bubbles  
+barks → very short villager reactions (max 4 words each)
 
 Interpret the tone of the speech:
 
-order → strict command
-speech → motivational speech
-incentive → optimistic encouragement
+order → strict command  
+speech → motivational speech  
+incentive → optimistic encouragement  
 warning → threat or fear
+
+Guidelines:
+
+- emojis should match the emotional tone of the speech
+- barks should sound like villagers reacting to what the king said
+- keep barks short and natural
 
 Do not include explanations.
 
@@ -47,6 +63,28 @@ const MODEL_ALIASES = {
 
 function resolveModelId(model) {
   return MODEL_ALIASES[model] ?? model
+}
+
+function extractJsonObject(text) {
+  const trimmed = String(text ?? '').trim()
+
+  if (!trimmed) {
+    return null
+  }
+
+  const fencedMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)
+  if (fencedMatch?.[1]) {
+    return fencedMatch[1].trim()
+  }
+
+  const startIndex = trimmed.indexOf('{')
+  const endIndex = trimmed.lastIndexOf('}')
+
+  if (startIndex === -1 || endIndex === -1 || endIndex <= startIndex) {
+    return null
+  }
+
+  return trimmed.slice(startIndex, endIndex + 1)
 }
 
 async function getEngine(model) {
@@ -68,18 +106,29 @@ async function getEngine(model) {
 
 function parseIntent(text) {
   try {
-    const json = JSON.parse(text)
+    const jsonText = extractJsonObject(text) ?? text
+    const json = JSON.parse(jsonText)
+
+    const reactions = json.reactions ?? {}
 
     return {
       style: json.style ?? 'speech',
-      resourceFactor: json.resourceFactor ?? {},
+      resourceDelta: json.resourceDelta ?? {},
       socialDelta: json.socialDelta ?? {},
+      reactions: {
+        emojis: Array.isArray(reactions.emojis) ? reactions.emojis : [],
+        barks: Array.isArray(reactions.barks) ? reactions.barks : [],
+      },
     }
   } catch {
     return {
       style: 'speech',
-      resourceFactor: {},
+      resourceDelta: {},
       socialDelta: {},
+      reactions: {
+        emojis: [],
+        barks: [],
+      },
     }
   }
 }

@@ -1,6 +1,7 @@
 export { DecisionSystem } from './DecisionSystem.js'
 export { generateSpeechIntent } from './LLMProviderSystem.js'
 export { applyKingSpeechIntent, computeObedience } from './KingSpeechIntentSystem.js'
+export { applyKingSpeechReactions } from './KingSpeechReactionSystem.js'
 export { MovementSystem } from './MovementSystem.js'
 export { PawnStateSystem } from './PawnStateSystem.js'
 export { PawnWorkSystem } from './PawnWorkSystem.js'

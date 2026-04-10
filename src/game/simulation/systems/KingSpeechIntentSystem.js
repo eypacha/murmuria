@@ -1,10 +1,11 @@
-const RESOURCE_FACTOR_MIN = 0.6
-const RESOURCE_FACTOR_MAX = 1.5
+const RESOURCE_DELTA_MIN = -2
+const RESOURCE_DELTA_MAX = 2
 const SOCIAL_DELTA_MIN = -2
 const SOCIAL_DELTA_MAX = 2
+const RESOURCE_STATE_MIN = -10
+const RESOURCE_STATE_MAX = 10
 const SOCIAL_STATE_MIN = -10
 const SOCIAL_STATE_MAX = 10
-const DESIRE_BASELINE = 0.1
 
 const STYLE_EFFECTS = {
   order: { morale: -1, fear: 2 },
@@ -16,7 +17,7 @@ const STYLE_EFFECTS = {
 /**
  * @typedef {Object} KingSpeechIntent
  * @property {'order'|'speech'|'incentive'|'warning'} style
- * @property {{ wood?: number, gold?: number, meat?: number }} [resourceFactor]
+ * @property {{ wood?: number, gold?: number, meat?: number }} [resourceDelta]
  * @property {{ morale?: number, fear?: number }} [socialDelta]
  */
 
@@ -39,23 +40,23 @@ export function applyKingSpeechIntent(intent, kingdom) {
     return
   }
 
-  const resourceFactor = intent?.resourceFactor ?? {}
+  const resourceDelta = intent?.resourceDelta ?? {}
   kingdom.desires = kingdom.desires ?? {}
   const desires = kingdom.desires
-  desires.wood = Math.max(DESIRE_BASELINE, normalizeNumber(desires.wood, 0)) * clamp(
-    normalizeNumber(resourceFactor.wood, 1),
-    RESOURCE_FACTOR_MIN,
-    RESOURCE_FACTOR_MAX,
+  desires.wood = clamp(
+    normalizeNumber(desires.wood, 0) + clamp(normalizeNumber(resourceDelta.wood, 0), RESOURCE_DELTA_MIN, RESOURCE_DELTA_MAX),
+    RESOURCE_STATE_MIN,
+    RESOURCE_STATE_MAX,
   )
-  desires.gold = Math.max(DESIRE_BASELINE, normalizeNumber(desires.gold, 0)) * clamp(
-    normalizeNumber(resourceFactor.gold, 1),
-    RESOURCE_FACTOR_MIN,
-    RESOURCE_FACTOR_MAX,
+  desires.gold = clamp(
+    normalizeNumber(desires.gold, 0) + clamp(normalizeNumber(resourceDelta.gold, 0), RESOURCE_DELTA_MIN, RESOURCE_DELTA_MAX),
+    RESOURCE_STATE_MIN,
+    RESOURCE_STATE_MAX,
   )
-  desires.food = Math.max(DESIRE_BASELINE, normalizeNumber(desires.food, 0)) * clamp(
-    normalizeNumber(resourceFactor.meat, 1),
-    RESOURCE_FACTOR_MIN,
-    RESOURCE_FACTOR_MAX,
+  desires.food = clamp(
+    normalizeNumber(desires.food, 0) + clamp(normalizeNumber(resourceDelta.meat, 0), RESOURCE_DELTA_MIN, RESOURCE_DELTA_MAX),
+    RESOURCE_STATE_MIN,
+    RESOURCE_STATE_MAX,
   )
 
   const style = STYLE_EFFECTS[intent?.style] ?? { morale: 0, fear: 0 }

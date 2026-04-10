@@ -211,7 +211,7 @@ export class PawnSpriteController {
   }
 
   updateTalkBubble() {
-    const bubbleState = this.resolveTalkBubbleState()
+    const bubbleState = this.resolveBubbleState()
 
     if (!bubbleState) {
       this.destroyTalkBubble()
@@ -230,17 +230,18 @@ export class PawnSpriteController {
 
     if (this.bubbleSlotKey !== key) {
       this.bubbleSlotKey = key
-      const randomIndex = Math.floor(Math.random() * TALK_EMOJIS.length)
-      this.bubbleEmoji = TALK_EMOJIS[randomIndex] ?? TALK_EMOJIS[0]
+      this.bubbleEmoji =
+        bubbleState.emoji ?? TALK_EMOJIS[Math.floor(Math.random() * TALK_EMOJIS.length)] ?? TALK_EMOJIS[0]
     }
 
     this.bubbleContainer.setVisible(true)
+    const offsetX = this.isRightSideSpeaker() ? -TALK_BUBBLE_SIDE_OFFSET_X : TALK_BUBBLE_SIDE_OFFSET_X
     this.bubbleContainer.setPosition(
-      this.sprite.x + (this.isRightSideSpeaker() ? -TALK_BUBBLE_SIDE_OFFSET_X : TALK_BUBBLE_SIDE_OFFSET_X),
+      this.sprite.x + offsetX,
       this.sprite.y - TALK_BUBBLE_OFFSET_Y,
     )
     this.bubbleContainer.setDepth(this.sprite.depth + 50)
-    this.updateBubbleFlip()
+    this.updateBubbleFlip(bubbleState)
     this.bubbleText.setText(this.bubbleEmoji ?? TALK_EMOJIS[0])
     this.bubbleKey = key
   }
@@ -255,7 +256,7 @@ export class PawnSpriteController {
     return this.pawn.id > partnerId
   }
 
-  updateBubbleFlip() {
+  updateBubbleFlip(bubbleState) {
     if (!this.bubbleImage || !this.bubbleText) {
       return
     }
@@ -312,6 +313,45 @@ export class PawnSpriteController {
     return {
       emoji,
       key,
+      type: 'talk',
+    }
+  }
+
+  resolveBubbleState() {
+    const reactionState = this.resolveKingSpeechReactionState()
+
+    if (reactionState) {
+      return reactionState
+    }
+
+    return this.resolveTalkBubbleState()
+  }
+
+  resolveKingSpeechReactionState() {
+    const emoji = typeof this.pawn?.talkEmoji === 'string' ? this.pawn.talkEmoji.trim() : ''
+
+    if (!emoji) {
+      return null
+    }
+
+    const untilAt = Number.isFinite(this.pawn.talkEmojiUntilAt)
+      ? this.pawn.talkEmojiUntilAt
+      : null
+
+    if (untilAt == null) {
+      return null
+    }
+
+    const now = Date.now()
+
+    if (now >= untilAt) {
+      return null
+    }
+
+    return {
+      emoji,
+      key: `king-speech:${this.pawn.talkEmojiKey ?? this.pawn.id}:${untilAt}`,
+      type: 'reaction',
     }
   }
 

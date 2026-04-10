@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { applyKingSpeechIntent } from '../game/simulation/systems/KingSpeechIntentSystem.js'
+import { applyKingSpeechReactions } from '../game/simulation/systems/KingSpeechReactionSystem.js'
 import { generateSpeechIntentDebug } from '../game/simulation/systems/LLMProviderSystem.js'
 import { useWorldStore } from '../stores/worldStore.js'
 
@@ -28,6 +29,7 @@ async function handleSubmit() {
     const { raw, intent } = await generateSpeechIntentDebug(value, worldStore)
     showDebugResponse(raw)
     applyKingSpeechIntent(intent, worldStore.kingdom)
+    applyKingSpeechReactions(intent?.reactions, worldStore)
     speech.value = ''
     statusMessage.value = ''
   } catch (error) {

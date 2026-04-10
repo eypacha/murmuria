@@ -3,12 +3,12 @@ export class KingdomSystem {
     const kingdom = worldStore.kingdom
     if (!kingdom || !kingdom.desires) return
 
-    const DECAY_RATE = 0.01
+    const DESIRE_DECAY_RATE = 0.001
 
     for (const key of Object.keys(kingdom.desires)) {
       const value = kingdom.desires[key] ?? 0
       if (value > 0) {
-        kingdom.desires[key] = Math.max(0, value - DECAY_RATE)
+        kingdom.desires[key] = Math.max(0, value - DESIRE_DECAY_RATE)
       }
     }
 
