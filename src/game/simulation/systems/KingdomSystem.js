@@ -12,6 +12,9 @@ export class KingdomSystem {
       }
     }
 
+    kingdom.morale = Math.max(-10, Math.min(10, (kingdom.morale ?? 0) * 0.995))
+    kingdom.fear = Math.max(-10, Math.min(10, (kingdom.fear ?? 0) * 0.995))
+
     const units = worldStore.units ?? []
     const population = units.length
 
