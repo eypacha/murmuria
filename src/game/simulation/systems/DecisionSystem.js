@@ -35,7 +35,8 @@ export class DecisionSystem {
         continue
       }
 
-      const scores = this.computeResourceScores(worldStore, obedience)
+      const desireWeight = Math.random() > obedience ? 0 : obedience
+      const scores = this.computeResourceScores(worldStore, desireWeight)
 
       if (scores.length === 0) {
         continue
@@ -95,7 +96,7 @@ export class DecisionSystem {
     }
   }
 
-  static computeResourceScores(worldStore, obedience = 0.5) {
+  static computeResourceScores(worldStore, desireWeight = 0.5) {
     const woodNeed = Number(worldStore.kingdom?.needs?.wood ?? 0)
     const woodDesire = Number(worldStore.kingdom?.desires?.wood ?? 0)
     const goldNeed = Number(worldStore.kingdom?.needs?.gold ?? 0)
@@ -103,9 +104,9 @@ export class DecisionSystem {
     const foodNeed = Number(worldStore.kingdom?.needs?.food ?? 0)
     const foodDesire = Number(worldStore.kingdom?.desires?.food ?? 0)
 
-    const woodScore = woodNeed + woodDesire * obedience
-    const goldScore = goldNeed + goldDesire * obedience
-    const foodScore = foodNeed + foodDesire * obedience
+    const woodScore = woodNeed + woodDesire * desireWeight
+    const goldScore = goldNeed + goldDesire * desireWeight
+    const foodScore = foodNeed + foodDesire * desireWeight
 
     return [
       { type: 'tree', score: woodScore },

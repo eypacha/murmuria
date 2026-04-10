@@ -6,6 +6,7 @@ import {
 } from '../../config/constants.js'
 import { findPath } from '../../core/findPath.js'
 import { PawnStateSystem } from './PawnStateSystem.js'
+import { PawnWorkSystem, computeTaskAbandonChance } from './PawnWorkSystem.js'
 
 export class MovementSystem {
   static update(worldStore) {
@@ -23,6 +24,16 @@ export class MovementSystem {
         pawn.state !== 'returning_to_castle' &&
         pawn.state !== 'moving'
       ) {
+        continue
+      }
+
+      if (
+        (pawn.state === 'moving_to_tree' ||
+          pawn.state === 'moving_to_gold' ||
+          pawn.state === 'moving_to_meat') &&
+        Math.random() < computeTaskAbandonChance(worldStore.kingdom)
+      ) {
+        PawnWorkSystem.abandonWork(pawn, worldStore)
         continue
       }
 

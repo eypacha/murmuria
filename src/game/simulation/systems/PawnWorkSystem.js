@@ -12,6 +12,16 @@ import {
 import { getOccupiedTiles } from '../../core/getOccupiedTiles.js'
 import { isTraversableWorldTile } from '../../core/isTraversableTile.js'
 import { PawnStateSystem } from './PawnStateSystem.js'
+import { computeWorkSpeedMultiplier } from './KingSpeechIntentSystem.js'
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value))
+}
+
+export function computeTaskAbandonChance(kingdom) {
+  const morale = kingdom?.morale ?? 0
+  return clamp(0.05 - morale * 0.003, 0.01, 0.08)
+}
 
 export class PawnWorkSystem {
   static update(worldStore) {
@@ -23,6 +33,11 @@ export class PawnWorkSystem {
       }
 
       if (pawn.state === 'gathering') {
+        if (Math.random() < computeTaskAbandonChance(worldStore.kingdom)) {
+          this.abandonWork(pawn, worldStore)
+          continue
+        }
+
         this.ensureGatherTimer(pawn, worldStore)
         continue
       }
@@ -72,14 +87,15 @@ export class PawnWorkSystem {
     const inventoryKey = this.getInventoryKey(resourceType)
     const carryCapacity = this.getCarryCapacity(pawn, resourceType)
     const harvestChunk = this.getHarvestChunk(resourceType)
+    const workSpeedMultiplier = computeWorkSpeedMultiplier(worldStore.kingdom)
 
     pawn.inventory = pawn.inventory ?? { wood: 0, gold: 0, meat: 0 }
     const currentAmount = Math.max(0, pawn.inventory[inventoryKey] ?? 0)
     const availableCapacity = Math.max(0, carryCapacity - currentAmount)
     const transferAmount =
       resourceType === 'sheep'
-        ? resourceAmount
-        : Math.min(harvestChunk, availableCapacity, resourceAmount)
+        ? resourceAmount * workSpeedMultiplier
+        : Math.min(harvestChunk * workSpeedMultiplier, availableCapacity, resourceAmount)
 
     if (transferAmount > 0) {
       pawn.inventory[inventoryKey] = currentAmount + transferAmount
@@ -98,6 +114,31 @@ export class PawnWorkSystem {
     }
 
     this.beginReturnToCastle(pawn, worldStore)
+  }
+
+  static abandonWork(pawn, worldStore) {
+    const resource = this.getResourceById(worldStore, pawn.workTargetId ?? pawn.targetId)
+
+    if (resource) {
+      resource.reservedBy = null
+    }
+
+    pawn.workTargetId = null
+    pawn.workTargetType = null
+    pawn.targetId = null
+    pawn.target = null
+    pawn.interactionFacing = null
+    pawn.path = []
+    pawn.pathGoalKey = null
+    pawn.stateUntilTick = null
+    pawn.nextState = null
+    pawn.state = 'idle'
+    pawn.idleSince = worldStore.tick ?? 0
+    pawn.idleAction = null
+
+    if (pawn.equipment) {
+      pawn.equipment.tool = null
+    }
   }
 
   static beginReturnToCastle(pawn, worldStore) {

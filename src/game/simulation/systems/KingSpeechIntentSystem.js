@@ -29,6 +29,11 @@ function normalizeNumber(value, fallback) {
   return Number.isFinite(number) ? number : fallback
 }
 
+export function computeWorkSpeedMultiplier(kingdom) {
+  const morale = normalizeNumber(kingdom?.morale, 0)
+  return clamp(1 + morale * 0.05, 0.5, 1.5)
+}
+
 export function applyKingSpeechIntent(intent, kingdom) {
   if (!kingdom) {
     return
