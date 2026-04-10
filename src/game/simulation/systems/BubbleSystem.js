@@ -8,13 +8,13 @@ export class BubbleSystem {
     const currentTick = worldStore.tick ?? 0
 
     for (const pawn of pawns) {
-      if (pawn.role !== 'pawn') {
-        continue
-      }
-
       const bubble = pawn.bubble
 
       if (!bubble) {
+        continue
+      }
+
+      if (Number.isFinite(bubble.appearAtTick) && currentTick < bubble.appearAtTick) {
         continue
       }
 

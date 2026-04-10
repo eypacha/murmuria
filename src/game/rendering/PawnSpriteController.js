@@ -263,6 +263,12 @@ export class PawnSpriteController {
       return null
     }
 
+    const currentTick = this.scene.worldStore?.tick ?? 0
+
+    if (Number.isFinite(bubble.appearAtTick) && currentTick < bubble.appearAtTick) {
+      return null
+    }
+
     if (!Number.isFinite(bubble.untilTick)) {
       return null
     }
