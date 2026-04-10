@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@mlc-ai/web-llm": "^0.2.82",
     "phaser": "^3.90.0",
     "pinia": "^3",
     "vite-plugin-webfont-dl": "^3.10.5",
