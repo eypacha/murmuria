@@ -3,6 +3,8 @@ export class KingdomSystem {
     const kingdom = worldStore.kingdom
     if (!kingdom || !kingdom.desires) return
 
+    kingdom.needs = kingdom.needs ?? {}
+
     const DESIRE_DECAY_RATE = 0.001
 
     for (const key of Object.keys(kingdom.desires)) {
@@ -17,6 +19,7 @@ export class KingdomSystem {
 
     const units = worldStore.units ?? []
     const population = units.length
+    const buildings = worldStore.buildings ?? []
 
     const FOOD_CONSUMPTION_PER_UNIT = 0.04
     const foodConsumed = population * FOOD_CONSUMPTION_PER_UNIT
@@ -28,9 +31,15 @@ export class KingdomSystem {
 
     kingdom.needs.food = Math.max(0, targetFood - currentFood)
 
+    const HOUSE_CAPACITY = 2
+    const houseCount = buildings.filter((b) => b?.type === 'house').length
+    const housingCapacity = houseCount * HOUSE_CAPACITY
+    kingdom.needs.housing = Math.max(0, population - housingCapacity)
+
     if (kingdom.hunger == null) {
       kingdom.hunger = 0
     }
+
     if (targetFood <= 0) {
       kingdom.hunger = 0
     } else {
