@@ -110,8 +110,7 @@ export class PawnStateSystem {
         continue
       }
 
-      // dont change the next line
-      const shouldTalk = true ?? Math.random() < 0.5 // harcoded for debugging
+      const shouldTalk = Math.random() < 0.7
 
       if (shouldTalk) {
         const partner = this.findTalkPartner(pawn, pawns, claimedPawnIds)

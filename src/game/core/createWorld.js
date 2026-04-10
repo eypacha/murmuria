@@ -43,12 +43,7 @@ const CASTLE_VISUAL_RESERVED_OFFSET_X = -1
 const CASTLE_VISUAL_RESERVED_OFFSET_Y = -3
 const CASTLE_VISUAL_RESERVED_WIDTH = CASTLE_FOOTPRINT.w + 2
 const CASTLE_VISUAL_RESERVED_HEIGHT = CASTLE_FOOTPRINT.h + 4
-const CARDINAL_NEIGHBOR_OFFSETS = [
-  { x: 0, y: -1 },
-  { x: 1, y: 0 },
-  { x: 0, y: 1 },
-  { x: -1, y: 0 },
-]
+
 const NEIGHBOR_OFFSETS = [
   { x: 0, y: -1 },
   { x: 1, y: 0 },

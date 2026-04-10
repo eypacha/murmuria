@@ -18,7 +18,7 @@ const TALK_BUBBLE_SWITCH_TICKS = Math.max(
   1,
   Math.ceil(TALK_BUBBLE_SWITCH_MS / SIMULATION_TICK_MS),
 )
-const TALK_EMOJIS = ['🙂', '😐', '🤔', '💬', '🍖', '👑']
+const TALK_EMOJIS = ['🙂', '😐', '🤔', '🍖', '👑','🔥','😭','🍎','🍕','🍷','🌎','🏰']
 const DEBUG_UNIT_BORDER_COLOR = 0x5ad8ff
 const TALK_EMOJI_STYLE = {
   fontFamily: 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif',
