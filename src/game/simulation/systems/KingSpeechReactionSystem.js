@@ -60,8 +60,7 @@ export function applyKingSpeechReactions(reactions, worldStore) {
     }
 
     unit.bubble = {
-      emoji: emojis[index],
-      text: null,
+      text: emojis[index],
       appearAtTick: currentTick + index * staggerTicks,
       untilTick: expiresAt,
     }

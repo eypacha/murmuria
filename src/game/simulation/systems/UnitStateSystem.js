@@ -9,7 +9,7 @@ const TALK_DURATION_MS = 3000
 const TALK_BUBBLE_SWITCH_MS = 1000
 const TALK_DISTANCE_LIMIT_TILES = 10
 const TALK_MEETING_SEARCH_RADIUS = 4
-const TALK_EMOJIS = ['🙂', '😐', '🤔', '🍖', '👑', '🔥', '😭', '🍎', '🍕', '🍷', '🌎', '🏰']
+const TALK_BUBBLE_TEXTS = ['🙂', '😐', '🤔', '🍖', '👑', '🔥', '😭', '🍎', '🍕', '🍷', '🌎', '🏰']
 
 function delayToTicks(delayMs) {
   return Math.max(1, Math.ceil(delayMs / SIMULATION_TICK_MS))
@@ -236,8 +236,7 @@ export class UnitStateSystem {
     }
 
     unit.bubble = {
-      emoji: TALK_EMOJIS[Math.floor(Math.random() * TALK_EMOJIS.length)] ?? TALK_EMOJIS[0],
-      text: null,
+      text: TALK_BUBBLE_TEXTS[Math.floor(Math.random() * TALK_BUBBLE_TEXTS.length)] ?? TALK_BUBBLE_TEXTS[0],
       untilTick: currentTick + switchTicks,
     }
   }

@@ -13,7 +13,6 @@ const TALK_BUBBLE_WIDTH = 98
 const TALK_BUBBLE_HEIGHT = 104
 const TALK_BUBBLE_OFFSET_Y = 170
 const TALK_BUBBLE_SIDE_OFFSET_X = 34
-const TALK_EMOJIS = ['🙂', '😐', '🤔', '🍖', '👑','🔥','😭','🍎','🍕','🍷','🌎','🏰']
 const DEBUG_UNIT_BORDER_COLOR = 0x5ad8ff
 const TALK_EMOJI_STYLE = {
   fontFamily: 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif',
@@ -102,7 +101,6 @@ export class UnitSpriteController {
     this.bubbleText = null
     this.bubbleKey = null
     this.bubbleSlotKey = null
-    this.bubbleEmoji = null
     this.debugBorder = DEBUG_MODE ? scene.add.graphics() : null
 
     const initialPosition = this.getRenderPosition()
@@ -213,7 +211,7 @@ export class UnitSpriteController {
       return
     }
 
-    const key = `${bubbleState.untilTick}:${bubbleState.emoji ?? ''}:${bubbleState.text ?? ''}`
+    const key = `${bubbleState.untilTick}:${bubbleState.text ?? ''}`
 
     if (!this.bubbleContainer) {
       this.createTalkBubble()
@@ -225,11 +223,6 @@ export class UnitSpriteController {
 
     if (this.bubbleSlotKey !== key) {
       this.bubbleSlotKey = key
-      this.bubbleEmoji =
-        bubbleState.emoji ??
-        bubbleState.text ??
-        TALK_EMOJIS[Math.floor(Math.random() * TALK_EMOJIS.length)] ??
-        TALK_EMOJIS[0]
     }
 
     this.bubbleContainer.setVisible(true)
@@ -241,7 +234,7 @@ export class UnitSpriteController {
     )
     this.bubbleContainer.setDepth(this.sprite.depth + 50)
     this.updateBubbleFlip(bubbleState)
-    this.bubbleText.setText(this.bubbleEmoji ?? TALK_EMOJIS[0])
+    this.bubbleText.setText(bubbleState.text ?? '')
     this.bubbleKey = key
   }
 
@@ -303,7 +296,6 @@ export class UnitSpriteController {
     this.bubbleText = null
     this.bubbleKey = null
     this.bubbleSlotKey = null
-    this.bubbleEmoji = null
   }
 
   updateDebugBorder() {
