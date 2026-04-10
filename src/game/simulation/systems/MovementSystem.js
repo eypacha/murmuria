@@ -54,6 +54,8 @@ export class MovementSystem {
     if (!Array.isArray(pawn.path) || pawn.path.length === 0) {
       if (currentTile.x === targetTile.x && currentTile.y === targetTile.y) {
         this.arriveAtTarget(pawn, worldStore)
+      } else if (pawn.idleAction === 'talk' || pawn.idleAction === 'wander') {
+        PawnStateSystem.cancelIdleBehavior(pawn, worldStore, worldStore.tick ?? 0)
       }
 
       return
@@ -134,6 +136,23 @@ export class MovementSystem {
   static arriveAtTarget(pawn, worldStore) {
     pawn.path = []
     pawn.pathGoalKey = null
+
+    if (pawn.idleAction === 'wander') {
+      pawn.state = 'idle'
+      pawn.idleAction = null
+      pawn.talkPartner = null
+      pawn.talkTargetTile = null
+      pawn.talkStartedTick = null
+      pawn.talkUntilTick = null
+      pawn.target = null
+      pawn.idleSince = worldStore.tick ?? 0
+      return
+    }
+
+    if (pawn.idleAction === 'talk') {
+      pawn.state = 'waiting_to_talk'
+      return
+    }
 
     if (pawn.target?.type === 'castle') {
       // Keep the carry animation active for one more tick so the pawn reaches the castle visually

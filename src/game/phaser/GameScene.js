@@ -186,6 +186,7 @@ export class GameScene extends Phaser.Scene {
       frameWidth: 192,
       frameHeight: 192,
     })
+    this.load.image('pawn-talk-bubble', '/assets/ui/elements/papers/bubble-0.png')
   }
 
   init(data = {}) {

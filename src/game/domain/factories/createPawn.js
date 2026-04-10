@@ -18,6 +18,11 @@ export function createPawn(x = 0, y = 0, facing = 'right') {
     kind: 'unit',
     role: 'pawn',
     state: 'idle',
+    idleSince: null,
+    idleAction: null,
+    talkPartner: null,
+    talkTargetTile: null,
+    talkEmoji: null,
     facing,
     gridPos: {
       x,

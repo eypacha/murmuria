@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { createKingdomState } from '../game/core/createKingdomState.js'
 
 export const useWorldStore = defineStore('world', () => {
-  const seed = ref(Date.now().toString())
+  const seed = ref(1)
   const tick = ref(0)
 
   const kingdom = ref(createKingdomState())
