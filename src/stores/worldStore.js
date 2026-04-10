@@ -17,6 +17,7 @@ export const useWorldStore = defineStore('world', () => {
   const units = ref([])
   const resources = ref([])
   const buildings = ref([])
+  const constructionSites = ref([])
   const llm = ref({
     provider: 'webllm',
     model: 'gemma-2b',
@@ -30,6 +31,7 @@ export const useWorldStore = defineStore('world', () => {
     units,
     resources,
     buildings,
+    constructionSites,
     llm,
   }
 })

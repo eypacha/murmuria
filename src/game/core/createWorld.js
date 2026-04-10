@@ -1640,4 +1640,5 @@ export function createWorld(worldStore) {
   worldStore.resources = resources
   worldStore.buildings = [castle]
   worldStore.units = pawnUnits
+  worldStore.constructionSites = []
 }
