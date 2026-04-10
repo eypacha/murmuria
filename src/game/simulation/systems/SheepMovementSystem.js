@@ -197,8 +197,8 @@ export class SheepMovementSystem {
     }
 
     return {
-      x: Math.floor(position.x / TILE_SIZE),
-      y: Math.floor(position.y / TILE_SIZE),
+      x: Math.round((position.x - TILE_SIZE / 2) / TILE_SIZE),
+      y: Math.round((position.y - TILE_SIZE / 2) / TILE_SIZE),
     }
   }
 }

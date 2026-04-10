@@ -49,7 +49,9 @@ function resolveFacing(pawn) {
     state === 'preparing_to_tree' ||
     state === 'preparing_to_gold' ||
     state === 'preparing_to_gather' ||
-    state === 'gathering'
+    state === 'gathering' ||
+    state === 'waiting_to_talk' ||
+    state === 'talking'
   ) {
     if (pawn?.interactionFacing === 'left' || pawn?.interactionFacing === 'right') {
       return pawn.interactionFacing
@@ -318,7 +320,7 @@ export class PawnSpriteController {
     bubbleImage.setDisplaySize(TALK_BUBBLE_WIDTH, TALK_BUBBLE_HEIGHT)
     bubbleImage.setOrigin(0.5, 0.5)
 
-    const bubbleText = this.scene.add.text(0, -2, '', TALK_EMOJI_STYLE)
+    const bubbleText = this.scene.add.text(0, -10, '', TALK_EMOJI_STYLE)
     bubbleText.setOrigin(0.5, 0.5)
 
     this.bubbleContainer = this.scene.add.container(this.sprite.x, this.sprite.y - TALK_BUBBLE_OFFSET_Y)

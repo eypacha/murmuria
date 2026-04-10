@@ -1,5 +1,6 @@
 import { getOccupiedTiles } from '../../core/getOccupiedTiles.js'
 import { isTraversableWorldTile } from '../../core/isTraversableTile.js'
+import { TILE_SIZE } from '../../config/constants.js'
 import { PAWN_PREPARE_TO_TREE_MS } from '../../config/constants.js'
 import { PawnStateSystem } from './PawnStateSystem.js'
 
@@ -192,12 +193,17 @@ export class DecisionSystem {
   }
 
   static findReachableAdjacentTile(resource, reachableTiles, occupiedTiles) {
+    const resourceTile = this.getResourceGridPosition(resource)
+    if (!resourceTile) {
+      return null
+    }
+
     const footprint = resource.footprint ?? { w: 1, h: 1 }
     const candidates = []
 
     for (let dy = 0; dy < footprint.h; dy += 1) {
-      candidates.push({ x: resource.gridPos.x - 1, y: resource.gridPos.y + dy })
-      candidates.push({ x: resource.gridPos.x + footprint.w, y: resource.gridPos.y + dy })
+      candidates.push({ x: resourceTile.x - 1, y: resourceTile.y + dy })
+      candidates.push({ x: resourceTile.x + footprint.w, y: resourceTile.y + dy })
     }
 
     let closestTile = null
@@ -279,8 +285,13 @@ export class DecisionSystem {
 
   static getFacingForResource(resource, targetTile) {
     const footprint = resource.footprint ?? { w: 1, h: 1 }
+    const resourceTile = this.getResourceGridPosition(resource)
 
-    if (targetTile.x >= resource.gridPos.x + footprint.w) {
+    if (!resourceTile) {
+      return 'right'
+    }
+
+    if (targetTile.x >= resourceTile.x + footprint.w) {
       return 'left'
     }
 
@@ -388,6 +399,26 @@ export class DecisionSystem {
 
   static getGridPosition(entity) {
     return entity.gridPos ?? entity.pos ?? null
+  }
+
+  static getResourceGridPosition(resource) {
+    if (!resource) {
+      return null
+    }
+
+    if (
+      resource.type === 'sheep' &&
+      resource.pos &&
+      Number.isFinite(resource.pos.x) &&
+      Number.isFinite(resource.pos.y)
+    ) {
+      return {
+        x: Math.round((resource.pos.x - TILE_SIZE / 2) / TILE_SIZE),
+        y: Math.round((resource.pos.y - TILE_SIZE / 2) / TILE_SIZE),
+      }
+    }
+
+    return resource.gridPos ?? null
   }
 
   static getNeighbors(tile) {

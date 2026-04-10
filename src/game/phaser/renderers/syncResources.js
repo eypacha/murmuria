@@ -108,15 +108,19 @@ function getGoldVariantConfig(resource) {
   return GOLD_VARIANT_CONFIGS[clampedIndex] ?? GOLD_VARIANT_CONFIGS[0]
 }
 
-function getSheepVariantConfig(resource) {
-  const variantIndex = Number.isInteger(resource?.variant) ? resource.variant : 0
+function getSheepVariantConfig(resource, variantIndexOverride = null) {
+  const variantIndex = Number.isInteger(variantIndexOverride)
+    ? variantIndexOverride
+    : Number.isInteger(resource?.variant)
+      ? resource.variant
+      : 0
   const clampedIndex = Math.max(0, Math.min(SHEEP_VARIANT_CONFIGS.length - 1, variantIndex))
 
   return SHEEP_VARIANT_CONFIGS[clampedIndex] ?? SHEEP_VARIANT_CONFIGS[0]
 }
 
-function getSheepVariantTextureKey(resource) {
-  const variantConfig = getSheepVariantConfig(resource)
+function getSheepVariantTextureKey(resource, variantIndexOverride = null) {
+  const variantConfig = getSheepVariantConfig(resource, variantIndexOverride)
   const state = typeof resource?.state === 'string' ? resource.state : 'idle'
 
   if (state === 'moving') {
@@ -130,8 +134,8 @@ function getSheepVariantTextureKey(resource) {
   return variantConfig.idleKey
 }
 
-function getSheepAnimationKey(resource) {
-  return `${getSheepVariantTextureKey(resource)}_anim`
+function getSheepAnimationKey(resource, variantIndexOverride = null) {
+  return `${getSheepVariantTextureKey(resource, variantIndexOverride)}_anim`
 }
 
 function isResourceFacingLeft(resource) {
@@ -196,9 +200,9 @@ function ensureSheepHitFlashBinding(scene, sprite, resource) {
   sprite.setData(SHEEP_HIT_FLASH_BOUND_KEY, true)
 }
 
-function getResourceDisplaySize(resource) {
+function getResourceDisplaySize(resource, variantIndexOverride = null) {
   if (resource.type === 'sheep') {
-    const variantConfig = getSheepVariantConfig(resource)
+    const variantConfig = getSheepVariantConfig(resource, variantIndexOverride)
 
     return {
       width: variantConfig.displayWidth ?? TREE_DISPLAY_WIDTH,
@@ -313,11 +317,21 @@ function updateResourceSprite(scene, resource) {
   const y = position.y
   const depth = y
   const textureKey = getResourceTextureKey(resource)
+  const animationKey = getResourceAnimationKey(resource)
   const isTreeTexture = resource.type === 'tree' && (resource.amount ?? 0) > 0
   const isHarvested = (resource.amount ?? 0) > 0 && isResourceBeingHarvested(resource, scene.worldStore)
-  const animationKey = getResourceAnimationKey(resource)
-  const displaySize = getResourceDisplaySize(resource)
   const isSheep = resource.type === 'sheep'
+  let sprite = scene.resourceSprites.get(resource.id)
+  const existingSheepVariantIndex = isSheep ? sprite?.getData('sheepVisualVariant') ?? null : null
+  const sheepVariantIndex =
+    isSheep && Number.isInteger(existingSheepVariantIndex)
+      ? existingSheepVariantIndex
+      : Number.isInteger(resource.sheepVisualVariant)
+        ? resource.sheepVisualVariant
+        : null
+  const displaySize = isSheep
+    ? getResourceDisplaySize(resource, sheepVariantIndex)
+    : getResourceDisplaySize(resource)
   const displayWidth = resource.type === 'gold' || isSheep
     ? displaySize.width
     : (isTreeTexture ? TREE_DISPLAY_WIDTH : STUMP_DISPLAY_WIDTH)
@@ -328,42 +342,71 @@ function updateResourceSprite(scene, resource) {
   const originY = resource.type === 'gold' || isSheep ? 0.5 : 1
   const shouldAnimate = isSheep || ((resource.type === 'gold' || isTreeTexture) && isHarvested)
 
-  let sprite = scene.resourceSprites.get(resource.id)
-
   if (!sprite) {
-    sprite = scene.add.sprite(x, y, textureKey)
+    if (isSheep && sheepVariantIndex == null) {
+      resource.sheepVisualVariant = Math.floor(Math.random() * SHEEP_VARIANT_CONFIGS.length)
+    }
+
+    const renderVariantIndex = isSheep
+      ? resource.sheepVisualVariant ?? Math.floor(Math.random() * SHEEP_VARIANT_CONFIGS.length)
+      : null
+    const renderTextureKey = isSheep
+      ? getSheepVariantTextureKey(resource, renderVariantIndex)
+      : textureKey
+    const renderAnimationKey = isSheep
+      ? getSheepAnimationKey(resource, renderVariantIndex)
+      : animationKey
+
+    sprite = scene.add.sprite(x, y, renderTextureKey)
     scene.resourceSprites.set(resource.id, sprite)
-    sprite.setData('resourceTextureKey', textureKey)
+    sprite.setData('resourceTextureKey', renderTextureKey)
+    if (isSheep) {
+      sprite.setData('sheepVisualVariant', renderVariantIndex)
+    }
     sprite.setOrigin(originX, originY)
     sprite.setDisplaySize(displayWidth, displayHeight)
     sprite.setDepth(depth)
 
-    if (shouldAnimate && animationKey) {
-      sprite.play(animationKey, true)
+    if (shouldAnimate && renderAnimationKey) {
+      sprite.play(renderAnimationKey, true)
     } else {
       sprite.anims?.stop()
       sprite.setFrame(0)
     }
-  } else if (sprite.getData('resourceTextureKey') !== textureKey) {
+  } else if (
+    sprite.getData('resourceTextureKey') !==
+    (isSheep ? getSheepVariantTextureKey(resource, sprite.getData('sheepVisualVariant')) : textureKey)
+  ) {
+    const renderVariantIndex = isSheep ? sprite.getData('sheepVisualVariant') : null
+    const renderTextureKey = isSheep
+      ? getSheepVariantTextureKey(resource, renderVariantIndex)
+      : textureKey
+    const renderAnimationKey = isSheep
+      ? getSheepAnimationKey(resource, renderVariantIndex)
+      : animationKey
+
     sprite.anims?.stop()
-    sprite.setTexture(textureKey)
-    sprite.setData('resourceTextureKey', textureKey)
+    sprite.setTexture(renderTextureKey)
+    sprite.setData('resourceTextureKey', renderTextureKey)
     sprite.setOrigin(originX, originY)
     sprite.setDisplaySize(displayWidth, displayHeight)
     sprite.setDepth(depth)
 
-    if (shouldAnimate && animationKey) {
-      sprite.play(animationKey, true)
+    if (shouldAnimate && renderAnimationKey) {
+      sprite.play(renderAnimationKey, true)
     } else {
       sprite.anims?.stop()
       sprite.setFrame(0)
     }
   } else if (shouldAnimate) {
+    const renderVariantIndex = isSheep ? sprite.getData('sheepVisualVariant') : null
+    const renderAnimationKey = isSheep ? getSheepAnimationKey(resource, renderVariantIndex) : animationKey
+
     if (
-      animationKey &&
-      (!sprite.anims.isPlaying || sprite.anims.currentAnim?.key !== animationKey)
+      renderAnimationKey &&
+      (!sprite.anims.isPlaying || sprite.anims.currentAnim?.key !== renderAnimationKey)
     ) {
-      sprite.play(animationKey, true)
+      sprite.play(renderAnimationKey, true)
     }
   } else {
     sprite.anims?.stop()
@@ -384,14 +427,14 @@ function updateResourceSprite(scene, resource) {
   sprite.setFlipX(isResourceFacingLeft(resource))
 
   if (DEBUG_MODE) {
-    let border = scene.resourceDebugBorders.get(resource.id)
+    const existingBorder = scene.resourceDebugBorders.get(resource.id)
 
-    if (!border) {
-      border = drawDebugOccupiedTiles(scene, resource, depth - 1)
-      scene.resourceDebugBorders.set(resource.id, border)
-    } else {
-      border.setDepth(depth - 1)
+    if (existingBorder) {
+      existingBorder.destroy()
     }
+
+    const border = drawDebugOccupiedTiles(scene, resource, depth - 1)
+    scene.resourceDebugBorders.set(resource.id, border)
   } else {
     const border = scene.resourceDebugBorders.get(resource.id)
 

@@ -26,7 +26,7 @@ export class MovementSystem {
         continue
       }
 
-      const targetTile = pawn.target?.tile
+      const targetTile = this.getLiveTargetTile(worldStore, pawn)
 
       if (!targetTile) {
         continue
@@ -125,6 +125,49 @@ export class MovementSystem {
     }
   }
 
+  static getLiveTargetTile(worldStore, pawn) {
+    const target = pawn.target
+
+    if (!target?.id || !target?.type) {
+      return target?.tile ?? null
+    }
+
+    if (target.type === 'sheep') {
+      return target.tile ?? null
+    }
+
+    if (target.type !== 'tree' && target.type !== 'gold') {
+      return target.tile ?? null
+    }
+
+    const resource = (worldStore.resources ?? []).find((entity) => entity.id === target.id)
+
+    if (!resource) {
+      return target.tile ?? null
+    }
+
+    const liveTile =
+      resource.type === 'sheep'
+        ? this.getResourceTileFromWorldPosition(resource.pos ?? null) ?? resource.gridPos ?? null
+        : resource.gridPos ?? null
+
+    if (!liveTile) {
+      return target.tile ?? null
+    }
+
+    if (
+      !target.tile ||
+      target.tile.x !== liveTile.x ||
+      target.tile.y !== liveTile.y
+    ) {
+      target.tile = liveTile
+      pawn.path = []
+      pawn.pathGoalKey = null
+    }
+
+    return target.tile
+  }
+
   static getCurrentWorldPosition(pawn) {
     if (!pawn.pos && pawn.gridPos) {
       pawn.pos = this.gridTileToWorldPosition(pawn.gridPos)
@@ -150,6 +193,10 @@ export class MovementSystem {
     }
 
     if (pawn.idleAction === 'talk') {
+      if (pawn.interactionFacing === 'left' || pawn.interactionFacing === 'right') {
+        pawn.facing = pawn.interactionFacing
+      }
+
       pawn.state = 'waiting_to_talk'
       return
     }
@@ -201,6 +248,17 @@ export class MovementSystem {
     return {
       x: Math.floor(position.x / TILE_SIZE),
       y: Math.floor(position.y / TILE_SIZE),
+    }
+  }
+
+  static getResourceTileFromWorldPosition(position) {
+    if (!position) {
+      return null
+    }
+
+    return {
+      x: Math.round((position.x - TILE_SIZE / 2) / TILE_SIZE),
+      y: Math.round((position.y - TILE_SIZE / 2) / TILE_SIZE),
     }
   }
 

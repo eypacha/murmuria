@@ -7,6 +7,7 @@ import {
   PAWN_MEAT_HARVEST_CHUNK,
   PAWN_PREPARE_TO_RETURN_MS,
   PAWN_WOOD_HARVEST_CHUNK,
+  TILE_SIZE,
 } from '../../config/constants.js'
 import { getOccupiedTiles } from '../../core/getOccupiedTiles.js'
 import { isTraversableWorldTile } from '../../core/isTraversableTile.js'
@@ -50,6 +51,12 @@ export class PawnWorkSystem {
     const resourceType = this.getWorkTargetType(pawn, resource)
     const resourceAmount = Math.max(0, resource?.amount ?? 0)
     const gatherDurationMs = this.getGatherDuration(resourceType, resourceAmount)
+
+    const interactionFacing = this.getFacingTowardResource(pawn, resource)
+    if (interactionFacing) {
+      pawn.interactionFacing = interactionFacing
+      pawn.facing = interactionFacing
+    }
 
     if (resourceType === 'sheep' && resource) {
       resource.state = 'idle'
@@ -201,6 +208,53 @@ export class PawnWorkSystem {
     }
 
     return (worldStore.resources ?? []).find((resource) => resource.id === resourceId) ?? null
+  }
+
+  static getFacingTowardResource(pawn, resource) {
+    const pawnX = this.getWorldCenterX(pawn)
+    const resourceX = this.getResourceCenterX(resource)
+
+    if (!Number.isFinite(pawnX) || !Number.isFinite(resourceX)) {
+      return null
+    }
+
+    if (resourceX > pawnX) {
+      return 'right'
+    }
+
+    if (resourceX < pawnX) {
+      return 'left'
+    }
+
+    return pawn.interactionFacing === 'left' || pawn.interactionFacing === 'right'
+      ? pawn.interactionFacing
+      : pawn.facing === 'left' || pawn.facing === 'right'
+        ? pawn.facing
+        : null
+  }
+
+  static getWorldCenterX(entity) {
+    if (entity?.pos && Number.isFinite(entity.pos.x)) {
+      return entity.pos.x
+    }
+
+    if (entity?.gridPos && Number.isFinite(entity.gridPos.x)) {
+      return entity.gridPos.x * TILE_SIZE + TILE_SIZE / 2
+    }
+
+    return null
+  }
+
+  static getResourceCenterX(resource) {
+    if (resource?.pos && Number.isFinite(resource.pos.x)) {
+      return resource.pos.x
+    }
+
+    if (resource?.gridPos && Number.isFinite(resource.gridPos.x)) {
+      return resource.gridPos.x * TILE_SIZE + TILE_SIZE / 2
+    }
+
+    return null
   }
 
   static getWorkTargetType(pawn, resource) {

@@ -80,17 +80,17 @@ const PAWN_ASSETS = [
   {
     key: 'pawn-interact-knife',
     path: '/assets/units/blue/pawn/pawn-interact-knife.png',
-    frameCount: 6,
+    frameCount: 4,
   },
   {
     key: 'pawn-interact-axe',
     path: '/assets/units/blue/pawn/pawn-interact-axe.png',
-    frameCount: 6,
+    frameCount: 4,
   },
   {
     key: 'pawn-interact-pickaxe',
     path: '/assets/units/blue/pawn/pawn-interact-pickaxe.png',
-    frameCount: 6,
+    frameCount: 4,
   },
   {
     key: 'pawn-run-wood',
