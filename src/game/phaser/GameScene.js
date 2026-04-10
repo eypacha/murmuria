@@ -3,7 +3,6 @@ import {
   CAMERA_DEFAULT_ZOOM,
   CAMERA_MAX_ZOOM,
   CAMERA_MIN_ZOOM,
-  CAMERA_PAN_SPEED,
   CAMERA_WHEEL_ZOOM_RATE,
   TILE_SIZE,
 } from '../config/constants.js'
@@ -18,13 +17,6 @@ import {
   TREE_FRAME_COUNT,
   TREE_VARIANT_CONFIGS,
 } from '../config/resourceVariants.js'
-
-const CAMERA_CAPTURE_KEYS = [
-  Phaser.Input.Keyboard.KeyCodes.LEFT,
-  Phaser.Input.Keyboard.KeyCodes.RIGHT,
-  Phaser.Input.Keyboard.KeyCodes.UP,
-  Phaser.Input.Keyboard.KeyCodes.DOWN,
-]
 
 const WATER_FOAM_TEXTURE_KEY = 'water-foam'
 const WATER_FOAM_ANIMATION_KEY = 'water-foam_anim'
@@ -126,8 +118,15 @@ export class GameScene extends Phaser.Scene {
     this.pawnControllers = new Map()
     this.resourceSprites = new Map()
     this.resourceDebugBorders = new Map()
-    this.cursors = null
+    this.targetZoom = CAMERA_DEFAULT_ZOOM
+    this.zoomAnchor = null
+    this.isCameraDragging = false
+    this.lastDragPointerX = 0
+    this.lastDragPointerY = 0
     this.handleCameraWheel = this.handleCameraWheel.bind(this)
+    this.handleCameraPointerDown = this.handleCameraPointerDown.bind(this)
+    this.handleCameraPointerMove = this.handleCameraPointerMove.bind(this)
+    this.handleCameraPointerUp = this.handleCameraPointerUp.bind(this)
     this.handleResize = this.handleResize.bind(this)
   }
 
@@ -220,10 +219,14 @@ export class GameScene extends Phaser.Scene {
 
     camera.setBounds(0, 0, width, height)
     camera.setZoom(CAMERA_DEFAULT_ZOOM)
+    this.targetZoom = CAMERA_DEFAULT_ZOOM
+    this.zoomAnchor = null
+    this.isCameraDragging = false
     this.ensureAnimations()
     this.setupCameraControls()
     this.scale.on(Phaser.Scale.Events.RESIZE, this.handleResize, this)
     this.centerCameraOnCastle()
+    this.setCanvasCursor('grab')
 
     renderGrid(this, this.worldStore)
     syncBuildings(this, this.worldStore)
@@ -242,36 +245,32 @@ export class GameScene extends Phaser.Scene {
   }
 
   setupCameraControls() {
-    const keyboard = this.input.keyboard
-
-    if (!keyboard) {
-      return
-    }
-
-    this.cursors = keyboard.createCursorKeys()
-    keyboard.addCapture(CAMERA_CAPTURE_KEYS)
-
     this.input.on('wheel', this.handleCameraWheel)
+    this.input.on('pointerdown', this.handleCameraPointerDown)
+    this.input.on('pointermove', this.handleCameraPointerMove)
+    this.input.on('pointerup', this.handleCameraPointerUp)
+    this.input.on('pointerupoutside', this.handleCameraPointerUp)
+    this.input.on('gameout', this.handleCameraPointerUp)
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.cleanupCameraControls, this)
     this.events.once(Phaser.Scenes.Events.DESTROY, this.cleanupCameraControls, this)
   }
 
   cleanupCameraControls() {
-    const keyboard = this.input?.keyboard
-
     if (this.input) {
       this.input.off('wheel', this.handleCameraWheel)
-    }
-
-    if (keyboard) {
-      keyboard.removeCapture(CAMERA_CAPTURE_KEYS)
+      this.input.off('pointerdown', this.handleCameraPointerDown)
+      this.input.off('pointermove', this.handleCameraPointerMove)
+      this.input.off('pointerup', this.handleCameraPointerUp)
+      this.input.off('pointerupoutside', this.handleCameraPointerUp)
+      this.input.off('gameout', this.handleCameraPointerUp)
     }
 
     if (this.scale) {
       this.scale.off(Phaser.Scale.Events.RESIZE, this.handleResize, this)
     }
 
-    this.cursors = null
+    this.isCameraDragging = false
+    this.setCanvasCursor('')
   }
 
   centerCameraOnCastle() {
@@ -328,15 +327,65 @@ export class GameScene extends Phaser.Scene {
       return
     }
 
-    const worldPointBeforeZoom = camera.getWorldPoint(pointer.x, pointer.y)
+    const centerX = camera.width / 2
+    const centerY = camera.height / 2
+    if (!this.zoomAnchor) {
+      this.zoomAnchor = camera.getWorldPoint(centerX, centerY)
+    }
 
-    camera.setZoom(nextZoom)
+    this.targetZoom = nextZoom
+  }
 
-    const worldPointAfterZoom = camera.getWorldPoint(pointer.x, pointer.y)
-    camera.scrollX += worldPointBeforeZoom.x - worldPointAfterZoom.x
-    camera.scrollY += worldPointBeforeZoom.y - worldPointAfterZoom.y
+  handleCameraPointerDown(pointer) {
+    if (!pointer || pointer.button !== 0 || !this.cameras.main) {
+      return
+    }
 
+    this.isCameraDragging = true
+    this.lastDragPointerX = pointer.x
+    this.lastDragPointerY = pointer.y
+    this.zoomAnchor = null
+    this.targetZoom = this.cameras.main.zoom
+    this.setCanvasCursor('grabbing')
+  }
+
+  handleCameraPointerMove(pointer) {
+    if (!this.isCameraDragging || !pointer || !this.cameras.main) {
+      return
+    }
+
+    const camera = this.cameras.main
+    const deltaX = pointer.x - this.lastDragPointerX
+    const deltaY = pointer.y - this.lastDragPointerY
+
+    if (deltaX === 0 && deltaY === 0) {
+      return
+    }
+
+    camera.scrollX -= deltaX / camera.zoom
+    camera.scrollY -= deltaY / camera.zoom
+    this.lastDragPointerX = pointer.x
+    this.lastDragPointerY = pointer.y
     this.clampCameraToWorld()
+  }
+
+  handleCameraPointerUp() {
+    if (!this.isCameraDragging) {
+      return
+    }
+
+    this.isCameraDragging = false
+    this.setCanvasCursor('grab')
+  }
+
+  setCanvasCursor(cursor) {
+    const canvas = this.game?.canvas
+
+    if (!canvas) {
+      return
+    }
+
+    canvas.style.cursor = cursor
   }
 
   ensureAnimations() {
@@ -434,33 +483,46 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(_time, delta) {
-    this.updateCamera(delta)
+    this.updateCameraZoom(delta)
     syncResources(this, this.worldStore)
     this.syncPawnControllers()
   }
 
-  updateCamera(delta) {
-    if (!this.cursors) {
-      return
-    }
-
+  updateCameraZoom(delta) {
     const camera = this.cameras.main
-    const moveX = (this.cursors.right?.isDown ? 1 : 0) - (this.cursors.left?.isDown ? 1 : 0)
-    const moveY = (this.cursors.down?.isDown ? 1 : 0) - (this.cursors.up?.isDown ? 1 : 0)
 
-    if (moveX === 0 && moveY === 0) {
+    if (!camera || !this.zoomAnchor) {
       return
     }
 
-    const directionLength = Math.hypot(moveX, moveY)
-    const normalizedX = moveX / directionLength
-    const normalizedY = moveY / directionLength
-    const distance = (CAMERA_PAN_SPEED * delta) / 1000 / camera.zoom
+    const currentZoom = camera.zoom
+    const distance = Math.abs(this.targetZoom - currentZoom)
 
-    camera.scrollX += normalizedX * distance
-    camera.scrollY += normalizedY * distance
+    if (distance < 0.001) {
+      camera.setZoom(this.targetZoom)
+      this.centerZoomAnchor(camera)
+      this.clampCameraToWorld()
+      this.zoomAnchor = null
+      return
+    }
 
+    const smoothing = 1 - Math.exp(-delta * 0.01)
+    const nextZoom = Phaser.Math.Linear(currentZoom, this.targetZoom, smoothing)
+    camera.setZoom(nextZoom)
+    this.centerZoomAnchor(camera)
     this.clampCameraToWorld()
+  }
+
+  centerZoomAnchor(camera) {
+    if (!this.zoomAnchor) {
+      return
+    }
+
+    const centerX = camera.width / 2
+    const centerY = camera.height / 2
+
+    camera.scrollX = this.zoomAnchor.x - centerX / camera.zoom
+    camera.scrollY = this.zoomAnchor.y - centerY / camera.zoom
   }
 
   syncPawnControllers() {

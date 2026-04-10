@@ -40,13 +40,24 @@ Return only the JSON object.`
 let engine = null
 let enginePromise = null
 
+const MODEL_ALIASES = {
+  'gemma-2b': 'gemma-2-2b-it-q4f16_1-MLC',
+  'gemma-2b-1k': 'gemma-2-2b-it-q4f16_1-MLC-1k',
+}
+
+function resolveModelId(model) {
+  return MODEL_ALIASES[model] ?? model
+}
+
 async function getEngine(model) {
+  const resolvedModel = resolveModelId(model)
+
   if (engine) {
     return engine
   }
 
   if (!enginePromise) {
-    enginePromise = webllm.CreateMLCEngine(model).then((createdEngine) => {
+    enginePromise = webllm.CreateMLCEngine(resolvedModel).then((createdEngine) => {
       engine = createdEngine
       return createdEngine
     })
@@ -87,6 +98,31 @@ async function generateWebLLMIntent(text, worldStore) {
   const output = response.choices[0].message.content
 
   return parseIntent(output)
+}
+
+export async function generateSpeechIntentDebug(text, worldStore) {
+  const provider = worldStore.llm?.provider ?? 'webllm'
+
+  if (provider === 'webllm') {
+    const model = worldStore.llm?.model ?? 'gemma-2b'
+    const engineInstance = await getEngine(model)
+
+    const response = await engineInstance.chat.completions.create({
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: text },
+      ],
+    })
+
+    const raw = response.choices[0].message.content ?? ''
+
+    return {
+      raw,
+      intent: parseIntent(raw),
+    }
+  }
+
+  throw new Error('LLM provider not supported yet')
 }
 
 export async function generateSpeechIntent(text, worldStore) {

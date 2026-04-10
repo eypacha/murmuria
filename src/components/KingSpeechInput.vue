@@ -1,13 +1,18 @@
 <script setup>
 import { ref } from 'vue'
 import { applyKingSpeechIntent } from '../game/simulation/systems/KingSpeechIntentSystem.js'
-import { generateSpeechIntent } from '../game/simulation/systems/LLMProviderSystem.js'
+import { generateSpeechIntentDebug } from '../game/simulation/systems/LLMProviderSystem.js'
 import { useWorldStore } from '../stores/worldStore.js'
 
 const worldStore = useWorldStore()
 const speech = ref('')
 const isGenerating = ref(false)
 const statusMessage = ref('')
+const debugResponse = ref('No response yet')
+
+function showDebugResponse(text) {
+  debugResponse.value = text || '(empty response)'
+}
 
 async function handleSubmit() {
   const value = speech.value.trim()
@@ -20,11 +25,13 @@ async function handleSubmit() {
   statusMessage.value = 'Interpreting...'
 
   try {
-    const intent = await generateSpeechIntent(value, worldStore)
+    const { raw, intent } = await generateSpeechIntentDebug(value, worldStore)
+    showDebugResponse(raw)
     applyKingSpeechIntent(intent, worldStore.kingdom)
     speech.value = ''
     statusMessage.value = ''
   } catch (error) {
+    showDebugResponse(error instanceof Error ? error.message : String(error))
     statusMessage.value = error instanceof Error ? error.message : 'Failed to interpret speech'
   } finally {
     isGenerating.value = false
@@ -59,4 +66,13 @@ async function handleSubmit() {
       {{ statusMessage || ' ' }}
     </p>
   </form>
+  <div
+    v-if="debugResponse"
+    class="pointer-events-none fixed right-4 top-4 z-40 w-50 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-left text-[11px] text-slate-200 shadow-[0_12px_32px_rgba(0,0,0,0.35)] backdrop-blur-md"
+  >
+    <div class="mb-1 uppercase tracking-[0.16em] text-slate-400">
+      LLM debug
+    </div>
+    <pre class="max-h-96 overflow-auto whitespace-pre-wrap break-words font-mono leading-snug">{{ debugResponse }}</pre>
+  </div>
 </template>
