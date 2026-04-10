@@ -1,9 +1,11 @@
 import { getOccupiedTiles } from '../../core/getOccupiedTiles.js'
 import { isTraversableWorldTile } from '../../core/isTraversableTile.js'
-import { TILE_SIZE } from '../../config/constants.js'
-import { VILLAGER_PREPARE_TO_TREE_MS } from '../../config/constants.js'
+import { SIMULATION_TICK_MS, TILE_SIZE } from '../../config/constants.js'
+import { VILLAGER_INTENT_ACTION_DELAY_TICKS } from '../../config/constants.js'
+import { VILLAGER_INTENT_BUBBLE_DURATION_TICKS } from '../../config/constants.js'
 import { UnitStateSystem } from './UnitStateSystem.js'
 import { computeObedience } from './KingSpeechIntentSystem.js'
+import { getIntentBubbleText } from './getIntentBubbleText.js'
 
 export class VillagerDecisionSystem {
   static update(worldStore) {
@@ -85,11 +87,23 @@ export class VillagerDecisionSystem {
         unit.equipment = unit.equipment ?? { tool: null }
         unit.equipment.tool = this.getToolForResourceType(resourceType)
         unit.state = this.getPreparingStateForResourceType(resourceType)
+
+        const intentText = getIntentBubbleText(resourceType)
+
+        if (intentText) {
+          const currentTick = worldStore.tick ?? 0
+
+          unit.bubble = {
+            text: intentText,
+            untilTick: currentTick + VILLAGER_INTENT_BUBBLE_DURATION_TICKS,
+          }
+        }
+
         UnitStateSystem.queueTimedTransition(
           unit,
           worldStore,
           this.getMovingStateForResourceType(resourceType),
-          VILLAGER_PREPARE_TO_TREE_MS,
+          VILLAGER_INTENT_ACTION_DELAY_TICKS * SIMULATION_TICK_MS,
         )
         break
       }
@@ -170,7 +184,7 @@ export class VillagerDecisionSystem {
         continue
       }
 
-        const selection = this.findReachableAdjacentTile(resource, pathMap, occupiedTiles)
+      const selection = this.findReachableAdjacentTile(resource, pathMap, occupiedTiles)
 
       if (!selection) {
         continue

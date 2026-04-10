@@ -5,14 +5,17 @@ import {
   VILLAGER_GATHER_DURATION_MS,
   VILLAGER_GOLD_HARVEST_CHUNK,
   VILLAGER_MEAT_HARVEST_CHUNK,
-  VILLAGER_PREPARE_TO_RETURN_MS,
+  VILLAGER_INTENT_BUBBLE_DURATION_TICKS,
+  VILLAGER_INTENT_ACTION_DELAY_TICKS,
   VILLAGER_WOOD_HARVEST_CHUNK,
+  SIMULATION_TICK_MS,
   TILE_SIZE,
 } from '../../config/constants.js'
 import { getOccupiedTiles } from '../../core/getOccupiedTiles.js'
 import { isTraversableWorldTile } from '../../core/isTraversableTile.js'
 import { UnitStateSystem } from './UnitStateSystem.js'
 import { computeWorkSpeedMultiplier } from './KingSpeechIntentSystem.js'
+import { getIntentBubbleText } from './getIntentBubbleText.js'
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value))
@@ -144,6 +147,17 @@ export class VillagerWorkSystem {
   static beginReturnToCastle(unit, worldStore) {
     const castle = this.getCastle(worldStore)
     const returnTile = castle ? this.findCastleDropTile(castle, worldStore) : null
+    const resourceType = this.getCarriedResourceType(unit)
+    const intentText = getIntentBubbleText(`${resourceType}_delivery`)
+
+    if (intentText) {
+      const currentTick = worldStore.tick ?? 0
+
+      unit.bubble = {
+        text: intentText,
+        untilTick: currentTick + VILLAGER_INTENT_BUBBLE_DURATION_TICKS,
+      }
+    }
 
     if (castle && returnTile) {
       unit.targetId = castle.id
@@ -166,7 +180,12 @@ export class VillagerWorkSystem {
     }
 
     unit.state = 'preparing_to_return'
-    UnitStateSystem.queueTimedTransition(unit, worldStore, 'returning_to_castle', VILLAGER_PREPARE_TO_RETURN_MS)
+    UnitStateSystem.queueTimedTransition(
+      unit,
+      worldStore,
+      'returning_to_castle',
+      VILLAGER_INTENT_ACTION_DELAY_TICKS * SIMULATION_TICK_MS,
+    )
   }
 
   static findCastleDropTile(castle, worldStore) {
