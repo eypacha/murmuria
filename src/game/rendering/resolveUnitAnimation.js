@@ -1,11 +1,11 @@
-function hasCarriedWood(pawn) {
-  const woodCount = Number(pawn?.inventory?.wood ?? 0)
+function hasCarriedWood(unit) {
+  const woodCount = Number(unit?.inventory?.wood ?? 0)
 
   if (woodCount > 0) {
     return true
   }
 
-  const carrying = pawn?.carrying
+  const carrying = unit?.carrying
 
   if (!carrying) {
     return false
@@ -18,14 +18,14 @@ function hasCarriedWood(pawn) {
   return carrying.type === 'wood' || carrying.resource === 'wood'
 }
 
-function hasCarriedGold(pawn) {
-  const goldCount = Number(pawn?.inventory?.gold ?? 0)
+function hasCarriedGold(unit) {
+  const goldCount = Number(unit?.inventory?.gold ?? 0)
 
   if (goldCount > 0) {
     return true
   }
 
-  const carrying = pawn?.carrying
+  const carrying = unit?.carrying
 
   if (!carrying) {
     return false
@@ -38,14 +38,14 @@ function hasCarriedGold(pawn) {
   return carrying.type === 'gold' || carrying.resource === 'gold'
 }
 
-function hasCarriedMeat(pawn) {
-  const meatCount = Number(pawn?.inventory?.meat ?? 0)
+function hasCarriedMeat(unit) {
+  const meatCount = Number(unit?.inventory?.meat ?? 0)
 
   if (meatCount > 0) {
     return true
   }
 
-  const carrying = pawn?.carrying
+  const carrying = unit?.carrying
 
   if (!carrying) {
     return false
@@ -58,8 +58,8 @@ function hasCarriedMeat(pawn) {
   return carrying.type === 'meat' || carrying.resource === 'meat'
 }
 
-function hasEquippedAxe(pawn) {
-  const equipment = pawn?.equipment
+function hasEquippedAxe(unit) {
+  const equipment = unit?.equipment
 
   if (!equipment) {
     return false
@@ -78,8 +78,8 @@ function hasEquippedAxe(pawn) {
   return equipment.axe === true
 }
 
-function hasEquippedPickaxe(pawn) {
-  const equipment = pawn?.equipment
+function hasEquippedPickaxe(unit) {
+  const equipment = unit?.equipment
 
   if (!equipment) {
     return false
@@ -94,8 +94,8 @@ function hasEquippedPickaxe(pawn) {
   return equipment.pickaxe === true
 }
 
-function hasEquippedKnife(pawn) {
-  const equipment = pawn?.equipment
+function hasEquippedKnife(unit) {
+  const equipment = unit?.equipment
 
   if (!equipment) {
     return false
@@ -114,48 +114,48 @@ function hasEquippedKnife(pawn) {
   return equipment.knife === true
 }
 
-function resolveIdleAnimation(pawn) {
-  if (hasCarriedMeat(pawn)) {
+function resolveIdleAnimation(unit) {
+  if (hasCarriedMeat(unit)) {
     return 'pawn-idle-meat'
   }
 
-  if (hasCarriedWood(pawn)) {
+  if (hasCarriedWood(unit)) {
     return 'pawn-idle-wood'
   }
 
-  if (hasCarriedGold(pawn)) {
+  if (hasCarriedGold(unit)) {
     return 'pawn-idle-gold'
   }
 
-  if (hasEquippedAxe(pawn)) {
+  if (hasEquippedAxe(unit)) {
     return 'pawn-idle-axe'
   }
 
-  if (hasEquippedPickaxe(pawn)) {
+  if (hasEquippedPickaxe(unit)) {
     return 'pawn-idle-pickaxe'
   }
 
-  if (hasEquippedKnife(pawn)) {
+  if (hasEquippedKnife(unit)) {
     return 'pawn-idle-knife'
   }
 
   return 'pawn-idle'
 }
 
-function resolveMovingAnimation(pawn) {
-  const targetType = pawn?.target?.type
-  const workTargetType = pawn?.workTargetType
+function resolveMovingAnimation(unit) {
+  const targetType = unit?.target?.type
+  const workTargetType = unit?.workTargetType
 
   if (targetType === 'castle') {
-    if (hasCarriedMeat(pawn) || workTargetType === 'sheep') {
+    if (hasCarriedMeat(unit) || workTargetType === 'sheep') {
       return 'pawn-run-meat'
     }
 
-    if (hasCarriedGold(pawn) || workTargetType === 'gold') {
+    if (hasCarriedGold(unit) || workTargetType === 'gold') {
       return 'pawn-run-gold'
     }
 
-    if (hasCarriedWood(pawn) || workTargetType === 'tree') {
+    if (hasCarriedWood(unit) || workTargetType === 'tree') {
       return 'pawn-run-wood'
     }
   }
@@ -172,32 +172,32 @@ function resolveMovingAnimation(pawn) {
     return 'pawn-run-knife'
   }
 
-  if (hasCarriedMeat(pawn)) {
+  if (hasCarriedMeat(unit)) {
     return 'pawn-run-meat'
   }
 
-  if (hasCarriedGold(pawn)) {
+  if (hasCarriedGold(unit)) {
     return 'pawn-run-gold'
   }
 
-  if (hasCarriedWood(pawn)) {
+  if (hasCarriedWood(unit)) {
     return 'pawn-run-wood'
   }
 
-  if (hasEquippedAxe(pawn)) {
+  if (hasEquippedAxe(unit)) {
     return 'pawn-run-axe'
   }
 
-  if (hasEquippedPickaxe(pawn)) {
+  if (hasEquippedPickaxe(unit)) {
     return 'pawn-run-pickaxe'
   }
 
   return 'pawn-run'
 }
 
-export function resolvePawnAnimation(pawn) {
-  const state = typeof pawn?.state === 'string' ? pawn.state : 'idle'
-  const workTargetType = pawn?.workTargetType
+export function resolveUnitAnimation(unit) {
+  const state = typeof unit?.state === 'string' ? unit.state : 'idle'
+  const workTargetType = unit?.workTargetType
 
   if (state === 'preparing_to_gold') {
     return 'pawn-idle-pickaxe'
@@ -281,5 +281,5 @@ export function resolvePawnAnimation(pawn) {
     return resolveMovingAnimation(pawn)
   }
 
-  return resolveIdleAnimation(pawn)
+  return resolveIdleAnimation(unit)
 }

@@ -7,31 +7,31 @@ import { computeObedience } from './KingSpeechIntentSystem.js'
 
 export class DecisionSystem {
   static update(worldStore) {
-    const pawns = worldStore.units ?? []
+    const units = worldStore.units ?? []
     const occupiedTiles = this.buildOccupiedTileSet(worldStore)
     const blockedTiles = this.buildOccupiedTileSet(worldStore, { includeUnits: false })
     const obedience = computeObedience(worldStore.kingdom)
 
-    for (const pawn of pawns) {
-      if (pawn.role !== 'pawn') {
+    for (const unit of units) {
+      if (unit.role !== 'pawn') {
         continue
       }
 
-      if (pawn.state !== 'idle') {
+      if (unit.state !== 'idle') {
         continue
       }
 
       if (
-        (pawn.inventory?.wood ?? 0) > 0 ||
-        (pawn.inventory?.gold ?? 0) > 0 ||
-        (pawn.inventory?.meat ?? 0) > 0
+        (unit.inventory?.wood ?? 0) > 0 ||
+        (unit.inventory?.gold ?? 0) > 0 ||
+        (unit.inventory?.meat ?? 0) > 0
       ) {
         continue
       }
 
-      const pawnPosition = this.getGridPosition(pawn)
+      const unitPosition = this.getGridPosition(unit)
 
-      if (!pawnPosition) {
+      if (!unitPosition) {
         continue
       }
 
@@ -42,7 +42,7 @@ export class DecisionSystem {
         continue
       }
 
-      const reachableTiles = this.buildReachabilityMap(pawnPosition, worldStore, blockedTiles)
+      const reachableTiles = this.buildReachabilityMap(unitPosition, worldStore, blockedTiles)
       let availableScores = scores
 
       while (availableScores.length > 0) {
@@ -54,7 +54,7 @@ export class DecisionSystem {
 
         const resources = (worldStore.resources ?? []).filter((resource) => resource.type === resourceType)
         const selection = this.findNearestAvailableResource(
-          pawn,
+          unit,
           resources,
           worldStore,
           occupiedTiles,
@@ -69,24 +69,24 @@ export class DecisionSystem {
 
         const { resource, targetTile } = selection
 
-        resource.reservedBy = pawn.id
-        pawn.targetId = resource.id
-        pawn.workTargetId = resource.id
-        pawn.workTargetType = resource.type
-        pawn.target = {
+        resource.reservedBy = unit.id
+        unit.targetId = resource.id
+        unit.workTargetId = resource.id
+        unit.workTargetType = resource.type
+        unit.target = {
           type: resource.type,
           id: resource.id,
           tile: targetTile,
         }
-        pawn.path = []
-        pawn.pathGoalKey = null
-        pawn.interactionFacing = this.getFacingForResource(resource, targetTile)
-        pawn.facing = pawn.interactionFacing
-        pawn.equipment = pawn.equipment ?? { tool: null }
-        pawn.equipment.tool = this.getToolForResourceType(resourceType)
-        pawn.state = this.getPreparingStateForResourceType(resourceType)
+        unit.path = []
+        unit.pathGoalKey = null
+        unit.interactionFacing = this.getFacingForResource(resource, targetTile)
+        unit.facing = unit.interactionFacing
+        unit.equipment = unit.equipment ?? { tool: null }
+        unit.equipment.tool = this.getToolForResourceType(resourceType)
+        unit.state = this.getPreparingStateForResourceType(resourceType)
         PawnStateSystem.queueTimedTransition(
-          pawn,
+          unit,
           worldStore,
           this.getMovingStateForResourceType(resourceType),
           PAWN_PREPARE_TO_TREE_MS,

@@ -25,72 +25,72 @@ export function computeTaskAbandonChance(kingdom) {
 
 export class PawnWorkSystem {
   static update(worldStore) {
-    const pawns = worldStore.units ?? []
+    const units = worldStore.units ?? []
 
-    for (const pawn of pawns) {
-      if (pawn.role !== 'pawn') {
+    for (const unit of units) {
+      if (unit.role !== 'pawn') {
         continue
       }
 
-      if (pawn.state === 'gathering') {
+      if (unit.state === 'gathering') {
         if (Math.random() < computeTaskAbandonChance(worldStore.kingdom)) {
-          this.abandonWork(pawn, worldStore)
+          this.abandonWork(unit, worldStore)
           continue
         }
 
-        this.ensureGatherTimer(pawn, worldStore)
+        this.ensureGatherTimer(unit, worldStore)
         continue
       }
 
-      if (pawn.state === 'gathering_complete') {
-        this.completeGather(pawn, worldStore)
+      if (unit.state === 'gathering_complete') {
+        this.completeGather(unit, worldStore)
         continue
       }
 
       if (
-        pawn.state === 'delivering_wood' ||
-        pawn.state === 'delivering_gold' ||
-        pawn.state === 'delivering_meat'
+        unit.state === 'delivering_wood' ||
+        unit.state === 'delivering_gold' ||
+        unit.state === 'delivering_meat'
       ) {
-        this.completeDelivery(pawn, worldStore)
+        this.completeDelivery(unit, worldStore)
       }
     }
   }
 
-  static ensureGatherTimer(pawn, worldStore) {
-    if (pawn.stateUntilTick != null) {
+  static ensureGatherTimer(unit, worldStore) {
+    if (unit.stateUntilTick != null) {
       return
     }
 
-    const resource = this.getResourceById(worldStore, pawn.workTargetId ?? pawn.targetId)
-    const resourceType = this.getWorkTargetType(pawn, resource)
+    const resource = this.getResourceById(worldStore, unit.workTargetId ?? unit.targetId)
+    const resourceType = this.getWorkTargetType(unit, resource)
     const resourceAmount = Math.max(0, resource?.amount ?? 0)
     const gatherDurationMs = this.getGatherDuration(resourceType, resourceAmount)
 
-    const interactionFacing = this.getFacingTowardResource(pawn, resource)
+    const interactionFacing = this.getFacingTowardResource(unit, resource)
     if (interactionFacing) {
-      pawn.interactionFacing = interactionFacing
-      pawn.facing = interactionFacing
+      unit.interactionFacing = interactionFacing
+      unit.facing = interactionFacing
     }
 
     if (resourceType === 'sheep' && resource) {
       resource.state = 'idle'
     }
 
-    PawnStateSystem.queueTimedTransition(pawn, worldStore, 'gathering_complete', gatherDurationMs)
+    PawnStateSystem.queueTimedTransition(unit, worldStore, 'gathering_complete', gatherDurationMs)
   }
 
-  static completeGather(pawn, worldStore) {
-    const resource = this.getResourceById(worldStore, pawn.workTargetId ?? pawn.targetId)
-    const resourceType = this.getWorkTargetType(pawn, resource)
+  static completeGather(unit, worldStore) {
+    const resource = this.getResourceById(worldStore, unit.workTargetId ?? unit.targetId)
+    const resourceType = this.getWorkTargetType(unit, resource)
     const resourceAmount = Math.max(0, resource?.amount ?? 0)
     const inventoryKey = this.getInventoryKey(resourceType)
-    const carryCapacity = this.getCarryCapacity(pawn, resourceType)
+    const carryCapacity = this.getCarryCapacity(unit, resourceType)
     const harvestChunk = this.getHarvestChunk(resourceType)
     const workSpeedMultiplier = computeWorkSpeedMultiplier(worldStore.kingdom)
 
-    pawn.inventory = pawn.inventory ?? { wood: 0, gold: 0, meat: 0 }
-    const currentAmount = Math.max(0, pawn.inventory[inventoryKey] ?? 0)
+    unit.inventory = unit.inventory ?? { wood: 0, gold: 0, meat: 0 }
+    const currentAmount = Math.max(0, unit.inventory[inventoryKey] ?? 0)
     const availableCapacity = Math.max(0, carryCapacity - currentAmount)
     const transferAmount =
       resourceType === 'sheep'
@@ -98,7 +98,7 @@ export class PawnWorkSystem {
         : Math.min(harvestChunk * workSpeedMultiplier, availableCapacity, resourceAmount)
 
     if (transferAmount > 0) {
-      pawn.inventory[inventoryKey] = currentAmount + transferAmount
+      unit.inventory[inventoryKey] = currentAmount + transferAmount
 
       if (resource) {
         if (resourceType === 'sheep') {
@@ -110,63 +110,63 @@ export class PawnWorkSystem {
     }
 
     if (resourceType === 'sheep') {
-      this.removeResourceById(worldStore, resource?.id ?? pawn.workTargetId ?? pawn.targetId)
+      this.removeResourceById(worldStore, resource?.id ?? unit.workTargetId ?? unit.targetId)
     }
 
-    this.beginReturnToCastle(pawn, worldStore)
+    this.beginReturnToCastle(unit, worldStore)
   }
 
-  static abandonWork(pawn, worldStore) {
-    const resource = this.getResourceById(worldStore, pawn.workTargetId ?? pawn.targetId)
+  static abandonWork(unit, worldStore) {
+    const resource = this.getResourceById(worldStore, unit.workTargetId ?? unit.targetId)
 
     if (resource) {
       resource.reservedBy = null
     }
 
-    pawn.workTargetId = null
-    pawn.workTargetType = null
-    pawn.targetId = null
-    pawn.target = null
-    pawn.interactionFacing = null
-    pawn.path = []
-    pawn.pathGoalKey = null
-    pawn.stateUntilTick = null
-    pawn.nextState = null
-    pawn.state = 'idle'
-    pawn.idleSince = worldStore.tick ?? 0
-    pawn.idleAction = null
+    unit.workTargetId = null
+    unit.workTargetType = null
+    unit.targetId = null
+    unit.target = null
+    unit.interactionFacing = null
+    unit.path = []
+    unit.pathGoalKey = null
+    unit.stateUntilTick = null
+    unit.nextState = null
+    unit.state = 'idle'
+    unit.idleSince = worldStore.tick ?? 0
+    unit.idleAction = null
 
-    if (pawn.equipment) {
-      pawn.equipment.tool = null
+    if (unit.equipment) {
+      unit.equipment.tool = null
     }
   }
 
-  static beginReturnToCastle(pawn, worldStore) {
+  static beginReturnToCastle(unit, worldStore) {
     const castle = this.getCastle(worldStore)
     const returnTile = castle ? this.findCastleDropTile(castle, worldStore) : null
 
     if (castle && returnTile) {
-      pawn.targetId = castle.id
-      pawn.target = {
+      unit.targetId = castle.id
+      unit.target = {
         type: 'castle',
         id: castle.id,
         tile: returnTile,
       }
-      pawn.path = []
-      pawn.pathGoalKey = null
-      const pawnX = pawn.gridPos?.x
+      unit.path = []
+      unit.pathGoalKey = null
+      const unitX = unit.gridPos?.x
 
-      if (pawnX != null) {
-        if (returnTile.x > pawnX) {
-          pawn.facing = 'right'
-        } else if (returnTile.x < pawnX) {
-          pawn.facing = 'left'
+      if (unitX != null) {
+        if (returnTile.x > unitX) {
+          unit.facing = 'right'
+        } else if (returnTile.x < unitX) {
+          unit.facing = 'left'
         }
       }
     }
 
-    pawn.state = 'preparing_to_return'
-    PawnStateSystem.queueTimedTransition(pawn, worldStore, 'returning_to_castle', PAWN_PREPARE_TO_RETURN_MS)
+    unit.state = 'preparing_to_return'
+    PawnStateSystem.queueTimedTransition(unit, worldStore, 'returning_to_castle', PAWN_PREPARE_TO_RETURN_MS)
   }
 
   static findCastleDropTile(castle, worldStore) {
@@ -187,11 +187,11 @@ export class PawnWorkSystem {
     return centerTile
   }
 
-  static completeDelivery(pawn, worldStore) {
-    pawn.inventory = pawn.inventory ?? { wood: 0, gold: 0, meat: 0 }
-    const resourceType = this.getCarriedResourceType(pawn)
+  static completeDelivery(unit, worldStore) {
+    unit.inventory = unit.inventory ?? { wood: 0, gold: 0, meat: 0 }
+    const resourceType = this.getCarriedResourceType(unit)
     const inventoryKey = this.getInventoryKey(resourceType)
-    const carriedAmount = Math.max(0, pawn.inventory[inventoryKey] ?? 0)
+    const carriedAmount = Math.max(0, unit.inventory[inventoryKey] ?? 0)
 
     if (carriedAmount > 0) {
       const kingdomResourceKey = this.getKingdomResourceKey(resourceType)
@@ -215,28 +215,28 @@ export class PawnWorkSystem {
         )
       }
 
-      pawn.inventory[inventoryKey] = 0
+      unit.inventory[inventoryKey] = 0
     }
 
-    const resource = this.getResourceById(worldStore, pawn.workTargetId ?? pawn.targetId)
+    const resource = this.getResourceById(worldStore, unit.workTargetId ?? unit.targetId)
 
     if (resource) {
       resource.reservedBy = null
     }
 
-    pawn.workTargetId = null
-    pawn.workTargetType = null
-    pawn.targetId = null
-    pawn.target = null
-    pawn.interactionFacing = null
-    if (pawn.equipment) {
-      pawn.equipment.tool = null
+    unit.workTargetId = null
+    unit.workTargetType = null
+    unit.targetId = null
+    unit.target = null
+    unit.interactionFacing = null
+    if (unit.equipment) {
+      unit.equipment.tool = null
     }
-    pawn.path = []
-    pawn.pathGoalKey = null
-    pawn.stateUntilTick = null
-    pawn.nextState = null
-    pawn.state = 'idle'
+    unit.path = []
+    unit.pathGoalKey = null
+    unit.stateUntilTick = null
+    unit.nextState = null
+    unit.state = 'idle'
   }
 
   static getCastle(worldStore) {

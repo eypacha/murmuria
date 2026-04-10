@@ -41,72 +41,72 @@ function normalizeTile(tile) {
   return null
 }
 
-function getPawnGridTile(pawn) {
-  if (pawn?.gridPos && Number.isFinite(pawn.gridPos.x) && Number.isFinite(pawn.gridPos.y)) {
-    return pawn.gridPos
+function getUnitGridTile(unit) {
+  if (unit?.gridPos && Number.isFinite(unit.gridPos.x) && Number.isFinite(unit.gridPos.y)) {
+    return unit.gridPos
   }
 
-  if (!pawn?.pos) {
+  if (!unit?.pos) {
     return null
   }
 
   return {
-    x: Math.floor(pawn.pos.x / TILE_SIZE),
-    y: Math.floor(pawn.pos.y / TILE_SIZE),
+    x: Math.floor(unit.pos.x / TILE_SIZE),
+    y: Math.floor(unit.pos.y / TILE_SIZE),
   }
 }
 
 export class PawnStateSystem {
   static update(worldStore) {
-    const pawns = worldStore.units ?? []
+    const units = worldStore.units ?? []
     const currentTick = worldStore.tick ?? 0
     const claimedPawnIds = new Set()
 
-    for (const pawn of pawns) {
-      if (pawn.role !== 'pawn') {
+    for (const unit of units) {
+      if (unit.role !== 'pawn') {
         continue
       }
 
-      if (pawn.stateUntilTick != null && currentTick >= pawn.stateUntilTick) {
-        if (pawn.nextState) {
-          pawn.state = pawn.nextState
+      if (unit.stateUntilTick != null && currentTick >= unit.stateUntilTick) {
+        if (unit.nextState) {
+          unit.state = unit.nextState
         }
 
-        pawn.stateUntilTick = null
-        pawn.nextState = null
+        unit.stateUntilTick = null
+        unit.nextState = null
       }
 
-      if (pawn.stateUntilTick != null && currentTick < pawn.stateUntilTick) {
+      if (unit.stateUntilTick != null && currentTick < unit.stateUntilTick) {
         continue
       }
 
-      this.ensureIdleMetadata(pawn, currentTick)
+      this.ensureIdleMetadata(unit, currentTick)
     }
 
-    for (const pawn of pawns) {
-      if (pawn.role !== 'pawn') {
+    for (const unit of units) {
+      if (unit.role !== 'pawn') {
         continue
       }
 
-      if (pawn.idleAction === 'talk') {
-        this.updateTalkPair(pawn, worldStore, currentTick)
+      if (unit.idleAction === 'talk') {
+        this.updateTalkPair(unit, worldStore, currentTick)
       }
     }
 
-    for (const pawn of pawns) {
-      if (pawn.role !== 'pawn') {
+    for (const unit of units) {
+      if (unit.role !== 'pawn') {
         continue
       }
 
-      if (pawn.state !== 'idle' || pawn.idleAction !== null) {
+      if (unit.state !== 'idle' || unit.idleAction !== null) {
         continue
       }
 
-      if (claimedPawnIds.has(pawn.id)) {
+      if (claimedPawnIds.has(unit.id)) {
         continue
       }
 
-      const idleDuration = currentTick - (pawn.idleSince ?? currentTick)
+      const idleDuration = currentTick - (unit.idleSince ?? currentTick)
 
       if (idleDuration < delayToTicks(IDLE_DECISION_DELAY_MS)) {
         continue
@@ -115,18 +115,18 @@ export class PawnStateSystem {
       const shouldTalk = Math.random() < 0.7
 
       if (shouldTalk) {
-        const partner = this.findTalkPartner(pawn, pawns, claimedPawnIds)
+        const partner = this.findTalkPartner(unit, units, claimedPawnIds)
 
         if (partner) {
-          this.startTalkPair(pawn, partner, worldStore, currentTick)
-          claimedPawnIds.add(pawn.id)
+          this.startTalkPair(unit, partner, worldStore, currentTick)
+          claimedPawnIds.add(unit.id)
           claimedPawnIds.add(partner.id)
           continue
         }
       }
 
-      if (this.startWanderBehavior(pawn, worldStore, currentTick)) {
-        claimedPawnIds.add(pawn.id)
+      if (this.startWanderBehavior(unit, worldStore, currentTick)) {
+        claimedPawnIds.add(unit.id)
       }
     }
   }
@@ -287,8 +287,8 @@ export class PawnStateSystem {
       return false
     }
 
-    const pawnGridTile = getPawnGridTile(pawn)
-    const partnerGridTile = getPawnGridTile(partner)
+    const pawnGridTile = getUnitGridTile(pawn)
+    const partnerGridTile = getUnitGridTile(partner)
 
     if (!pawnGridTile || !partnerGridTile) {
       return false
@@ -303,7 +303,7 @@ export class PawnStateSystem {
   }
 
   static findTalkPartner(pawn, pawns, claimedPawnIds) {
-    const pawnGridTile = getPawnGridTile(pawn)
+    const pawnGridTile = getUnitGridTile(pawn)
 
     if (!pawnGridTile) {
       return null
@@ -325,7 +325,7 @@ export class PawnStateSystem {
         continue
       }
 
-      const candidateGridTile = getPawnGridTile(candidate)
+      const candidateGridTile = getUnitGridTile(candidate)
 
       if (!candidateGridTile) {
         continue
@@ -374,8 +374,8 @@ export class PawnStateSystem {
   }
 
   static findTalkAssignment(pawnA, pawnB, worldStore) {
-    const pawnATile = getPawnGridTile(pawnA)
-    const pawnBTile = getPawnGridTile(pawnB)
+    const pawnATile = getUnitGridTile(pawnA)
+    const pawnBTile = getUnitGridTile(pawnB)
 
     if (!pawnATile || !pawnBTile) {
       return null
@@ -482,8 +482,8 @@ export class PawnStateSystem {
       return null
     }
 
-    const pawnATile = getPawnGridTile(pawnA)
-    const pawnBTile = getPawnGridTile(pawnB)
+    const pawnATile = getUnitGridTile(pawnA)
+    const pawnBTile = getUnitGridTile(pawnB)
 
     if (!pawnATile || !pawnBTile) {
       return null
@@ -518,8 +518,8 @@ export class PawnStateSystem {
   }
 
   static getTalkScore(worldStore, leftTile, rightTile, pawnA, pawnB) {
-    const pawnATile = getPawnGridTile(pawnA)
-    const pawnBTile = getPawnGridTile(pawnB)
+    const pawnATile = getUnitGridTile(pawnA)
+    const pawnBTile = getUnitGridTile(pawnB)
 
     if (!pawnATile || !pawnBTile) {
       return {
@@ -655,7 +655,7 @@ export class PawnStateSystem {
   }
 
   static findWanderTarget(pawn, worldStore) {
-    const pawnTile = getPawnGridTile(pawn)
+    const pawnTile = getUnitGridTile(pawn)
 
     if (!pawnTile) {
       return null
@@ -703,7 +703,7 @@ export class PawnStateSystem {
   }
 
   static prepareTalkPawn(pawn, partner, targetTile, worldStore) {
-    const currentTile = getPawnGridTile(pawn)
+    const currentTile = getUnitGridTile(pawn)
 
     if (!currentTile) {
       return false

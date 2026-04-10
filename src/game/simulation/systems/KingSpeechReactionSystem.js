@@ -41,25 +41,25 @@ export function applyKingSpeechReactions(reactions, worldStore) {
     ? reactions.emojis.map(normalizeReactionText).filter(Boolean)
     : []
 
-  const pawns = shuffle(worldStore.units ?? [])
+  const units = shuffle(worldStore.units ?? [])
   const currentTick = worldStore.tick ?? 0
   const expiresAt = currentTick + durationToTicks(KING_SPEECH_REACTION_DURATION_MS) - 1
   const staggerTicks = staggerToTicks(KING_SPEECH_REACTION_STAGGER_MS)
 
-  for (const pawn of pawns) {
-    pawn.bubble = null
+  for (const unit of units) {
+    unit.bubble = null
   }
 
-  const showCount = Math.min(emojis.length, pawns.length)
+  const showCount = Math.min(emojis.length, units.length)
 
   for (let index = 0; index < showCount; index += 1) {
-    const pawn = pawns[index]
+    const unit = units[index]
 
-    if (!pawn) {
+    if (!unit) {
       continue
     }
 
-    pawn.bubble = {
+    unit.bubble = {
       emoji: emojis[index],
       text: null,
       appearAtTick: currentTick + index * staggerTicks,

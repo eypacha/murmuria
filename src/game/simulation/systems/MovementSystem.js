@@ -10,46 +10,46 @@ import { PawnWorkSystem, computeTaskAbandonChance } from './PawnWorkSystem.js'
 
 export class MovementSystem {
   static update(worldStore) {
-    const pawns = worldStore.units ?? []
+    const units = worldStore.units ?? []
 
-    for (const pawn of pawns) {
-      if (pawn.role !== 'pawn') {
+    for (const unit of units) {
+      if (unit.role !== 'pawn') {
         continue
       }
 
       if (
-        pawn.state !== 'moving_to_tree' &&
-        pawn.state !== 'moving_to_gold' &&
-        pawn.state !== 'moving_to_meat' &&
-        pawn.state !== 'returning_to_castle' &&
-        pawn.state !== 'moving'
+        unit.state !== 'moving_to_tree' &&
+        unit.state !== 'moving_to_gold' &&
+        unit.state !== 'moving_to_meat' &&
+        unit.state !== 'returning_to_castle' &&
+        unit.state !== 'moving'
       ) {
         continue
       }
 
       if (
-        (pawn.state === 'moving_to_tree' ||
-          pawn.state === 'moving_to_gold' ||
-          pawn.state === 'moving_to_meat') &&
+        (unit.state === 'moving_to_tree' ||
+          unit.state === 'moving_to_gold' ||
+          unit.state === 'moving_to_meat') &&
         Math.random() < computeTaskAbandonChance(worldStore.kingdom)
       ) {
-        PawnWorkSystem.abandonWork(pawn, worldStore)
+        PawnWorkSystem.abandonWork(unit, worldStore)
         continue
       }
 
-      const targetTile = this.getLiveTargetTile(worldStore, pawn)
+      const targetTile = this.getLiveTargetTile(worldStore, unit)
 
       if (!targetTile) {
         continue
       }
 
-      this.movePawnTowardTile(pawn, targetTile, worldStore)
+      this.moveUnitTowardTile(unit, targetTile, worldStore)
     }
   }
 
-  static movePawnTowardTile(pawn, targetTile, worldStore) {
-    const currentPosition = this.getCurrentWorldPosition(pawn)
-    const currentTile = pawn.gridPos ?? this.getGridTileFromWorldPosition(currentPosition)
+  static moveUnitTowardTile(unit, targetTile, worldStore) {
+    const currentPosition = this.getCurrentWorldPosition(unit)
+    const currentTile = unit.gridPos ?? this.getGridTileFromWorldPosition(currentPosition)
 
     if (!currentPosition || !currentTile) {
       return
@@ -57,22 +57,22 @@ export class MovementSystem {
 
     const targetKey = this.getTileKey(targetTile)
 
-    if (pawn.pathGoalKey !== targetKey || !Array.isArray(pawn.path) || pawn.path.length === 0) {
-      pawn.path = findPath(worldStore, currentTile, targetTile)
-      pawn.pathGoalKey = targetKey
+    if (unit.pathGoalKey !== targetKey || !Array.isArray(unit.path) || unit.path.length === 0) {
+      unit.path = findPath(worldStore, currentTile, targetTile)
+      unit.pathGoalKey = targetKey
     }
 
-    if (!Array.isArray(pawn.path) || pawn.path.length === 0) {
+    if (!Array.isArray(unit.path) || unit.path.length === 0) {
       if (currentTile.x === targetTile.x && currentTile.y === targetTile.y) {
-        this.arriveAtTarget(pawn, worldStore)
-      } else if (pawn.idleAction === 'talk' || pawn.idleAction === 'wander') {
-        PawnStateSystem.cancelIdleBehavior(pawn, worldStore, worldStore.tick ?? 0)
+        this.arriveAtTarget(unit, worldStore)
+      } else if (unit.idleAction === 'talk' || unit.idleAction === 'wander') {
+        PawnStateSystem.cancelIdleBehavior(unit, worldStore, worldStore.tick ?? 0)
       }
 
       return
     }
 
-    const speed = pawn.stats?.moveSpeed ?? 0
+    const speed = unit.stats?.moveSpeed ?? 0
 
     if (speed <= 0) {
       return
@@ -82,8 +82,8 @@ export class MovementSystem {
     let remainingStep = speed * deltaTime
     let nextPosition = { ...currentPosition }
 
-    while (remainingStep > 0 && pawn.path.length > 0) {
-      const nextTile = pawn.path[0]
+    while (remainingStep > 0 && unit.path.length > 0) {
+      const nextTile = unit.path[0]
       const targetPosition = this.gridTileToWorldPosition(nextTile)
       const dx = targetPosition.x - nextPosition.x
       const dy = targetPosition.y - nextPosition.y
@@ -94,24 +94,24 @@ export class MovementSystem {
           x: targetPosition.x,
           y: targetPosition.y,
         }
-        pawn.pos = nextPosition
-        pawn.gridPos = {
+        unit.pos = nextPosition
+        unit.gridPos = {
           x: nextTile.x,
           y: nextTile.y,
         }
-        pawn.path.shift()
+        unit.path.shift()
 
         if (dx > 0) {
-          pawn.facing = 'right'
+          unit.facing = 'right'
         } else if (dx < 0) {
-          pawn.facing = 'left'
+          unit.facing = 'left'
         }
 
         remainingStep -= Math.min(distance, remainingStep)
 
-        if (pawn.path.length === 0) {
-          pawn.pathGoalKey = null
-          this.arriveAtTarget(pawn, worldStore)
+        if (unit.path.length === 0) {
+          unit.pathGoalKey = null
+          this.arriveAtTarget(unit, worldStore)
           return
         }
 
@@ -124,20 +124,20 @@ export class MovementSystem {
         y: nextPosition.y + (dy / distance) * step,
       }
 
-      pawn.pos = nextPosition
+      unit.pos = nextPosition
 
       if (dx > 0) {
-        pawn.facing = 'right'
+        unit.facing = 'right'
       } else if (dx < 0) {
-        pawn.facing = 'left'
+        unit.facing = 'left'
       }
 
       return
     }
   }
 
-  static getLiveTargetTile(worldStore, pawn) {
-    const target = pawn.target
+  static getLiveTargetTile(worldStore, unit) {
+    const target = unit.target
 
     if (!target?.id || !target?.type) {
       return target?.tile ?? null
@@ -172,72 +172,72 @@ export class MovementSystem {
       target.tile.y !== liveTile.y
     ) {
       target.tile = liveTile
-      pawn.path = []
-      pawn.pathGoalKey = null
+      unit.path = []
+      unit.pathGoalKey = null
     }
 
     return target.tile
   }
 
-  static getCurrentWorldPosition(pawn) {
-    if (!pawn.pos && pawn.gridPos) {
-      pawn.pos = this.gridTileToWorldPosition(pawn.gridPos)
+  static getCurrentWorldPosition(unit) {
+    if (!unit.pos && unit.gridPos) {
+      unit.pos = this.gridTileToWorldPosition(unit.gridPos)
     }
 
-    return pawn.pos ?? null
+    return unit.pos ?? null
   }
 
-  static arriveAtTarget(pawn, worldStore) {
-    pawn.path = []
-    pawn.pathGoalKey = null
+  static arriveAtTarget(unit, worldStore) {
+    unit.path = []
+    unit.pathGoalKey = null
 
-    if (pawn.idleAction === 'wander') {
-      pawn.state = 'idle'
-      pawn.idleAction = null
-      pawn.talkPartner = null
-      pawn.talkTargetTile = null
-      pawn.talkStartedTick = null
-      pawn.talkUntilTick = null
-      pawn.target = null
-      pawn.idleSince = worldStore.tick ?? 0
+    if (unit.idleAction === 'wander') {
+      unit.state = 'idle'
+      unit.idleAction = null
+      unit.talkPartner = null
+      unit.talkTargetTile = null
+      unit.talkStartedTick = null
+      unit.talkUntilTick = null
+      unit.target = null
+      unit.idleSince = worldStore.tick ?? 0
       return
     }
 
-    if (pawn.idleAction === 'talk') {
-      if (pawn.interactionFacing === 'left' || pawn.interactionFacing === 'right') {
-        pawn.facing = pawn.interactionFacing
+    if (unit.idleAction === 'talk') {
+      if (unit.interactionFacing === 'left' || unit.interactionFacing === 'right') {
+        unit.facing = unit.interactionFacing
       }
 
-      pawn.state = 'waiting_to_talk'
+      unit.state = 'waiting_to_talk'
       return
     }
 
-    if (pawn.target?.type === 'castle') {
+    if (unit.target?.type === 'castle') {
       // Keep the carry animation active for one more tick so the pawn reaches the castle visually
       // before the delivery state clears the resource.
       PawnStateSystem.queueTimedTransition(
-        pawn,
+        unit,
         worldStore,
-        this.resolveDeliveryState(pawn),
+        this.resolveDeliveryState(unit),
         SIMULATION_TICK_MS,
       )
       return
     }
 
-    if (pawn.interactionFacing === 'left' || pawn.interactionFacing === 'right') {
-      pawn.facing = pawn.interactionFacing
+    if (unit.interactionFacing === 'left' || unit.interactionFacing === 'right') {
+      unit.facing = unit.interactionFacing
     }
 
-    pawn.state = 'preparing_to_gather'
-    PawnStateSystem.queueTimedTransition(pawn, worldStore, 'gathering', PAWN_PREPARE_TO_GATHER_MS)
+    unit.state = 'preparing_to_gather'
+    PawnStateSystem.queueTimedTransition(unit, worldStore, 'gathering', PAWN_PREPARE_TO_GATHER_MS)
   }
 
-  static resolveDeliveryState(pawn) {
-    if ((pawn.inventory?.meat ?? 0) > 0 || pawn.workTargetType === 'sheep') {
+  static resolveDeliveryState(unit) {
+    if ((unit.inventory?.meat ?? 0) > 0 || unit.workTargetType === 'sheep') {
       return 'delivering_meat'
     }
 
-    if ((pawn.inventory?.gold ?? 0) > 0 || pawn.workTargetType === 'gold') {
+    if ((unit.inventory?.gold ?? 0) > 0 || unit.workTargetType === 'gold') {
       return 'delivering_gold'
     }
 

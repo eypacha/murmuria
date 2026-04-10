@@ -3,12 +3,12 @@ import { DEBUG_MODE, TILE_SIZE, UNIT_RENDER_OFFSET_Y } from '../../config/consta
 const PAWN_DISPLAY_SIZE = 192
 const DEBUG_UNIT_BORDER_COLOR = 0x5ad8ff
 
-function getPawnAnimationKey(pawn) {
-  return pawn.state === 'moving' ? 'pawn_run_anim' : 'pawn_idle_anim'
+function getUnitAnimationKey(unit) {
+  return unit.state === 'moving' ? 'pawn_run_anim' : 'pawn_idle_anim'
 }
 
-function isPawnFacingLeft(pawn) {
-  return pawn.facing === 'left'
+function isUnitFacingLeft(unit) {
+  return unit.facing === 'left'
 }
 
 function drawDebugTileBorder(scene, gridX, gridY, depth) {
@@ -19,31 +19,31 @@ function drawDebugTileBorder(scene, gridX, gridY, depth) {
   border.strokeRect(gridX * TILE_SIZE, gridY * TILE_SIZE, TILE_SIZE, TILE_SIZE)
 }
 
-function getPawnWorldPosition(pawn) {
-  if (pawn.pos) {
-    return pawn.pos
+function getUnitWorldPosition(unit) {
+  if (unit.pos) {
+    return unit.pos
   }
 
-  if (!pawn.gridPos) {
+  if (!unit.gridPos) {
     return { x: 0, y: 0 }
   }
 
   return {
-    x: pawn.gridPos.x * TILE_SIZE + TILE_SIZE / 2,
-    y: pawn.gridPos.y * TILE_SIZE + TILE_SIZE / 2,
+    x: unit.gridPos.x * TILE_SIZE + TILE_SIZE / 2,
+    y: unit.gridPos.y * TILE_SIZE + TILE_SIZE / 2,
   }
 }
 
 export function syncUnits(scene, worldStore) {
-  const pawns = worldStore.units.filter((unit) => unit.role === 'pawn')
+  const units = worldStore.units.filter((unit) => unit.role === 'pawn')
 
-  return pawns.map((pawn) => {
-    const pos = getPawnWorldPosition(pawn)
+  return units.map((unit) => {
+    const pos = getUnitWorldPosition(unit)
     const x = pos.x
     const y = pos.y + UNIT_RENDER_OFFSET_Y
     const depth = y
-    const animationKey = getPawnAnimationKey(pawn)
-    const facingLeft = isPawnFacingLeft(pawn)
+    const animationKey = getUnitAnimationKey(unit)
+    const facingLeft = isUnitFacingLeft(unit)
 
     const sprite = scene.add.sprite(x, y, 'pawn_idle')
     sprite.setOrigin(0.5, 0.9)
@@ -51,7 +51,7 @@ export function syncUnits(scene, worldStore) {
     sprite.setFlipX(facingLeft)
     sprite.setDepth(depth)
     sprite.play(animationKey)
-    sprite.setData('entityId', pawn.id)
+    sprite.setData('entityId', unit.id)
     sprite.setData('targetX', x)
     sprite.setData('targetY', y)
     sprite.setData('movementStartX', x)
@@ -59,7 +59,7 @@ export function syncUnits(scene, worldStore) {
     sprite.setData('movementElapsed', 0)
 
     if (DEBUG_MODE) {
-      drawDebugTileBorder(scene, pawn.gridPos.x, pawn.gridPos.y, depth - 1)
+      drawDebugTileBorder(scene, unit.gridPos.x, unit.gridPos.y, depth - 1)
     }
 
     return sprite

@@ -5,7 +5,7 @@ import {
   TILE_SIZE,
   UNIT_RENDER_OFFSET_Y,
 } from '../config/constants.js'
-import { resolvePawnAnimation } from './resolvePawnAnimation.js'
+import { resolveUnitAnimation } from './resolveUnitAnimation.js'
 
 const PAWN_DISPLAY_SIZE = 192
 const TALK_BUBBLE_TEXTURE_KEY = 'pawn-talk-bubble'
@@ -22,23 +22,23 @@ const TALK_EMOJI_STYLE = {
   align: 'center',
 }
 
-function getPawnWorldPosition(pawn) {
-  if (pawn?.pos) {
-    return pawn.pos
+function getUnitWorldPosition(unit) {
+  if (unit?.pos) {
+    return unit.pos
   }
 
-  if (!pawn?.gridPos) {
+  if (!unit?.gridPos) {
     return { x: 0, y: 0 }
   }
 
   return {
-    x: pawn.gridPos.x * TILE_SIZE + TILE_SIZE / 2,
-    y: pawn.gridPos.y * TILE_SIZE + TILE_SIZE / 2,
+    x: unit.gridPos.x * TILE_SIZE + TILE_SIZE / 2,
+    y: unit.gridPos.y * TILE_SIZE + TILE_SIZE / 2,
   }
 }
 
-function resolveFacing(pawn) {
-  const state = typeof pawn?.state === 'string' ? pawn.state : 'idle'
+function resolveFacing(unit) {
+  const state = typeof unit?.state === 'string' ? unit.state : 'idle'
 
   if (
     state === 'preparing_to_tree' ||
@@ -48,17 +48,17 @@ function resolveFacing(pawn) {
     state === 'waiting_to_talk' ||
     state === 'talking'
   ) {
-    if (pawn?.interactionFacing === 'left' || pawn?.interactionFacing === 'right') {
-      return pawn.interactionFacing
+    if (unit?.interactionFacing === 'left' || unit?.interactionFacing === 'right') {
+      return unit.interactionFacing
     }
   }
 
-  if (pawn?.facing === 'left' || pawn?.facing === 'right') {
-    return pawn.facing
+  if (unit?.facing === 'left' || unit?.facing === 'right') {
+    return unit.facing
   }
 
-  const worldPosition = getPawnWorldPosition(pawn)
-  const targetTile = pawn?.target?.tile
+  const worldPosition = getUnitWorldPosition(unit)
+  const targetTile = unit?.target?.tile
 
   if (targetTile) {
     const targetX = targetTile.x * TILE_SIZE + TILE_SIZE / 2
@@ -75,23 +75,23 @@ function resolveFacing(pawn) {
   return 'right'
 }
 
-function getDebugTileRect(pawn) {
-  if (!pawn?.gridPos) {
+function getDebugTileRect(unit) {
+  if (!unit?.gridPos) {
     return null
   }
 
   return {
-    x: pawn.gridPos.x * TILE_SIZE,
-    y: pawn.gridPos.y * TILE_SIZE,
+    x: unit.gridPos.x * TILE_SIZE,
+    y: unit.gridPos.y * TILE_SIZE,
     width: TILE_SIZE,
     height: TILE_SIZE,
   }
 }
 
-export class PawnSpriteController {
-  constructor(scene, pawn) {
+export class UnitSpriteController {
+  constructor(scene, unit) {
     this.scene = scene
-    this.pawn = pawn
+    this.unit = unit
     this.currentAnimationKey = null
     this.currentFacing = null
     this.startPosition = null
@@ -106,7 +106,7 @@ export class PawnSpriteController {
     this.debugBorder = DEBUG_MODE ? scene.add.graphics() : null
 
     const initialPosition = this.getRenderPosition()
-    const initialAnimationKey = resolvePawnAnimation(pawn)
+    const initialAnimationKey = resolveUnitAnimation(unit)
 
     this.startPosition = { ...initialPosition }
     this.targetPosition = { ...initialPosition }
@@ -167,7 +167,7 @@ export class PawnSpriteController {
   }
 
   updateAnimation() {
-    const animationKey = resolvePawnAnimation(this.pawn)
+    const animationKey = resolveUnitAnimation(this.unit)
 
     if (this.isVisuallyTraveling() && this.currentAnimationKey?.startsWith('pawn-run')) {
       return
@@ -195,7 +195,7 @@ export class PawnSpriteController {
   }
 
   updateDirection() {
-    const facing = resolveFacing(this.pawn)
+    const facing = resolveFacing(this.unit)
 
     if (facing === this.currentFacing) {
       return
@@ -233,7 +233,7 @@ export class PawnSpriteController {
     }
 
     this.bubbleContainer.setVisible(true)
-    const facing = resolveFacing(this.pawn)
+    const facing = resolveFacing(this.unit)
     const offsetX = facing === 'left' ? -TALK_BUBBLE_SIDE_OFFSET_X : TALK_BUBBLE_SIDE_OFFSET_X
     this.bubbleContainer.setPosition(
       this.sprite.x + offsetX,
@@ -250,14 +250,14 @@ export class PawnSpriteController {
       return
     }
 
-    const facing = resolveFacing(this.pawn)
+    const facing = resolveFacing(this.unit)
     const flipX = facing === 'left'
     this.bubbleImage.setFlipX(flipX)
     this.bubbleText.setFlipX(flipX)
   }
 
   resolveBubbleState() {
-    const bubble = this.pawn?.bubble
+    const bubble = this.unit?.bubble
 
     if (!bubble || typeof bubble !== 'object') {
       return null
@@ -311,7 +311,7 @@ export class PawnSpriteController {
       return
     }
 
-    const rect = getDebugTileRect(this.pawn)
+    const rect = getDebugTileRect(this.unit)
 
     this.debugBorder.clear()
 
@@ -325,7 +325,7 @@ export class PawnSpriteController {
   }
 
   getRenderPosition() {
-    const worldPosition = getPawnWorldPosition(this.pawn)
+    const worldPosition = getUnitWorldPosition(this.unit)
 
     return {
       x: worldPosition.x,

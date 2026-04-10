@@ -6,7 +6,7 @@ import {
   CAMERA_WHEEL_ZOOM_RATE,
   TILE_SIZE,
 } from '../config/constants.js'
-import { PawnSpriteController } from '../rendering/PawnSpriteController.js'
+import { UnitSpriteController } from '../rendering/UnitSpriteController.js'
 import { renderGrid } from './renderers/renderGrid.js'
 import { syncBuildings } from './renderers/syncBuildings.js'
 import { syncConstructionSites } from './renderers/syncBuildings.js'
@@ -116,7 +116,7 @@ export class GameScene extends Phaser.Scene {
   constructor() {
     super({ key: 'GameScene' })
     this.worldStore = null
-    this.pawnControllers = new Map()
+    this.unitControllers = new Map()
     this.resourceSprites = new Map()
     this.resourceDebugBorders = new Map()
     this.targetZoom = CAMERA_DEFAULT_ZOOM
@@ -201,10 +201,10 @@ export class GameScene extends Phaser.Scene {
 
     this.cleanupCameraControls()
 
-    for (const controller of this.pawnControllers.values()) {
+    for (const controller of this.unitControllers.values()) {
       controller.destroy()
     }
-    this.pawnControllers.clear()
+    this.unitControllers.clear()
 
     for (const sprite of this.resourceSprites.values()) {
       sprite.destroy()
@@ -234,7 +234,7 @@ export class GameScene extends Phaser.Scene {
     syncBuildings(this, this.worldStore)
     syncConstructionSites(this, this.worldStore)
     syncResources(this, this.worldStore)
-    this.syncPawnControllers()
+    this.syncUnitControllers()
   }
 
   getWorldPixelSize() {
@@ -489,7 +489,7 @@ export class GameScene extends Phaser.Scene {
     this.updateCameraZoom(delta)
     syncConstructionSites(this, this.worldStore)
     syncResources(this, this.worldStore)
-    this.syncPawnControllers()
+    this.syncUnitControllers()
   }
 
   updateCameraZoom(delta) {
@@ -529,39 +529,39 @@ export class GameScene extends Phaser.Scene {
     camera.scrollY = this.zoomAnchor.y - centerY / camera.zoom
   }
 
-  syncPawnControllers() {
+  syncUnitControllers() {
     if (!this.worldStore) {
       return
     }
 
-    const activePawnIds = new Set()
+    const activeUnitIds = new Set()
 
-    for (const pawn of this.worldStore.units) {
-      if (pawn.role !== 'pawn') {
+    for (const unit of this.worldStore.units) {
+      if (unit.role !== 'pawn') {
         continue
       }
 
-      activePawnIds.add(pawn.id)
+      activeUnitIds.add(unit.id)
 
-      let controller = this.pawnControllers.get(pawn.id)
+      let controller = this.unitControllers.get(unit.id)
 
       if (!controller) {
-        controller = new PawnSpriteController(this, pawn)
-        this.pawnControllers.set(pawn.id, controller)
+        controller = new UnitSpriteController(this, unit)
+        this.unitControllers.set(unit.id, controller)
       } else {
-        controller.pawn = pawn
+        controller.unit = unit
       }
 
       controller.update()
     }
 
-    for (const [pawnId, controller] of this.pawnControllers.entries()) {
-      if (activePawnIds.has(pawnId)) {
+    for (const [unitId, controller] of this.unitControllers.entries()) {
+      if (activeUnitIds.has(unitId)) {
         continue
       }
 
       controller.destroy()
-      this.pawnControllers.delete(pawnId)
+      this.unitControllers.delete(unitId)
     }
   }
 }

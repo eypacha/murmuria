@@ -4,11 +4,11 @@ export class BubbleSystem {
       return
     }
 
-    const pawns = worldStore.units ?? []
+    const units = worldStore.units ?? []
     const currentTick = worldStore.tick ?? 0
 
-    for (const pawn of pawns) {
-      const bubble = pawn.bubble
+    for (const unit of units) {
+      const bubble = unit.bubble
 
       if (!bubble) {
         continue
@@ -19,12 +19,12 @@ export class BubbleSystem {
       }
 
       if (!Number.isFinite(bubble.untilTick)) {
-        pawn.bubble = null
+        unit.bubble = null
         continue
       }
 
       if (currentTick >= bubble.untilTick) {
-        pawn.bubble = null
+        unit.bubble = null
       }
     }
   }
