@@ -200,32 +200,37 @@ function shuffleInPlace(items, rng) {
   }
 }
 
-function getSpawnFacing(seed, entityType, x, y) {
-  const facingRng = seededRandom(`${seed}:${entityType}:${x}:${y}`)
-  return facingRng.nextInt(2) === 0 ? 'left' : 'right'
+function getSpawnFacing() {
+  return Math.random() < 0.5 ? 'left' : 'right'
 }
 
-function createSheepStateBag(seed) {
-  const stateRng = seededRandom(`${seed}:sheep-states`)
+function createSheepStateBag() {
   const states = ['idle', 'moving', 'eating'].slice(0, Math.min(3, INITIAL_SHEEP_COUNT))
   const fallbackStates = ['idle', 'idle', 'moving', 'moving', 'eating']
 
   while (states.length < INITIAL_SHEEP_COUNT) {
-    states.push(fallbackStates[stateRng.nextInt(fallbackStates.length)] ?? 'idle')
+    const randomIndex = Math.floor(Math.random() * fallbackStates.length)
+    states.push(fallbackStates[randomIndex] ?? 'idle')
   }
 
-  shuffleInPlace(states, stateRng)
+  for (let i = states.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1))
+    const temp = states[i]
+    states[i] = states[j]
+    states[j] = temp
+  }
+
   return states
 }
 
-function createSheepMotionState(seed, x, y, facing) {
+function createSheepMotionState(seed, x, y) {
   const motionRng = seededRandom(`${seed}:sheep-motion:${x}:${y}`)
   const turnIntervalTicks = 4 + motionRng.nextInt(4)
 
   return {
     seed: `${seed}:sheep-motion:${x}:${y}`,
     cycle: 0,
-    direction: facing === 'left' ? 'left' : 'right',
+    direction: Math.random() < 0.5 ? 'left' : 'right',
     speed: 36 + motionRng.nextInt(9),
     turnIntervalTicks,
     nextTurnTick: turnIntervalTicks,
@@ -790,6 +795,7 @@ function spawnGold(tiles, castle, worldSeed, rng, extraReservedKeys = new Set())
   const resources = []
   const reservedKeys = new Set([...getCastleReservationKeys(castle), ...extraReservedKeys])
   const occupiedKeys = new Set(reservedKeys)
+  const failedSeedKeys = new Set()
   const plateauTiles = getPlateauTiles(tiles)
   const candidateTiles = getGoldCandidates(tiles, reservedKeys)
   const candidateKeys = new Set(candidateTiles.map((tile) => positionKey(tile.x, tile.y)))
@@ -803,11 +809,19 @@ function spawnGold(tiles, castle, worldSeed, rng, extraReservedKeys = new Set())
   )
   let clusterCount = 0
 
-  while (resources.length < INITIAL_GOLD_COUNT && clusterCount < clusterTargetCount) {
+  while (
+    resources.length < INITIAL_GOLD_COUNT &&
+    clusterCount < clusterTargetCount &&
+    failedSeedKeys.size < candidateTiles.length
+  ) {
     const availableSeeds = candidateTiles.filter((tile) => {
       const key = positionKey(tile.x, tile.y)
 
-      return !occupiedKeys.has(key) && isDistanceFarEnough(tile, goldPositions, GOLD_SEED_SPACING)
+      return (
+        !occupiedKeys.has(key) &&
+        !failedSeedKeys.has(key) &&
+        isDistanceFarEnough(tile, goldPositions, GOLD_SEED_SPACING)
+      )
     })
 
     if (availableSeeds.length === 0) {
@@ -851,6 +865,8 @@ function spawnGold(tiles, castle, worldSeed, rng, extraReservedKeys = new Set())
     )
 
     if (cluster.length < 2) {
+      failedSeedKeys.add(seedKey)
+
       for (const tile of cluster) {
         occupiedKeys.delete(positionKey(tile.x, tile.y))
       }
@@ -868,7 +884,7 @@ function spawnGold(tiles, castle, worldSeed, rng, extraReservedKeys = new Set())
           tile.x,
           tile.y,
           pickGoldVariantIndex(worldSeed, tile.x, tile.y, goldState, rng),
-          getSpawnFacing(worldSeed, 'gold', tile.x, tile.y),
+          getSpawnFacing(),
         ),
       )
     }
@@ -915,7 +931,7 @@ function spawnGold(tiles, castle, worldSeed, rng, extraReservedKeys = new Set())
           tile.x,
           tile.y,
           pickGoldVariantIndex(worldSeed, tile.x, tile.y, goldState, rng),
-          getSpawnFacing(worldSeed, 'gold', tile.x, tile.y),
+          getSpawnFacing(),
         ),
       )
       remainingCandidates = remainingCandidates.filter(
@@ -956,7 +972,7 @@ function spawnGold(tiles, castle, worldSeed, rng, extraReservedKeys = new Set())
           tile.x,
           tile.y,
           pickGoldVariantIndex(worldSeed, tile.x, tile.y, goldState, rng),
-          getSpawnFacing(worldSeed, 'gold', tile.x, tile.y),
+          getSpawnFacing(),
         ),
       )
       remainingCandidates = remainingCandidates.filter(
@@ -988,7 +1004,7 @@ function spawnGold(tiles, castle, worldSeed, rng, extraReservedKeys = new Set())
           tile.x,
           tile.y,
           pickGoldVariantIndex(worldSeed, tile.x, tile.y, goldState, rng),
-          getSpawnFacing(worldSeed, 'gold', tile.x, tile.y),
+          getSpawnFacing(),
         ),
       )
     }
@@ -1003,7 +1019,7 @@ function spawnPawns(tiles, castle, width, height, rng) {
   const pawnPositions = createPawnPositions(castle, tiles, width, height, occupiedKeys, rng)
 
   for (const position of pawnPositions) {
-    const facing = rng.nextInt(2) === 0 ? 'left' : 'right'
+    const facing = getSpawnFacing()
 
     units.push(createPawn(position.x, position.y, facing))
     occupiedKeys.add(positionKey(position.x, position.y))
@@ -1072,7 +1088,7 @@ function spawnTrees(tiles, castle, worldSeed, rng, extraReservedKeys = new Set()
           tile.x,
           tile.y,
           rng.nextInt(TREE_VARIANT_CONFIGS.length),
-          getSpawnFacing(worldSeed, 'tree', tile.x, tile.y),
+          getSpawnFacing(),
         ),
       )
     }
@@ -1103,7 +1119,7 @@ function spawnTrees(tiles, castle, worldSeed, rng, extraReservedKeys = new Set()
         tile.x,
         tile.y,
         rng.nextInt(TREE_VARIANT_CONFIGS.length),
-        getSpawnFacing(worldSeed, 'tree', tile.x, tile.y),
+        getSpawnFacing(),
       ),
     )
   }
@@ -1127,7 +1143,7 @@ function spawnTrees(tiles, castle, worldSeed, rng, extraReservedKeys = new Set()
           tile.x,
           tile.y,
           rng.nextInt(TREE_VARIANT_CONFIGS.length),
-          getSpawnFacing(worldSeed, 'tree', tile.x, tile.y),
+          getSpawnFacing(),
         ),
       )
     }
@@ -1205,10 +1221,11 @@ function spawnSheep(tiles, castle, worldSeed, rng, extraReservedKeys = new Set()
   const resources = []
   const reservedKeys = new Set([...getCastleReservationKeys(castle), ...extraReservedKeys])
   const occupiedKeys = new Set(reservedKeys)
+  const failedSeedKeys = new Set()
   const candidateTiles = getTreeCandidates(tiles, reservedKeys)
   const candidateKeys = new Set(candidateTiles.map((tile) => positionKey(tile.x, tile.y)))
   const sheepPositions = []
-  const sheepStates = createSheepStateBag(worldSeed)
+  const sheepStates = createSheepStateBag()
   let sheepStateIndex = 0
   const clusterTargetCount = Math.min(
     4,
@@ -1223,11 +1240,19 @@ function spawnSheep(tiles, castle, worldSeed, rng, extraReservedKeys = new Set()
     return nextState ?? 'idle'
   }
 
-  while (resources.length < INITIAL_SHEEP_COUNT && clusterCount < clusterTargetCount) {
+  while (
+    resources.length < INITIAL_SHEEP_COUNT &&
+    clusterCount < clusterTargetCount &&
+    failedSeedKeys.size < candidateTiles.length
+  ) {
     const availableSeeds = candidateTiles.filter((tile) => {
       const key = positionKey(tile.x, tile.y)
 
-      return !occupiedKeys.has(key) && isDistanceFarEnough(tile, sheepPositions, 5)
+      return (
+        !occupiedKeys.has(key) &&
+        !failedSeedKeys.has(key) &&
+        isDistanceFarEnough(tile, sheepPositions, 5)
+      )
     })
 
     if (availableSeeds.length === 0) {
@@ -1263,6 +1288,8 @@ function spawnSheep(tiles, castle, worldSeed, rng, extraReservedKeys = new Set()
     )
 
     if (cluster.length === 0) {
+      failedSeedKeys.add(seedKey)
+
       continue
     }
 
@@ -1271,7 +1298,7 @@ function spawnSheep(tiles, castle, worldSeed, rng, extraReservedKeys = new Set()
     for (const tile of cluster) {
       occupiedKeys.add(positionKey(tile.x, tile.y))
       sheepPositions.push(tile)
-      const facing = getSpawnFacing(worldSeed, 'sheep', tile.x, tile.y)
+      const facing = getSpawnFacing()
       const sheep = createSheep(
         tile.x,
         tile.y,
@@ -1284,7 +1311,7 @@ function spawnSheep(tiles, castle, worldSeed, rng, extraReservedKeys = new Set()
         x: tile.x * TILE_SIZE + TILE_SIZE / 2,
         y: tile.y * TILE_SIZE + TILE_SIZE / 2,
       }
-      sheep.motion = createSheepMotionState(worldSeed, tile.x, tile.y, facing)
+      sheep.motion = createSheepMotionState(worldSeed, tile.x, tile.y)
 
       resources.push(sheep)
     }
@@ -1310,7 +1337,7 @@ function spawnSheep(tiles, castle, worldSeed, rng, extraReservedKeys = new Set()
 
     occupiedKeys.add(key)
     sheepPositions.push(tile)
-    const facing = getSpawnFacing(worldSeed, 'sheep', tile.x, tile.y)
+    const facing = getSpawnFacing()
     const sheep = createSheep(
       tile.x,
       tile.y,
@@ -1323,7 +1350,7 @@ function spawnSheep(tiles, castle, worldSeed, rng, extraReservedKeys = new Set()
       x: tile.x * TILE_SIZE + TILE_SIZE / 2,
       y: tile.y * TILE_SIZE + TILE_SIZE / 2,
     }
-    sheep.motion = createSheepMotionState(worldSeed, tile.x, tile.y, facing)
+    sheep.motion = createSheepMotionState(worldSeed, tile.x, tile.y)
 
     resources.push(sheep)
   }
@@ -1340,25 +1367,25 @@ function spawnSheep(tiles, castle, worldSeed, rng, extraReservedKeys = new Set()
         continue
       }
 
-    occupiedKeys.add(key)
-    sheepPositions.push(tile)
-    const facing = getSpawnFacing(worldSeed, 'sheep', tile.x, tile.y)
-    const sheep = createSheep(
-      tile.x,
-      tile.y,
-      rng.nextInt(SHEEP_VARIANT_CONFIGS.length),
-      facing,
-      nextSheepState(),
-    )
+      occupiedKeys.add(key)
+      sheepPositions.push(tile)
+      const facing = getSpawnFacing()
+      const sheep = createSheep(
+        tile.x,
+        tile.y,
+        rng.nextInt(SHEEP_VARIANT_CONFIGS.length),
+        facing,
+        nextSheepState(),
+      )
 
-    sheep.pos = {
-      x: tile.x * TILE_SIZE + TILE_SIZE / 2,
-      y: tile.y * TILE_SIZE + TILE_SIZE / 2,
+      sheep.pos = {
+        x: tile.x * TILE_SIZE + TILE_SIZE / 2,
+        y: tile.y * TILE_SIZE + TILE_SIZE / 2,
+      }
+      sheep.motion = createSheepMotionState(worldSeed, tile.x, tile.y)
+
+      resources.push(sheep)
     }
-    sheep.motion = createSheepMotionState(worldSeed, tile.x, tile.y, facing)
-
-    resources.push(sheep)
-  }
   }
 
   return resources
@@ -1539,8 +1566,11 @@ export function generateIslandMask(width, height, rng) {
 
   const landTiles = [{ x: centerX, y: centerY }]
   mask[centerY][centerX] = true
+  const maxAttempts = width * height * 10
+  let attempts = 0
 
-  while (landTiles.length < targetLandTiles) {
+  while (landTiles.length < targetLandTiles && attempts < maxAttempts) {
+    attempts += 1
     const origin = landTiles[rng.nextInt(landTiles.length)]
     const offset = NEIGHBOR_OFFSETS[rng.nextInt(NEIGHBOR_OFFSETS.length)]
     const x = origin.x + offset.x

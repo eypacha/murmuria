@@ -18,6 +18,10 @@ function getWorldPositionFromTile(tile) {
   }
 }
 
+function getRandomFacing() {
+  return Math.random() < 0.5 ? 'left' : 'right'
+}
+
 function isTileOccupied(worldStore, tile, ignoreEntityId) {
   const entities = [
     ...(worldStore.buildings ?? []),
@@ -87,7 +91,7 @@ export class SheepMovementSystem {
       }
 
       if (sheep.motion.direction !== 'left' && sheep.motion.direction !== 'right') {
-        sheep.motion.direction = sheep.facing === 'left' ? 'left' : 'right'
+        sheep.motion.direction = getRandomFacing()
       }
 
       if (!Number.isFinite(sheep.motion.speed) || sheep.motion.speed <= 0) {
@@ -106,7 +110,7 @@ export class SheepMovementSystem {
     sheep.motion = {
       seed: motionSeed,
       cycle: 0,
-      direction: sheep.facing === 'left' ? 'left' : 'right',
+      direction: getRandomFacing(),
       speed: SHEEP_MOVE_SPEED + motionRng.nextInt(9),
       turnIntervalTicks,
       nextTurnTick: (worldStore.tick ?? 0) + turnIntervalTicks,
