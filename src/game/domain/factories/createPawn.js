@@ -22,7 +22,7 @@ export function createPawn(x = 0, y = 0, facing = 'right') {
     idleAction: null,
     talkPartner: null,
     talkTargetTile: null,
-    talkEmoji: null,
+    bubble: null,
     facing,
     gridPos: {
       x,

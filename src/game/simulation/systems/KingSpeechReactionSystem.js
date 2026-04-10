@@ -1,3 +1,5 @@
+import { SIMULATION_TICK_MS } from '../../config/constants.js'
+
 const KING_SPEECH_REACTION_DURATION_MS = 2000
 
 function normalizeReactionText(value) {
@@ -21,6 +23,10 @@ function shuffle(array) {
   return result
 }
 
+function durationToTicks(durationMs) {
+  return Math.max(1, Math.ceil(durationMs / SIMULATION_TICK_MS))
+}
+
 export function applyKingSpeechReactions(reactions, worldStore) {
   if (!worldStore) {
     return
@@ -32,12 +38,10 @@ export function applyKingSpeechReactions(reactions, worldStore) {
 
   const pawns = shuffle((worldStore.units ?? []).filter((unit) => unit.role === 'pawn'))
   const currentTick = worldStore.tick ?? 0
-  const expiresAt = Date.now() + KING_SPEECH_REACTION_DURATION_MS
+  const expiresAt = currentTick + durationToTicks(KING_SPEECH_REACTION_DURATION_MS) - 1
 
   for (const pawn of pawns) {
-    pawn.talkEmoji = null
-    pawn.talkEmojiUntilAt = null
-    pawn.talkEmojiKey = null
+    pawn.bubble = null
   }
 
   const showCount = Math.min(emojis.length, pawns.length)
@@ -49,8 +53,10 @@ export function applyKingSpeechReactions(reactions, worldStore) {
       continue
     }
 
-    pawn.talkEmoji = emojis[index]
-    pawn.talkEmojiUntilAt = expiresAt
-    pawn.talkEmojiKey = `${currentTick}:${index}:${pawn.id}`
+    pawn.bubble = {
+      emoji: emojis[index],
+      text: null,
+      untilTick: expiresAt,
+    }
   }
 }

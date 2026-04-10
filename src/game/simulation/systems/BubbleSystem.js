@@ -1,0 +1,31 @@
+export class BubbleSystem {
+  static update(worldStore) {
+    if (!worldStore) {
+      return
+    }
+
+    const pawns = worldStore.units ?? []
+    const currentTick = worldStore.tick ?? 0
+
+    for (const pawn of pawns) {
+      if (pawn.role !== 'pawn') {
+        continue
+      }
+
+      const bubble = pawn.bubble
+
+      if (!bubble) {
+        continue
+      }
+
+      if (!Number.isFinite(bubble.untilTick)) {
+        pawn.bubble = null
+        continue
+      }
+
+      if (currentTick >= bubble.untilTick) {
+        pawn.bubble = null
+      }
+    }
+  }
+}

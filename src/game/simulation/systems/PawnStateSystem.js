@@ -6,8 +6,10 @@ import { isTraversableWorldTile } from '../../core/isTraversableTile.js'
 const DEFAULT_STATE_DELAY_MS = 1000
 const IDLE_DECISION_DELAY_MS = 1000
 const TALK_DURATION_MS = 3000
+const TALK_BUBBLE_SWITCH_MS = 1000
 const TALK_DISTANCE_LIMIT_TILES = 10
 const TALK_MEETING_SEARCH_RADIUS = 4
+const TALK_EMOJIS = ['🙂', '😐', '🤔', '🍖', '👑', '🔥', '😭', '🍎', '🍕', '🍷', '🌎', '🏰']
 
 function delayToTicks(delayMs) {
   return Math.max(1, Math.ceil(delayMs / SIMULATION_TICK_MS))
@@ -164,8 +166,17 @@ export class PawnStateSystem {
 
       if (!this.isTalkPairValid(pawn, worldStore)) {
         this.cancelIdleBehavior(pawn, worldStore, currentTick)
+        return
       }
 
+      const partner = this.getTalkPartnerPawn(pawn, worldStore)
+
+      if (!partner) {
+        this.cancelIdleBehavior(pawn, worldStore, currentTick)
+        return
+      }
+
+      this.syncTalkBubble(pawn, partner, currentTick)
       return
     }
 
@@ -188,6 +199,46 @@ export class PawnStateSystem {
 
     if (this.areBothAtTalkTargets(pawn, partner)) {
       this.startTalkConversation(pawn, partner, worldStore, currentTick)
+    }
+  }
+
+  static syncTalkBubble(pawn, partner, currentTick) {
+    if (!pawn) {
+      return
+    }
+
+    const startedTick = Number.isFinite(pawn.talkStartedTick) ? pawn.talkStartedTick : null
+
+    if (startedTick == null) {
+      return
+    }
+
+    const partnerId = partner?.id
+
+    if (!partnerId) {
+      return
+    }
+
+    const switchTicks = delayToTicks(TALK_BUBBLE_SWITCH_MS)
+    const turnIndex = Math.floor(Math.max(0, currentTick - startedTick) / switchTicks)
+    const leadId = pawn.id <= partnerId ? pawn.id : partnerId
+    const activeSpeakerId =
+      turnIndex % 2 === 0 ? leadId : (leadId === pawn.id ? partnerId : pawn.id)
+
+    if (activeSpeakerId !== pawn.id) {
+      return
+    }
+
+    const bubble = pawn.bubble
+
+    if (bubble && Number.isFinite(bubble.untilTick) && bubble.untilTick > currentTick) {
+      return
+    }
+
+    pawn.bubble = {
+      emoji: TALK_EMOJIS[Math.floor(Math.random() * TALK_EMOJIS.length)] ?? TALK_EMOJIS[0],
+      text: null,
+      untilTick: currentTick + switchTicks,
     }
   }
 
@@ -554,6 +605,8 @@ export class PawnStateSystem {
     pawnA.idleSince = null
     pawnB.idleSince = null
     this.syncFacingForConversation(pawnA, pawnB)
+    this.syncTalkBubble(pawnA, pawnB, currentTick)
+    this.syncTalkBubble(pawnB, pawnA, currentTick)
   }
 
   static syncFacingForConversation(pawnA, pawnB) {
@@ -711,6 +764,7 @@ export class PawnStateSystem {
       }
 
       this.resetTalkFields(subject)
+      this.clearBubble(subject)
 
       if (subject.state === 'talking' || subject.state === 'moving' || subject.state === 'waiting_to_talk') {
         subject.state = 'idle'
@@ -733,6 +787,7 @@ export class PawnStateSystem {
         }
 
         this.resetTalkFields(subject)
+        this.clearBubble(subject)
 
         if (subject.state === 'talking' || subject.state === 'moving' || subject.state === 'waiting_to_talk') {
           subject.state = 'idle'
@@ -774,6 +829,12 @@ export class PawnStateSystem {
     pawn.talkTargetTile = null
     pawn.talkStartedTick = null
     pawn.talkUntilTick = null
+  }
+
+  static clearBubble(pawn) {
+    if (pawn?.bubble) {
+      pawn.bubble = null
+    }
   }
 
   static queueTimedTransition(pawn, worldStore, nextState, delayMs = DEFAULT_STATE_DELAY_MS) {

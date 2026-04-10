@@ -1,4 +1,5 @@
 export { DecisionSystem } from './DecisionSystem.js'
+export { BubbleSystem } from './BubbleSystem.js'
 export { generateSpeechIntent } from './LLMProviderSystem.js'
 export { applyKingSpeechIntent, computeObedience } from './KingSpeechIntentSystem.js'
 export { applyKingSpeechReactions } from './KingSpeechReactionSystem.js'

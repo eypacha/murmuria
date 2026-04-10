@@ -13,11 +13,6 @@ const TALK_BUBBLE_WIDTH = 98
 const TALK_BUBBLE_HEIGHT = 104
 const TALK_BUBBLE_OFFSET_Y = 170
 const TALK_BUBBLE_SIDE_OFFSET_X = 34
-const TALK_BUBBLE_SWITCH_MS = 1000
-const TALK_BUBBLE_SWITCH_TICKS = Math.max(
-  1,
-  Math.ceil(TALK_BUBBLE_SWITCH_MS / SIMULATION_TICK_MS),
-)
 const TALK_EMOJIS = ['🙂', '😐', '🤔', '🍖', '👑','🔥','😭','🍎','🍕','🍷','🌎','🏰']
 const DEBUG_UNIT_BORDER_COLOR = 0x5ad8ff
 const TALK_EMOJI_STYLE = {
@@ -218,7 +213,7 @@ export class PawnSpriteController {
       return
     }
 
-    const { key } = bubbleState
+    const key = `${bubbleState.untilTick}:${bubbleState.emoji ?? ''}:${bubbleState.text ?? ''}`
 
     if (!this.bubbleContainer) {
       this.createTalkBubble()
@@ -231,11 +226,15 @@ export class PawnSpriteController {
     if (this.bubbleSlotKey !== key) {
       this.bubbleSlotKey = key
       this.bubbleEmoji =
-        bubbleState.emoji ?? TALK_EMOJIS[Math.floor(Math.random() * TALK_EMOJIS.length)] ?? TALK_EMOJIS[0]
+        bubbleState.emoji ??
+        bubbleState.text ??
+        TALK_EMOJIS[Math.floor(Math.random() * TALK_EMOJIS.length)] ??
+        TALK_EMOJIS[0]
     }
 
     this.bubbleContainer.setVisible(true)
-    const offsetX = this.isRightSideSpeaker() ? -TALK_BUBBLE_SIDE_OFFSET_X : TALK_BUBBLE_SIDE_OFFSET_X
+    const facing = resolveFacing(this.pawn)
+    const offsetX = facing === 'left' ? -TALK_BUBBLE_SIDE_OFFSET_X : TALK_BUBBLE_SIDE_OFFSET_X
     this.bubbleContainer.setPosition(
       this.sprite.x + offsetX,
       this.sprite.y - TALK_BUBBLE_OFFSET_Y,
@@ -246,113 +245,29 @@ export class PawnSpriteController {
     this.bubbleKey = key
   }
 
-  isRightSideSpeaker() {
-    const partnerId = this.pawn.talkPartner?.id
-
-    if (!partnerId) {
-      return false
-    }
-
-    return this.pawn.id > partnerId
-  }
-
   updateBubbleFlip(bubbleState) {
     if (!this.bubbleImage || !this.bubbleText) {
       return
     }
 
-    const partner = this.pawn.talkPartner
-    const partnerId = partner?.id
-
-    if (!partnerId) {
-      this.bubbleImage.setFlipX(false)
-      this.bubbleText.setFlipX(false)
-      return
-    }
-
-    const isRightSide = this.isRightSideSpeaker()
-    this.bubbleImage.setFlipX(isRightSide)
-    this.bubbleText.setFlipX(isRightSide)
-  }
-
-  resolveTalkBubbleState() {
-    if (
-      this.pawn?.idleAction !== 'talk' ||
-      (this.pawn?.state !== 'talking' && this.pawn?.state !== 'waiting_to_talk')
-    ) {
-      return null
-    }
-
-    const partner = this.pawn.talkPartner
-
-    if (!partner || !partner.id) {
-      return null
-    }
-
-    const startedTick = Number.isFinite(this.pawn.talkStartedTick) ? this.pawn.talkStartedTick : null
-
-    if (startedTick == null) {
-      return null
-    }
-
-    const currentTick = this.scene.worldStore?.tick ?? 0
-    const turnIndex = Math.floor(Math.max(0, currentTick - startedTick) / TALK_BUBBLE_SWITCH_TICKS)
-    const partnerId = partner.id
-    const leadId = this.pawn.id <= partnerId ? this.pawn.id : partnerId
-    const activeSpeakerId = turnIndex % 2 === 0 ? leadId : (leadId === this.pawn.id ? partnerId : this.pawn.id)
-
-    if (activeSpeakerId !== this.pawn.id) {
-      return null
-    }
-
-    const pairKey = [this.pawn.id, partnerId].sort().join(':')
-    const emojiIndex = Math.floor(Math.random() * TALK_EMOJIS.length)
-    const emoji = TALK_EMOJIS[emojiIndex] ?? TALK_EMOJIS[0]
-    const key = `${pairKey}:${turnIndex}:${activeSpeakerId}`
-
-    return {
-      emoji,
-      key,
-      type: 'talk',
-    }
+    const facing = resolveFacing(this.pawn)
+    const flipX = facing === 'left'
+    this.bubbleImage.setFlipX(flipX)
+    this.bubbleText.setFlipX(flipX)
   }
 
   resolveBubbleState() {
-    const reactionState = this.resolveKingSpeechReactionState()
+    const bubble = this.pawn?.bubble
 
-    if (reactionState) {
-      return reactionState
-    }
-
-    return this.resolveTalkBubbleState()
-  }
-
-  resolveKingSpeechReactionState() {
-    const emoji = typeof this.pawn?.talkEmoji === 'string' ? this.pawn.talkEmoji.trim() : ''
-
-    if (!emoji) {
+    if (!bubble || typeof bubble !== 'object') {
       return null
     }
 
-    const untilAt = Number.isFinite(this.pawn.talkEmojiUntilAt)
-      ? this.pawn.talkEmojiUntilAt
-      : null
-
-    if (untilAt == null) {
+    if (!Number.isFinite(bubble.untilTick)) {
       return null
     }
 
-    const now = Date.now()
-
-    if (now >= untilAt) {
-      return null
-    }
-
-    return {
-      emoji,
-      key: `king-speech:${this.pawn.talkEmojiKey ?? this.pawn.id}:${untilAt}`,
-      type: 'reaction',
-    }
+    return bubble
   }
 
   createTalkBubble() {
