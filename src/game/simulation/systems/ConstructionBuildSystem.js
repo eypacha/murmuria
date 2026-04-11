@@ -6,6 +6,7 @@ import {
   VILLAGER_INTENT_BUBBLE_DURATION_TICKS,
 } from '../../config/constants.js'
 import { findPath } from '../../core/findPath.js'
+import { isTraversableWorldTile } from '../../core/isTraversableTile.js'
 import { createHouse } from '../../domain/factories/createHouse.js'
 import { UnitStateSystem } from './UnitStateSystem.js'
 import { getIntentBubbleText } from './getIntentBubbleText.js'
@@ -50,6 +51,10 @@ function shuffleInPlace(items) {
   }
 }
 
+function tileKey(tile) {
+  return `${tile.x}:${tile.y}`
+}
+
 function getHorizontalBuildCandidates(site) {
   const position = site.gridPos ?? { x: site.x ?? 0, y: site.y ?? 0 }
   const footprint = site.footprint ?? { w: 1, h: 1 }
@@ -73,6 +78,120 @@ function getHorizontalBuildCandidates(site) {
   }
 
   return candidates
+}
+
+function buildOccupiedTileSet(worldStore, ignoredIds = new Set()) {
+  const occupiedTiles = new Set()
+  const entities = [
+    ...(worldStore.buildings ?? []),
+    ...(worldStore.constructionSites ?? []),
+    ...(worldStore.houses ?? []),
+    ...(worldStore.resources ?? []),
+    ...(worldStore.units ?? []),
+  ]
+
+  for (const entity of entities) {
+    if (!entity?.gridPos || ignoredIds.has(entity.id)) {
+      continue
+    }
+
+    const footprint = entity.footprint ?? { w: 1, h: 1 }
+    const position = entity.gridPos
+
+    for (let dy = 0; dy < footprint.h; dy += 1) {
+      for (let dx = 0; dx < footprint.w; dx += 1) {
+        occupiedTiles.add(`${position.x + dx}:${position.y + dy}`)
+      }
+    }
+  }
+
+  return occupiedTiles
+}
+
+function isInsideWorld(worldStore, tile) {
+  const width = worldStore.world?.width ?? 0
+  const height = worldStore.world?.height ?? 0
+
+  return tile.x >= 0 && tile.y >= 0 && tile.x < width && tile.y < height
+}
+
+function isWalkable(worldStore, tile) {
+  const worldTile = worldStore.world?.tiles?.[tile.y]?.[tile.x] ?? null
+
+  return isTraversableWorldTile(worldStore, tile) && Boolean(worldTile)
+}
+
+function getBuilderSlots(site, worldStore) {
+  const candidates = getHorizontalBuildCandidates(site)
+  const occupiedTiles = buildOccupiedTileSet(worldStore)
+  const existingSlots = Array.isArray(site.builderSlots) ? site.builderSlots : []
+  const existingSlotsByKey = new Map(
+    existingSlots
+      .filter((slot) => slot?.key)
+      .map((slot) => [slot.key, slot]),
+  )
+  const currentBuilderIds = new Set(
+    (worldStore.units ?? [])
+      .filter((unit) => unit?.constructionBuild?.siteId === site?.id)
+      .map((unit) => unit.id),
+  )
+
+  const slots = []
+
+  for (const candidate of candidates) {
+    if (!isInsideWorld(worldStore, candidate)) {
+      continue
+    }
+
+    if (!isWalkable(worldStore, candidate)) {
+      continue
+    }
+
+    const key = tileKey(candidate)
+    const existingSlot = existingSlotsByKey.get(key)
+    const slot = existingSlot
+      ? {
+          ...existingSlot,
+          key,
+          tile: { ...candidate },
+        }
+      : {
+          key,
+          tile: { ...candidate },
+          villagerId: null,
+        }
+
+    if (slot.villagerId != null && !currentBuilderIds.has(slot.villagerId)) {
+      slot.villagerId = null
+    }
+
+    slot.blocked = !slot.villagerId && occupiedTiles.has(key)
+    slots.push(slot)
+  }
+
+  site.builderSlots = slots
+
+  return slots
+}
+
+function releaseBuilderSlot(worldStore, siteId, villagerId) {
+  const site = (worldStore.constructionSites ?? []).find((candidate) => candidate?.id === siteId)
+
+  if (!site || !Array.isArray(site.builderSlots)) {
+    return
+  }
+
+  for (const slot of site.builderSlots) {
+    if (slot?.villagerId !== villagerId) {
+      continue
+    }
+
+    slot.villagerId = null
+  }
+
+  if (Array.isArray(site.builderVillagerIds)) {
+    site.builderVillagerIds = site.builderVillagerIds.filter((id) => id !== villagerId)
+  }
 }
 
 export function getConstructionBuildFacing(site, targetTile) {
@@ -114,6 +233,10 @@ function getActiveBuilders(worldStore, site) {
 function clearBuilderAssignment(unit, worldStore, currentTick) {
   if (!unit) {
     return
+  }
+
+  if (unit.constructionBuild?.siteId && unit.id) {
+    releaseBuilderSlot(worldStore, unit.constructionBuild.siteId, unit.id)
   }
 
   unit.constructionBuild = null
@@ -163,66 +286,28 @@ function completeSite(site, worldStore, currentTick) {
   worldStore.constructionSites.splice(siteIndex, 1)
 }
 
-function isInsideWorld(worldStore, tile) {
-  const width = worldStore.world?.width ?? 0
-  const height = worldStore.world?.height ?? 0
-
-  return tile.x >= 0 && tile.y >= 0 && tile.x < width && tile.y < height
-}
-
-function isWalkable(worldStore, tile) {
-  const tiles = worldStore.world?.tiles ?? []
-  return tiles?.[tile.y]?.[tile.x]?.walkable ?? false
-}
-
 function getBuildTargetTile(site, worldStore, villager, claimedTargetKeys = new Set()) {
   if (!site?.gridPos || !villager?.gridPos) {
     return null
   }
 
-  const occupiedTiles = new Set()
-  const entities = [
-    ...(worldStore.buildings ?? []),
-    ...(worldStore.constructionSites ?? []),
-    ...(worldStore.houses ?? []),
-    ...(worldStore.resources ?? []),
-    ...(worldStore.units ?? []),
-  ]
-
-  for (const entity of entities) {
-    if (!entity?.gridPos || entity.id === villager.id) {
-      continue
-    }
-
-    const footprint = entity.footprint ?? { w: 1, h: 1 }
-    const position = entity.gridPos
-
-    for (let dy = 0; dy < footprint.h; dy += 1) {
-      for (let dx = 0; dx < footprint.w; dx += 1) {
-        occupiedTiles.add(`${position.x + dx}:${position.y + dy}`)
-      }
-    }
-  }
-
+  const occupiedTiles = buildOccupiedTileSet(worldStore, new Set([villager.id]))
   let bestTile = null
   let bestPathLength = Number.POSITIVE_INFINITY
 
-  for (const candidate of getHorizontalBuildCandidates(site)) {
-    const candidateKey = `${candidate.x}:${candidate.y}`
+  for (const slot of getBuilderSlots(site, worldStore)) {
+    const candidate = slot.tile
+    const candidateKey = slot.key
 
     if (claimedTargetKeys.has(candidateKey)) {
       continue
     }
 
+    if (slot.villagerId != null || slot.blocked) {
+      continue
+    }
+
     if (occupiedTiles.has(candidateKey)) {
-      continue
-    }
-
-    if (!isInsideWorld(worldStore, candidate)) {
-      continue
-    }
-
-    if (!isWalkable(worldStore, candidate)) {
       continue
     }
 
@@ -289,6 +374,12 @@ export class ConstructionBuildAssignmentSystem {
         }
 
         claimedTargetKeys.add(`${targetTile.x}:${targetTile.y}`)
+        const targetSlot = (site.builderSlots ?? []).find((slot) => slot?.key === `${targetTile.x}:${targetTile.y}`)
+
+        if (targetSlot) {
+          targetSlot.villagerId = villager.id
+        }
+
         site.builderVillagerIds.push(villager.id)
         site.builderVillagerIds = [...new Set(site.builderVillagerIds)]
 
@@ -301,6 +392,7 @@ export class ConstructionBuildAssignmentSystem {
           siteId: site.id,
           assignedTick: currentTick,
           targetTile,
+          targetSlotKey: `${targetTile.x}:${targetTile.y}`,
         }
         villager.targetId = site.id
         villager.target = {

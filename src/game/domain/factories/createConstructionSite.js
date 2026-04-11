@@ -19,6 +19,7 @@ export function createConstructionSite({
   buildProgressMs = 0,
   buildStartedTick = null,
   builderVillagerIds = [],
+  builderSlots = [],
 } = {}) {
   constructionSiteIdCounter += 1
 
@@ -46,5 +47,6 @@ export function createConstructionSite({
     buildProgressMs,
     buildStartedTick,
     builderVillagerIds: [...builderVillagerIds],
+    builderSlots: [...builderSlots],
   }
 }

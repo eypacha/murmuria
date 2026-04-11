@@ -4,7 +4,7 @@ import { createKingdomState } from '../game/core/createKingdomState.js'
 import { getHousingCapacity } from '../game/core/getHousingCapacity.js'
 
 export const useWorldStore = defineStore('world', () => {
-  const seed = ref(Date.now()) 
+  const seed = ref(1775879107082) 
   const tick = ref(0)
   const terrainVariant = ref('flat_lakes')
 
