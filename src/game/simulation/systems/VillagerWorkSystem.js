@@ -14,7 +14,6 @@ import {
 import { getOccupiedTiles } from '../../core/getOccupiedTiles.js'
 import { isTraversableWorldTile } from '../../core/isTraversableTile.js'
 import { UnitStateSystem } from './UnitStateSystem.js'
-import { computeWorkSpeedMultiplier } from './KingdomBehaviorSystem.js'
 import { getIntentBubbleText } from './getIntentBubbleText.js'
 
 export class VillagerWorkSystem {
@@ -76,15 +75,14 @@ export class VillagerWorkSystem {
     const inventoryKey = this.getInventoryKey(resourceType)
     const carryCapacity = this.getCarryCapacity(unit, resourceType)
     const harvestChunk = this.getHarvestChunk(resourceType)
-    const workSpeedMultiplier = computeWorkSpeedMultiplier(worldStore.kingdom)
 
     unit.inventory = unit.inventory ?? { wood: 0, gold: 0, meat: 0 }
     const currentAmount = Math.max(0, unit.inventory[inventoryKey] ?? 0)
     const availableCapacity = Math.max(0, carryCapacity - currentAmount)
     const transferAmount =
       resourceType === 'sheep'
-        ? resourceAmount * workSpeedMultiplier
-        : Math.min(harvestChunk * workSpeedMultiplier, availableCapacity, resourceAmount)
+        ? resourceAmount
+        : Math.min(harvestChunk, availableCapacity, resourceAmount)
 
     if (transferAmount > 0) {
       unit.inventory[inventoryKey] = currentAmount + transferAmount

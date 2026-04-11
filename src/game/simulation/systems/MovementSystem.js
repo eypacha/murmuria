@@ -6,7 +6,6 @@ import {
 } from '../../config/constants.js'
 import { findPath } from '../../core/findPath.js'
 import { UnitStateSystem } from './UnitStateSystem.js'
-import { VillagerWorkSystem } from './VillagerWorkSystem.js'
 
 export class MovementSystem {
   static update(worldStore) {
