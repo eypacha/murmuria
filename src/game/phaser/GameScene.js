@@ -27,6 +27,7 @@ const WATER_FOAM_TEXTURE_KEY = 'water-foam'
 const WATER_FOAM_ANIMATION_KEY = 'water-foam_anim'
 const WATER_FOAM_FRAME_COUNT = 16
 const PLATEAU_TERRAIN_TEXTURE_KEY = 'terrain_tileset_plateau'
+const WOOD_RESOURCE_TEXTURE_KEY = 'construction-site-wood-resource'
 
 const VILLAGER_ASSETS = [
   {
@@ -123,6 +124,7 @@ export class GameScene extends Phaser.Scene {
     this.unitControllers = new Map()
     this.houseSprites = new Map()
     this.constructionSiteSprites = new Map()
+    this.constructionSiteIndicators = new Map()
     this.resourceSprites = new Map()
     this.resourceDebugBorders = new Map()
     this.targetZoom = CAMERA_DEFAULT_ZOOM
@@ -208,6 +210,7 @@ export class GameScene extends Phaser.Scene {
       frameHeight: 192,
     })
     this.load.image('villager-talk-bubble', '/assets/ui/elements/papers/bubble-0.png')
+    this.load.image(WOOD_RESOURCE_TEXTURE_KEY, '/assets/terrain/resources/wood/resource.png')
   }
 
   init(data = {}) {
@@ -235,6 +238,13 @@ export class GameScene extends Phaser.Scene {
       sprite.destroy()
     }
     this.constructionSiteSprites.clear()
+
+    if (this.constructionSiteIndicators) {
+      for (const indicator of this.constructionSiteIndicators.values()) {
+        indicator.destroy()
+      }
+      this.constructionSiteIndicators.clear()
+    }
 
     for (const sprite of this.resourceSprites.values()) {
       sprite.destroy()

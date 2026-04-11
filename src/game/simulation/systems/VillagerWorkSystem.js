@@ -15,6 +15,7 @@ import { findCastleDropTile } from '../../core/findCastleDropTile.js'
 import { getOccupiedTiles } from '../../core/getOccupiedTiles.js'
 import { isTraversableWorldTile } from '../../core/isTraversableTile.js'
 import { UnitStateSystem } from './UnitStateSystem.js'
+import { VillagerDecisionSystem } from './VillagerDecisionSystem.js'
 import { getIntentBubbleText } from './getIntentBubbleText.js'
 
 export class VillagerWorkSystem {
@@ -111,10 +112,20 @@ export class VillagerWorkSystem {
       this.removeResourceById(worldStore, resource?.id ?? unit.workTargetId ?? unit.targetId)
     }
 
+    if (unit.constructionDelivery && unit.equipment) {
+      unit.equipment.tool = null
+      unit.workTargetType = null
+    }
+
     this.beginReturnToCastle(unit, worldStore)
   }
 
   static beginReturnToCastle(unit, worldStore) {
+    if (unit.constructionDelivery) {
+      this.beginReturnToConstructionSite(unit, worldStore)
+      return
+    }
+
     const castle = this.getCastle(worldStore)
     const returnTile = castle ? findCastleDropTile(castle, worldStore) : null
     const resourceType = this.getCarriedResourceType(unit)
@@ -154,6 +165,55 @@ export class VillagerWorkSystem {
       unit,
       worldStore,
       'returning_to_castle',
+      VILLAGER_INTENT_ACTION_DELAY_TICKS * SIMULATION_TICK_MS,
+    )
+  }
+
+  static beginReturnToConstructionSite(unit, worldStore) {
+    const delivery = unit.constructionDelivery
+    const site = this.getConstructionSiteById(worldStore, delivery?.siteId)
+
+    if (!site) {
+      this.resetConstructionDelivery(unit, worldStore)
+      return
+    }
+
+    const returnTile = delivery?.targetTile ?? site.gridPos
+    const intentText = getIntentBubbleText('construction_wood')
+
+    if (intentText) {
+      const currentTick = worldStore.tick ?? 0
+
+      unit.bubble = {
+        text: intentText,
+        untilTick: currentTick + VILLAGER_INTENT_BUBBLE_DURATION_TICKS,
+      }
+    }
+
+    unit.targetId = site.id
+    unit.target = {
+      type: 'constructionSite',
+      id: site.id,
+      tile: returnTile,
+    }
+    unit.path = []
+    unit.pathGoalKey = null
+
+    const unitX = unit.gridPos?.x
+
+    if (unitX != null) {
+      if (returnTile.x > unitX) {
+        unit.facing = 'right'
+      } else if (returnTile.x < unitX) {
+        unit.facing = 'left'
+      }
+    }
+
+    unit.state = 'moving'
+    UnitStateSystem.queueTimedTransition(
+      unit,
+      worldStore,
+      'moving',
       VILLAGER_INTENT_ACTION_DELAY_TICKS * SIMULATION_TICK_MS,
     )
   }
@@ -218,16 +278,44 @@ export class VillagerWorkSystem {
       return
     }
 
+    if (delivery.route === 'tree') {
+      this.beginReturnToCastle(unit, worldStore)
+      return
+    }
+
     unit.inventory = unit.inventory ?? { wood: 0, gold: 0, meat: 0 }
 
     const amount = Math.max(0, Number(delivery.amount ?? 0))
-    unit.inventory.wood = amount
+    const availableWood = Math.max(0, Number(worldStore.kingdom?.resources?.wood ?? 0))
+    const loadAmount = Math.min(amount, availableWood)
 
     const site = this.getConstructionSiteById(worldStore, delivery.siteId)
 
     if (!site) {
-      worldStore.kingdom.resources.wood = (worldStore.kingdom.resources.wood ?? 0) + amount
+      if (loadAmount > 0) {
+        worldStore.kingdom.resources.wood = Math.max(0, availableWood - loadAmount)
+        unit.inventory.wood = loadAmount
+      }
       this.resetConstructionDelivery(unit, worldStore)
+      return
+    }
+
+    if (loadAmount > 0) {
+      worldStore.kingdom.resources.wood = Math.max(0, availableWood - loadAmount)
+      worldStore.kingdom.constructionWoodReserved = Math.max(
+        0,
+        Number(worldStore.kingdom.constructionWoodReserved ?? 0) - loadAmount,
+      )
+      unit.inventory.wood = loadAmount
+
+      if (loadAmount < amount) {
+        site.woodReserved = Math.max(0, Number(site.woodReserved ?? 0) - (amount - loadAmount))
+        delivery.amount = loadAmount
+      }
+    }
+
+    if (loadAmount <= 0) {
+      this.beginConstructionWoodFallback(unit, worldStore)
       return
     }
 
@@ -246,6 +334,69 @@ export class VillagerWorkSystem {
     unit.nextState = null
   }
 
+  static beginConstructionWoodFallback(unit, worldStore) {
+    const delivery = unit.constructionDelivery
+
+    if (!delivery) {
+      this.resetConstructionDelivery(unit, worldStore)
+      return
+    }
+
+    const currentTick = worldStore.tick ?? 0
+    const unitPosition = this.getGridPosition(unit)
+    const occupiedTiles = VillagerDecisionSystem.buildOccupiedTileSet(worldStore)
+    const blockedTiles = VillagerDecisionSystem.buildOccupiedTileSet(worldStore, { includeUnits: false })
+
+    if (!unitPosition) {
+      this.resetConstructionDelivery(unit, worldStore)
+      return
+    }
+
+    const reachableTiles = VillagerDecisionSystem.buildReachabilityMap(unitPosition, worldStore, blockedTiles)
+    const trees = (worldStore.resources ?? []).filter((resource) => resource?.type === 'tree')
+    const selection = VillagerDecisionSystem.findNearestAvailableResource(
+      unit,
+      trees,
+      worldStore,
+      occupiedTiles,
+      blockedTiles,
+      reachableTiles,
+    )
+
+    if (!selection) {
+      this.resetConstructionDelivery(unit, worldStore)
+      return
+    }
+
+    const { resource, targetTile } = selection
+
+    resource.reservedBy = unit.id
+    unit.targetId = resource.id
+    unit.workTargetId = resource.id
+    unit.workTargetType = resource.type
+    unit.target = {
+      type: resource.type,
+      id: resource.id,
+      tile: targetTile,
+    }
+    unit.path = []
+    unit.pathGoalKey = null
+    unit.interactionFacing = this.getFacingTowardResource(unit, resource)
+    if (unit.interactionFacing) {
+      unit.facing = unit.interactionFacing
+    }
+    unit.equipment = unit.equipment ?? { tool: null }
+    unit.equipment.tool = 'axe'
+    unit.state = 'preparing_to_tree'
+
+    UnitStateSystem.queueTimedTransition(
+      unit,
+      worldStore,
+      'moving_to_tree',
+      VILLAGER_INTENT_ACTION_DELAY_TICKS * SIMULATION_TICK_MS,
+    )
+  }
+
   static completeConstructionDelivery(unit, worldStore) {
     const delivery = unit.constructionDelivery
 
@@ -258,16 +409,12 @@ export class VillagerWorkSystem {
     const carriedAmount = Math.max(0, Number(unit.inventory?.wood ?? 0))
 
     if (site && carriedAmount > 0) {
-      const remainingNeed = Math.max(
-        0,
-        Number(site.woodRequired ?? 0) -
-          Number(site.woodDelivered ?? 0) -
-          Number(site.woodReserved ?? 0),
-      )
-      const transferAmount = Math.min(carriedAmount, remainingNeed)
+      const deliveredBefore = Math.max(0, Number(site.woodDelivered ?? 0))
+      const required = Math.max(0, Number(site.woodRequired ?? 0))
+      const transferAmount = Math.min(carriedAmount, Math.max(0, required - deliveredBefore))
 
       if (transferAmount > 0) {
-        site.woodDelivered = Math.max(0, Number(site.woodDelivered ?? 0)) + transferAmount
+        site.woodDelivered = deliveredBefore + transferAmount
         site.woodReserved = Math.max(0, Number(site.woodReserved ?? 0) - transferAmount)
       }
 
@@ -310,6 +457,10 @@ export class VillagerWorkSystem {
     }
 
     return (worldStore.constructionSites ?? []).find((site) => site.id === siteId) ?? null
+  }
+
+  static getGridPosition(entity) {
+    return entity?.gridPos ?? entity?.pos ?? null
   }
 
   static getCastle(worldStore) {
