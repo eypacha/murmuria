@@ -5,6 +5,7 @@ import {
   TILE_SIZE,
 } from '../../config/constants.js'
 import { findPath } from '../../core/findPath.js'
+import { getConstructionBuildFacing } from './ConstructionBuildSystem.js'
 import { UnitStateSystem } from './UnitStateSystem.js'
 
 export class MovementSystem {
@@ -19,6 +20,7 @@ export class MovementSystem {
       if (
         unit.state !== 'moving_to_tree' &&
         unit.state !== 'moving_to_gold' &&
+        unit.state !== 'moving_to_construction_site' &&
         unit.state !== 'moving_to_meat' &&
         unit.state !== 'returning_to_castle' &&
         unit.state !== 'moving'
@@ -136,7 +138,7 @@ export class MovementSystem {
       return target.tile ?? null
     }
 
-    if (target.type !== 'tree' && target.type !== 'gold') {
+    if (target.type === 'tree' || target.type === 'gold') {
       return target.tile ?? null
     }
 
@@ -231,6 +233,19 @@ export class MovementSystem {
           'delivering_construction_wood',
           SIMULATION_TICK_MS,
         )
+        return
+      }
+
+      if (unit.constructionBuild) {
+        const site = (worldStore.constructionSites ?? []).find((candidate) => candidate.id === unit.constructionBuild.siteId)
+
+        if (site) {
+          unit.interactionFacing = getConstructionBuildFacing(site, unit.constructionBuild.targetTile ?? unit.target?.tile)
+        } else {
+          unit.interactionFacing = unit.facing
+        }
+
+        unit.state = 'building'
         return
       }
 

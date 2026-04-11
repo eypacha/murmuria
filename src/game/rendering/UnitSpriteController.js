@@ -43,7 +43,9 @@ function resolveFacing(unit) {
     state === 'preparing_to_tree' ||
     state === 'preparing_to_gold' ||
     state === 'preparing_to_gather' ||
+    state === 'preparing_to_construction_site' ||
     state === 'gathering' ||
+    state === 'building' ||
     state === 'waiting_to_talk' ||
     state === 'talking'
   ) {

@@ -4,6 +4,10 @@ import { HousingNeedSystem } from './systems/HousingNeedSystem.js'
 import { HousingProposalSystem } from './systems/HousingProposalSystem.js'
 import { ConstructionSiteSystem } from './systems/ConstructionSiteSystem.js'
 import { ConstructionWoodDeliverySystem } from './systems/ConstructionWoodDeliverySystem.js'
+import {
+  ConstructionBuildAssignmentSystem,
+  ConstructionBuildProgressSystem,
+} from './systems/ConstructionBuildSystem.js'
 import { VillagerDecisionSystem } from './systems/VillagerDecisionSystem.js'
 import { BubbleSystem } from './systems/BubbleSystem.js'
 import { MovementSystem } from './systems/MovementSystem.js'
@@ -42,11 +46,13 @@ export class SimulationEngine {
     HousingNeedSystem.update(this.worldStore)
     HousingProposalSystem.update(this.worldStore)
     ConstructionWoodDeliverySystem.update(this.worldStore)
+    ConstructionSiteSystem.update(this.worldStore)
+    ConstructionBuildAssignmentSystem.update(this.worldStore)
     VillagerDecisionSystem.update(this.worldStore)
     BubbleSystem.update(this.worldStore)
     UnitStateSystem.update(this.worldStore)
     MovementSystem.update(this.worldStore)
-    ConstructionSiteSystem.update(this.worldStore)
+    ConstructionBuildProgressSystem.update(this.worldStore)
     VillagerWorkSystem.update(this.worldStore)
     SheepStateSystem.update(this.worldStore)
     SheepMovementSystem.update(this.worldStore)

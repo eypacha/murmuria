@@ -3,6 +3,7 @@ const INTENT_TEXT_BY_ACTION = {
   gold: '🪙',
   sheep: '🍖',
   house: '🏠',
+  construction_build: '🔨',
   wood_delivery: '🏰',
   construction_wood: '🪵',
   gold_delivery: '🏰',

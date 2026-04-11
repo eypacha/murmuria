@@ -33,6 +33,7 @@ export function createVillager(x = 0, y = 0, facing = 'right') {
     target: null,
     workTargetType: null,
     constructionDelivery: null,
+    constructionBuild: null,
     interactionFacing: null,
     stateUntilTick: null,
     nextState: null,

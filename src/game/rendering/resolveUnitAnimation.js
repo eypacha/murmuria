@@ -145,6 +145,7 @@ function resolveIdleAnimation(unit) {
 function resolveMovingAnimation(unit) {
   const targetType = unit?.target?.type
   const workTargetType = unit?.workTargetType
+  const isConstructionBuilder = Boolean(unit?.constructionBuild)
 
   if (targetType === 'castle') {
     if (hasCarriedMeat(unit) || workTargetType === 'sheep') {
@@ -170,6 +171,10 @@ function resolveMovingAnimation(unit) {
 
   if (targetType === 'sheep' || workTargetType === 'sheep') {
     return 'villager-run-knife'
+  }
+
+  if (targetType === 'constructionSite' && isConstructionBuilder) {
+    return 'villager-run-hammer'
   }
 
   if (hasCarriedMeat(unit)) {
@@ -211,6 +216,10 @@ export function resolveUnitAnimation(unit) {
     return 'villager-idle-knife'
   }
 
+  if (state === 'preparing_to_construction_site') {
+    return 'villager-idle-hammer'
+  }
+
   if (state === 'moving_to_tree') {
     return 'villager-run-axe'
   }
@@ -221,6 +230,10 @@ export function resolveUnitAnimation(unit) {
 
   if (state === 'moving_to_gold') {
     return 'villager-run-pickaxe'
+  }
+
+  if (state === 'moving_to_construction_site') {
+    return 'villager-run-hammer'
   }
 
   if (state === 'preparing_to_gather') {
@@ -245,6 +258,10 @@ export function resolveUnitAnimation(unit) {
     }
 
     return 'villager-interact-axe'
+  }
+
+  if (state === 'building') {
+    return 'villager-interact-hammer'
   }
 
   if (

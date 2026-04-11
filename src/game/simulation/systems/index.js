@@ -1,4 +1,8 @@
 export { BubbleSystem } from './BubbleSystem.js'
+export {
+  ConstructionBuildAssignmentSystem,
+  ConstructionBuildProgressSystem,
+} from './ConstructionBuildSystem.js'
 export { ConstructionSiteSystem } from './ConstructionSiteSystem.js'
 export { ConstructionWoodDeliverySystem } from './ConstructionWoodDeliverySystem.js'
 export { HousingProposalSystem } from './HousingProposalSystem.js'

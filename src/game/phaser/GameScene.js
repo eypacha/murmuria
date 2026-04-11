@@ -51,6 +51,11 @@ const VILLAGER_ASSETS = [
     frameCount: 8,
   },
   {
+    key: 'villager-idle-hammer',
+    path: '/assets/units/blue/villager/villager-idle-hammer.png',
+    frameCount: 8,
+  },
+  {
     key: 'villager-idle-knife',
     path: '/assets/units/blue/villager/villager-idle-knife.png',
     frameCount: 8,
@@ -96,6 +101,11 @@ const VILLAGER_ASSETS = [
     frameCount: 6,
   },
   {
+    key: 'villager-run-hammer',
+    path: '/assets/units/blue/villager/villager-run-hammer.png',
+    frameCount: 6,
+  },
+  {
     key: 'villager-idle-meat',
     path: '/assets/units/blue/villager/villager-idle-meat.png',
     frameCount: 8,
@@ -114,6 +124,11 @@ const VILLAGER_ASSETS = [
     key: 'villager-run-meat',
     path: '/assets/units/blue/villager/villager-run-meat.png',
     frameCount: 6,
+  },
+  {
+    key: 'villager-interact-hammer',
+    path: '/assets/units/blue/villager/villager-interact-hammer.png',
+    frameCount: 3,
   },
 ]
 
