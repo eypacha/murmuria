@@ -1,6 +1,7 @@
 import {
   GRID_HEIGHT,
   GRID_WIDTH,
+  INITIAL_BUSH_COUNT,
   INITIAL_GOLD_COUNT,
   INITIAL_VILLAGERS,
   INITIAL_SHEEP_COUNT,
@@ -14,6 +15,7 @@ import {
 import { createGoldStone } from '../domain/factories/createGoldStone.js'
 import { createVillager } from '../domain/factories/createVillager.js'
 import { createRock } from '../domain/factories/createRock.js'
+import { createBush } from '../domain/factories/createBush.js'
 import { createSheep } from '../domain/factories/createSheep.js'
 import { createTree } from '../domain/factories/createTree.js'
 import { isTraversableTile } from './isTraversableTile.js'
@@ -1163,6 +1165,35 @@ function spawnRocks(tiles, castle, worldSeed, rng, extraReservedKeys = new Set()
   return decorations
 }
 
+function spawnBushes(tiles, castle, worldSeed, rng, extraReservedKeys = new Set()) {
+  const decorations = []
+  const reservedKeys = new Set([...getCastleReservationKeys(castle), ...extraReservedKeys])
+  const occupiedKeys = new Set(reservedKeys)
+  const candidateTiles = getTreeCandidates(tiles, reservedKeys)
+  const shuffledCandidates = [...candidateTiles]
+
+  shuffleInPlace(shuffledCandidates, rng)
+
+  for (const tile of shuffledCandidates) {
+    if (decorations.length >= INITIAL_BUSH_COUNT) {
+      break
+    }
+
+    const key = positionKey(tile.x, tile.y)
+
+    if (occupiedKeys.has(key)) {
+      continue
+    }
+
+    occupiedKeys.add(key)
+    decorations.push(
+      createBush(tile.x, tile.y, rng.nextInt(4), getSpawnFacing()),
+    )
+  }
+
+  return decorations
+}
+
 const SHEEP_CLUSTER_PATTERNS = {
   1: [[{ x: 0, y: 0 }]],
   2: [
@@ -1619,10 +1650,15 @@ export function createWorld(worldStore) {
   const rockDecorationKeys = new Set(
     rockDecorations.map((resource) => positionKey(resource.gridPos.x, resource.gridPos.y)),
   )
-  const sheepReservedKeys = new Set([...rockReservedKeys, ...rockDecorationKeys])
+  const bushReservedKeys = new Set([...rockReservedKeys, ...rockDecorationKeys])
+  const bushDecorations = spawnBushes(tiles, castle, seed, rng, bushReservedKeys)
+  const bushDecorationKeys = new Set(
+    bushDecorations.map((resource) => positionKey(resource.gridPos.x, resource.gridPos.y)),
+  )
+  const sheepReservedKeys = new Set([...bushReservedKeys, ...bushDecorationKeys])
   const sheepResources = spawnSheep(tiles, castle, seed, rng, sheepReservedKeys)
   const resources = [...goldResources, ...treeResources, ...sheepResources]
-  const decorations = rockDecorations
+  const decorations = [...rockDecorations, ...bushDecorations]
 
   worldStore.tick = 0
   worldStore.seed = seed

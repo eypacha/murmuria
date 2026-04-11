@@ -13,6 +13,7 @@ import { syncResources } from './renderers/syncResources.js'
 import {
   GOLD_FRAME_COUNT,
   GOLD_VARIANT_CONFIGS,
+  BUSH_VARIANT_CONFIGS,
   ROCK_VARIANT_CONFIGS,
   SHEEP_VARIANT_CONFIGS,
   TREE_FRAME_COUNT,
@@ -176,6 +177,13 @@ export class GameScene extends Phaser.Scene {
 
     for (const rockVariant of ROCK_VARIANT_CONFIGS) {
       this.load.image(rockVariant.key, rockVariant.path)
+    }
+
+    for (const bushVariant of BUSH_VARIANT_CONFIGS) {
+      this.load.spritesheet(bushVariant.key, bushVariant.path, {
+        frameWidth: bushVariant.frameWidth,
+        frameHeight: bushVariant.frameHeight,
+      })
     }
 
     this.load.spritesheet('terrain_tileset', '/assets/terrain/tileset/tilemap-color-2.png', {

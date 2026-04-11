@@ -5,6 +5,7 @@ import {
 } from '../../config/constants.js'
 import { getOccupiedTiles } from '../../core/getOccupiedTiles.js'
 import {
+  BUSH_VARIANT_CONFIGS,
   GOLD_VARIANT_CONFIGS,
   ROCK_VARIANT_CONFIGS,
   SHEEP_VARIANT_CONFIGS,
@@ -18,6 +19,7 @@ const DEBUG_TREE_BORDER_COLOR = 0x58d96f
 const DEBUG_GOLD_BORDER_COLOR = 0xf2c94c
 const DEBUG_SHEEP_BORDER_COLOR = 0xe7a07f
 const DEBUG_ROCK_BORDER_COLOR = 0x8a8f98
+const DEBUG_BUSH_BORDER_COLOR = 0x5f8f47
 const SHEEP_HIT_TINT_COLOR = 0xff6b6b
 const SHEEP_HIT_FLASH_MS = 90
 const SHEEP_HIT_FLASH_FRAME_INDEX = 2
@@ -38,6 +40,8 @@ function drawDebugOccupiedTiles(scene, resource, depth) {
         ? DEBUG_SHEEP_BORDER_COLOR
         : resource.type === 'rock'
           ? DEBUG_ROCK_BORDER_COLOR
+          : resource.type === 'bush'
+            ? DEBUG_BUSH_BORDER_COLOR
         : DEBUG_TREE_BORDER_COLOR
 
   border.lineStyle(2, color, 1)
@@ -69,6 +73,10 @@ function getResourceTextureKey(tree) {
     return getRockVariantConfig(tree).key
   }
 
+  if (tree.type === 'bush') {
+    return getBushVariantConfig(tree).key
+  }
+
   if (tree.type === 'gold') {
     const variantConfig = getGoldVariantConfig(tree)
     return variantConfig.key
@@ -84,6 +92,10 @@ function getResourceAnimationKey(tree) {
   }
 
   if (tree.type === 'rock') {
+    return null
+  }
+
+  if (tree.type === 'bush') {
     return null
   }
 
@@ -125,6 +137,13 @@ function getRockVariantConfig(resource) {
   const clampedIndex = Math.max(0, Math.min(ROCK_VARIANT_CONFIGS.length - 1, variantIndex))
 
   return ROCK_VARIANT_CONFIGS[clampedIndex] ?? ROCK_VARIANT_CONFIGS[0]
+}
+
+function getBushVariantConfig(resource) {
+  const variantIndex = Number.isInteger(resource?.variant) ? resource.variant : 0
+  const clampedIndex = Math.max(0, Math.min(BUSH_VARIANT_CONFIGS.length - 1, variantIndex))
+
+  return BUSH_VARIANT_CONFIGS[clampedIndex] ?? BUSH_VARIANT_CONFIGS[0]
 }
 
 function getSheepVariantConfig(resource) {
@@ -234,6 +253,15 @@ function getResourceDisplaySize(resource) {
     }
   }
 
+  if (resource.type === 'bush') {
+    const variantConfig = getBushVariantConfig(resource)
+
+    return {
+      width: variantConfig.displayWidth ?? 128,
+      height: variantConfig.displayHeight ?? 128,
+    }
+  }
+
   const variantConfig =
     resource.type === 'gold' ? getGoldVariantConfig(resource) : getTreeVariantConfig(resource)
 
@@ -248,7 +276,7 @@ function getResourceWorldPosition(resource) {
     return resource.pos
   }
 
-  if (resource.type === 'gold' || resource.type === 'sheep' || resource.type === 'rock') {
+  if (resource.type === 'gold' || resource.type === 'sheep' || resource.type === 'rock' || resource.type === 'bush') {
     return {
       x: resource.gridPos.x * TILE_SIZE + TILE_SIZE / 2,
       y: resource.gridPos.y * TILE_SIZE + TILE_SIZE / 2,
@@ -346,16 +374,17 @@ function updateResourceSprite(scene, resource) {
   const isHarvested = (resource.amount ?? 0) > 0 && isResourceBeingHarvested(resource, scene.worldStore)
   const isSheep = resource.type === 'sheep'
   const isRock = resource.type === 'rock'
+  const isBush = resource.type === 'bush'
   let sprite = scene.resourceSprites.get(resource.id)
   const displaySize = getResourceDisplaySize(resource)
-  const displayWidth = resource.type === 'gold' || isSheep || isRock
+  const displayWidth = resource.type === 'gold' || isSheep || isRock || isBush
     ? displaySize.width
     : (isTreeTexture ? TREE_DISPLAY_WIDTH : STUMP_DISPLAY_WIDTH)
-  const displayHeight = resource.type === 'gold' || isSheep || isRock
+  const displayHeight = resource.type === 'gold' || isSheep || isRock || isBush
     ? displaySize.height
     : (isTreeTexture ? getTreeVariantConfig(resource).displayHeight : STUMP_DISPLAY_HEIGHT)
   const originX = 0.5
-  const originY = resource.type === 'gold' || isSheep || isRock ? 0.5 : 1
+  const originY = resource.type === 'gold' || isSheep || isRock || isBush ? 0.5 : 1
   const shouldAnimate = isSheep || ((resource.type === 'gold' || isTreeTexture) && isHarvested)
 
   if (!sprite) {
@@ -363,6 +392,8 @@ function updateResourceSprite(scene, resource) {
       ? getSheepVariantTextureKey(resource)
       : isRock
         ? getRockVariantConfig(resource).key
+        : isBush
+          ? getBushVariantConfig(resource).key
         : textureKey
     const renderAnimationKey = isSheep ? getSheepAnimationKey(resource) : animationKey
 
@@ -385,12 +416,16 @@ function updateResourceSprite(scene, resource) {
       ? getSheepVariantTextureKey(resource)
       : isRock
         ? getRockVariantConfig(resource).key
+        : isBush
+          ? getBushVariantConfig(resource).key
         : textureKey)
   ) {
     const renderTextureKey = isSheep
       ? getSheepVariantTextureKey(resource)
       : isRock
         ? getRockVariantConfig(resource).key
+        : isBush
+          ? getBushVariantConfig(resource).key
         : textureKey
     const renderAnimationKey = isSheep ? getSheepAnimationKey(resource) : animationKey
 

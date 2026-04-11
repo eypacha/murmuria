@@ -10,6 +10,8 @@ const SHEEP_MOVE_FRAME_COUNT = 4
 const SHEEP_GRASS_FRAME_COUNT = 12
 const ROCK_VARIANT_INDICES = [0, 1, 2, 3]
 const ROCK_DISPLAY_SIZE = 64
+const BUSH_VARIANT_INDICES = [0, 1, 2, 3]
+const BUSH_DISPLAY_SIZE = 128
 
 export const TREE_VARIANT_CONFIGS = TREE_VARIANT_INDICES.map((index) => ({
   key: `tree_${index}`,
@@ -60,4 +62,13 @@ export const ROCK_VARIANT_CONFIGS = ROCK_VARIANT_INDICES.map((index) => ({
   path: `/assets/terrain/decorations/rocks/rock-${index}.png`,
   displayWidth: ROCK_DISPLAY_SIZE,
   displayHeight: ROCK_DISPLAY_SIZE,
+}))
+
+export const BUSH_VARIANT_CONFIGS = BUSH_VARIANT_INDICES.map((index) => ({
+  key: `bush_${index}`,
+  path: `/assets/terrain/decorations/bushes/bush-${index}.png`,
+  frameWidth: 128,
+  frameHeight: 128,
+  displayWidth: BUSH_DISPLAY_SIZE,
+  displayHeight: BUSH_DISPLAY_SIZE,
 }))
