@@ -1,5 +1,5 @@
 // Debug / feature flags
-export const DEBUG_MODE = true
+export const DEBUG_MODE = false
 export const FOAM_ANIMATION = true
 
 // World / grid
@@ -55,6 +55,6 @@ export const INITIAL_ROCK_COUNT = 25
 export const INITIAL_BUSH_COUNT = 25
 
 // Initial resources
-export const INITIAL_WOOD = 10
+export const INITIAL_WOOD = 15
 export const INITIAL_GOLD = 0
-export const INITIAL_MEAT = 10
+export const INITIAL_MEAT = 15

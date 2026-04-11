@@ -23,7 +23,30 @@ function getRandomFacing() {
   return Math.random() < 0.5 ? 'left' : 'right'
 }
 
+function getSimulationCache(worldStore) {
+  const cache = worldStore?.simulationCache
+
+  if (!cache?.occupiedTiles?.occupiedTiles || !cache?.occupiedTiles?.tileCounts) {
+    return null
+  }
+
+  return cache
+}
+
 function isTileOccupied(worldStore, tile, ignoreEntityId) {
+  const cache = getSimulationCache(worldStore)
+
+  if (cache) {
+    const key = getTileKey(tile)
+    const count = cache.occupiedTiles.tileCounts.get(key) ?? 0
+
+    if (count <= 0) {
+      return false
+    }
+
+    return true
+  }
+
   const entities = getBlockingEntities(worldStore)
 
   for (const entity of entities) {
@@ -32,13 +55,41 @@ function isTileOccupied(worldStore, tile, ignoreEntityId) {
     }
 
     if (
-      getOccupiedTiles(entity).some((occupiedTile) => getTileKey(occupiedTile) === getTileKey(tile))
+      getOccupiedTiles(entity).some((occupiedTile) => occupiedTile.x === tile.x && occupiedTile.y === tile.y)
     ) {
       return true
     }
   }
 
   return false
+}
+
+function updateSimulationCache(worldStore, previousTile, nextTile) {
+  const cache = getSimulationCache(worldStore)
+
+  if (!cache) {
+    return
+  }
+
+  const previousKey = previousTile ? getTileKey(previousTile) : null
+  const nextKey = nextTile ? getTileKey(nextTile) : null
+
+  if (previousKey) {
+    const previousCount = cache.occupiedTiles.tileCounts.get(previousKey) ?? 0
+
+    if (previousCount <= 1) {
+      cache.occupiedTiles.tileCounts.delete(previousKey)
+      cache.occupiedTiles.occupiedTiles.delete(previousKey)
+    } else {
+      cache.occupiedTiles.tileCounts.set(previousKey, previousCount - 1)
+    }
+  }
+
+  if (nextKey) {
+    const nextCount = cache.occupiedTiles.tileCounts.get(nextKey) ?? 0
+    cache.occupiedTiles.tileCounts.set(nextKey, nextCount + 1)
+    cache.occupiedTiles.occupiedTiles.add(nextKey)
+  }
 }
 
 function isMoveTargetValid(worldStore, sheep, tile) {
@@ -152,14 +203,14 @@ export class SheepMovementSystem {
 
       if (this.canAdvance(sheep, worldStore, currentPosition, fallbackPosition)) {
         sheep.pos = fallbackPosition
-        this.syncGridPosition(sheep, fallbackPosition)
+        this.syncGridPosition(sheep, worldStore, fallbackPosition)
       }
 
       return
     }
 
     sheep.pos = nextPosition
-    this.syncGridPosition(sheep, nextPosition)
+    this.syncGridPosition(sheep, worldStore, nextPosition)
   }
 
   static turnSheep(sheep, motion, currentTick) {
@@ -185,14 +236,16 @@ export class SheepMovementSystem {
     return isMoveTargetValid(worldStore, sheep, nextTile)
   }
 
-  static syncGridPosition(sheep, nextPosition) {
+  static syncGridPosition(sheep, worldStore, nextPosition) {
     const nextTile = this.getGridPositionFromWorldPosition(nextPosition)
 
     if (!nextTile) {
       return
     }
 
+    const previousTile = sheep.gridPos ? { ...sheep.gridPos } : null
     sheep.gridPos = nextTile
+    updateSimulationCache(worldStore, previousTile, nextTile)
   }
 
   static getGridPositionFromWorldPosition(position) {

@@ -444,7 +444,7 @@ export class ConstructionBuildProgressSystem {
     const currentTick = worldStore.tick ?? 0
 
     for (const site of sites) {
-      const activeBuilders = getActiveBuilders(worldStore, site)
+    const activeBuilders = getActiveBuilders(worldStore, site)
       const builderCount = activeBuilders.length
 
       if (builderCount <= 0) {

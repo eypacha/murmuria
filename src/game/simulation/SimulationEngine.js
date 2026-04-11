@@ -15,6 +15,7 @@ import { UnitStateSystem } from './systems/UnitStateSystem.js'
 import { VillagerWorkSystem } from './systems/VillagerWorkSystem.js'
 import { SheepStateSystem } from './systems/SheepStateSystem.js'
 import { SheepMovementSystem } from './systems/SheepMovementSystem.js'
+import { buildSimulationCache } from './buildSimulationCache.js'
 
 export class SimulationEngine {
   constructor(worldStore) {
@@ -41,6 +42,8 @@ export class SimulationEngine {
     if (!this.worldStore) {
       return
     }
+
+    this.worldStore.simulationCache = buildSimulationCache(this.worldStore)
 
     KingdomSystem.update(this.worldStore)
     HousingNeedSystem.update(this.worldStore)

@@ -5,6 +5,7 @@ import { SIMULATION_TICK_MS, TILE_SIZE } from '../../config/constants.js'
 import { VILLAGER_INTENT_ACTION_DELAY_TICKS } from '../../config/constants.js'
 import { VILLAGER_INTENT_BUBBLE_DURATION_TICKS } from '../../config/constants.js'
 import { UnitStateSystem } from './UnitStateSystem.js'
+import { SheepStateSystem } from './SheepStateSystem.js'
 import { getIntentBubbleText } from './getIntentBubbleText.js'
 
 export class VillagerDecisionSystem {
@@ -72,6 +73,10 @@ export class VillagerDecisionSystem {
         }
 
         const { resource, targetTile } = selection
+
+        if (resource.type === 'sheep') {
+          SheepStateSystem.lockSheepAtTileCenter(resource, worldStore.tick ?? 0)
+        }
 
         resource.reservedBy = unit.id
         unit.targetId = resource.id

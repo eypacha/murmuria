@@ -111,9 +111,9 @@ function ensureResourceCaches(scene) {
   ensureResourceDebugLabels(scene)
 }
 
-function getResourceTextureKey(tree) {
+function getResourceTextureKey(tree, currentTick = 0) {
   if (tree.type === 'sheep') {
-    return getSheepVariantTextureKey(tree)
+    return getSheepVariantTextureKey(tree, currentTick)
   }
 
   if (tree.type === 'rock') {
@@ -133,9 +133,9 @@ function getResourceTextureKey(tree) {
   return (tree.amount ?? 0) > 0 ? variantConfig.key : variantConfig.stumpKey
 }
 
-function getResourceAnimationKey(tree) {
+function getResourceAnimationKey(tree, currentTick = 0) {
   if (tree.type === 'sheep') {
-    return getSheepAnimationKey(tree)
+    return getSheepAnimationKey(tree, currentTick)
   }
 
   if (tree.type === 'bush') {
@@ -204,9 +204,9 @@ function getSheepVariantConfig(resource) {
   return SHEEP_VARIANT_CONFIGS[clampedIndex] ?? SHEEP_VARIANT_CONFIGS[0]
 }
 
-function getSheepVariantTextureKey(resource) {
+function getSheepVariantTextureKey(resource, currentTick = 0) {
   const variantConfig = getSheepVariantConfig(resource)
-  const state = typeof resource?.state === 'string' ? resource.state : 'idle'
+  const state = getSheepRenderState(resource, currentTick)
 
   if (state === 'moving') {
     return variantConfig.moveKey
@@ -219,8 +219,26 @@ function getSheepVariantTextureKey(resource) {
   return variantConfig.idleKey
 }
 
-function getSheepAnimationKey(resource) {
-  return `${getSheepVariantTextureKey(resource)}_anim`
+function getSheepRenderState(resource, currentTick) {
+  const visualState = typeof resource?.visualState === 'string' ? resource.visualState : null
+  const visualStateUntilTick = Number.isFinite(resource?.visualStateUntilTick)
+    ? resource.visualStateUntilTick
+    : null
+
+  if (
+    visualState &&
+    visualStateUntilTick != null &&
+    Number.isFinite(currentTick) &&
+    currentTick <= visualStateUntilTick
+  ) {
+    return visualState
+  }
+
+  return typeof resource?.state === 'string' ? resource.state : 'idle'
+}
+
+function getSheepAnimationKey(resource, currentTick = 0) {
+  return `${getSheepVariantTextureKey(resource, currentTick)}_anim`
 }
 
 function isResourceFacingLeft(resource) {
@@ -487,17 +505,19 @@ function updateResourceSprite(scene, resource) {
   const shouldAnimate = isSheep || ((resource.type === 'gold' || isTreeTexture) && isHarvested)
   const bushAnimationKey = isBush ? getBushAnimationKey(resource) : null
   const debugLabelText = getResourceDebugLabelText(resource)
+  const currentTick = scene.worldStore?.tick ?? 0
+  const sheepRenderState = isSheep ? getSheepRenderState(resource, currentTick) : null
 
   if (!sprite) {
     const renderTextureKey = isSheep
-      ? getSheepVariantTextureKey(resource)
+      ? getSheepVariantTextureKey({ ...resource, state: sheepRenderState }, currentTick)
       : isRock
         ? getRockVariantConfig(resource).key
         : isBush
           ? getBushVariantConfig(resource).key
-        : textureKey
+          : textureKey
     const renderAnimationKey = isSheep
-      ? getSheepAnimationKey(resource)
+      ? getSheepAnimationKey({ ...resource, state: sheepRenderState }, currentTick)
       : isBush
         ? bushAnimationKey
         : animationKey
@@ -521,22 +541,22 @@ function updateResourceSprite(scene, resource) {
   } else if (
     sprite.getData('resourceTextureKey') !==
     (isSheep
-      ? getSheepVariantTextureKey(resource)
+      ? getSheepVariantTextureKey({ ...resource, state: sheepRenderState }, currentTick)
       : isRock
         ? getRockVariantConfig(resource).key
         : isBush
           ? getBushVariantConfig(resource).key
-        : textureKey)
+          : textureKey)
   ) {
     const renderTextureKey = isSheep
-      ? getSheepVariantTextureKey(resource)
+      ? getSheepVariantTextureKey({ ...resource, state: sheepRenderState }, currentTick)
       : isRock
         ? getRockVariantConfig(resource).key
         : isBush
           ? getBushVariantConfig(resource).key
-        : textureKey
+          : textureKey
     const renderAnimationKey = isSheep
-      ? getSheepAnimationKey(resource)
+      ? getSheepAnimationKey({ ...resource, state: sheepRenderState }, currentTick)
       : isBush
         ? bushAnimationKey
         : animationKey
@@ -566,7 +586,9 @@ function updateResourceSprite(scene, resource) {
 
     sprite.setData(BUSH_WAS_OCCUPIED_KEY, bushOccupied)
   } else if (shouldAnimate) {
-    const renderAnimationKey = isSheep ? getSheepAnimationKey(resource) : animationKey
+    const renderAnimationKey = isSheep
+      ? getSheepAnimationKey({ ...resource, state: sheepRenderState }, currentTick)
+      : animationKey
 
     if (
       renderAnimationKey &&
