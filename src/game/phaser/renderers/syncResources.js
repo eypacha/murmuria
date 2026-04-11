@@ -32,6 +32,34 @@ const RESOURCE_RENDER_START_Y_KEY = 'resourceRenderStartY'
 const RESOURCE_RENDER_TARGET_X_KEY = 'resourceRenderTargetX'
 const RESOURCE_RENDER_TARGET_Y_KEY = 'resourceRenderTargetY'
 const RESOURCE_RENDER_ELAPSED_KEY = 'resourceRenderElapsed'
+const RESOURCE_DEBUG_LABEL_FONT_SIZE = '16px'
+const RESOURCE_DEBUG_LABEL_OFFSET_Y = 18
+
+function getResourceDebugAmountText(resource) {
+  if (resource.type !== 'tree' && resource.type !== 'gold') {
+    return null
+  }
+
+  return String(Math.max(0, Math.floor(Number(resource.amount ?? 0))))
+}
+
+function ensureResourceDebugLabels(scene) {
+  if (!scene.resourceDebugLabels) {
+    scene.resourceDebugLabels = new Map()
+  }
+
+  return scene.resourceDebugLabels
+}
+
+function getResourceDebugLabelPosition(sprite, resource) {
+  const displayHeight = Number.isFinite(sprite?.displayHeight) ? sprite.displayHeight : TILE_SIZE
+  const extraOffset = resource.type === 'gold' ? 8 : 0
+
+  return {
+    x: sprite?.x ?? 0,
+    y: (sprite?.y ?? 0) - displayHeight / 2 - RESOURCE_DEBUG_LABEL_OFFSET_Y - extraOffset,
+  }
+}
 
 function drawDebugOccupiedTiles(scene, resource, depth) {
   const border = scene.add.graphics()
@@ -64,6 +92,8 @@ function ensureResourceCaches(scene) {
   if (!scene.resourceDebugBorders) {
     scene.resourceDebugBorders = new Map()
   }
+
+  ensureResourceDebugLabels(scene)
 }
 
 function getResourceTextureKey(tree) {
@@ -407,6 +437,13 @@ function updateResourceSprite(scene, resource) {
       scene.resourceDebugBorders.delete(resource.id)
     }
 
+    const existingLabel = scene.resourceDebugLabels?.get(resource.id)
+
+    if (existingLabel) {
+      existingLabel.destroy()
+      scene.resourceDebugLabels.delete(resource.id)
+    }
+
     return
   }
 
@@ -434,6 +471,7 @@ function updateResourceSprite(scene, resource) {
   const originY = resource.type === 'gold' || isSheep || isRock || isBush ? 0.5 : 1
   const shouldAnimate = isSheep || ((resource.type === 'gold' || isTreeTexture) && isHarvested)
   const bushAnimationKey = isBush ? getBushAnimationKey(resource) : null
+  const debugAmountText = getResourceDebugAmountText(resource)
 
   if (!sprite) {
     const renderTextureKey = isSheep
@@ -560,6 +598,32 @@ function updateResourceSprite(scene, resource) {
       scene.resourceDebugBorders.delete(resource.id)
     }
   }
+
+  const labels = ensureResourceDebugLabels(scene)
+  const existingLabel = labels.get(resource.id)
+
+  if (DEBUG_MODE && debugAmountText) {
+    const labelPosition = getResourceDebugLabelPosition(sprite, resource)
+    const label =
+      existingLabel ??
+      scene.add.text(0, 0, debugAmountText, {
+        fontFamily: 'monospace',
+        fontSize: RESOURCE_DEBUG_LABEL_FONT_SIZE,
+        color: '#ffffff',
+        backgroundColor: 'rgba(0, 0, 0, 0.55)',
+        padding: { left: 4, right: 4, top: 2, bottom: 2 },
+      })
+
+    label.setText(debugAmountText)
+    label.setOrigin(0.5, 1)
+    label.setPosition(labelPosition.x, labelPosition.y)
+    label.setDepth(depth + 1)
+    label.setScrollFactor(1, 1)
+    labels.set(resource.id, label)
+  } else if (existingLabel) {
+    existingLabel.destroy()
+    labels.delete(resource.id)
+  }
 }
 
 export function syncResources(scene, worldStore) {
@@ -592,6 +656,15 @@ export function syncResources(scene, worldStore) {
 
     border.destroy()
     scene.resourceDebugBorders.delete(treeId)
+  }
+
+  for (const [resourceId, label] of scene.resourceDebugLabels.entries()) {
+    if (activeResourceIds.has(resourceId)) {
+      continue
+    }
+
+    label.destroy()
+    scene.resourceDebugLabels.delete(resourceId)
   }
 
   return Array.from(scene.resourceSprites.values())
