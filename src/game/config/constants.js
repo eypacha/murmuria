@@ -1,5 +1,5 @@
 // Debug / feature flags
-export const DEBUG_MODE = true
+export const DEBUG_MODE = false
 export const FOAM_ANIMATION = true
 
 // World / grid
@@ -48,13 +48,13 @@ export const SHEEP_MEAT_AMOUNT = 10
 export const INITIAL_GOLD_COUNT = 12
 
 // Initial world population
-export const INITIAL_VILLAGERS = 10
+export const INITIAL_VILLAGERS = 2
 export const INITIAL_TREE_COUNT = 50
 export const INITIAL_SHEEP_COUNT = 25
 export const INITIAL_ROCK_COUNT = 25
 export const INITIAL_BUSH_COUNT = 25
 
 // Initial resources
-export const INITIAL_WOOD = 0
-export const INITIAL_GOLD = 0
-export const INITIAL_MEAT = 1000
+export const INITIAL_WOOD = 10
+export const INITIAL_GOLD = 10
+export const INITIAL_MEAT = 10

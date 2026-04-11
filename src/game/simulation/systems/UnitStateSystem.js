@@ -10,6 +10,7 @@ const TALK_BUBBLE_SWITCH_MS = 1000
 const TALK_DISTANCE_LIMIT_TILES = 10
 const TALK_MEETING_SEARCH_RADIUS = 4
 const TALK_BUBBLE_TEXTS = ['🙂', '😐', '🤔', '🍖', '👑', '🔥', '😭', '🍎', '🍕', '🍷', '🌎', '🏰']
+const MAX_IDLE_DECISIONS_PER_TICK = 8
 const IDLE_BEHAVIOR_WEIGHTS = {
   talk: 0.5,
   wander: 0.25,
@@ -67,6 +68,9 @@ export class UnitStateSystem {
     const currentTick = worldStore.tick ?? 0
     const claimedUnitIds = new Set()
 
+    const idleDecisionStride = this.getIdleDecisionStride(units.length)
+    const idleCandidates = []
+
     for (const unit of units) {
       if (unit.kind !== 'unit') {
         continue
@@ -117,11 +121,18 @@ export class UnitStateSystem {
         continue
       }
 
-      const action = this.chooseIdleBehavior(unit, units, worldStore, claimedUnitIds)
+      idleCandidates.push(unit)
+    }
+
+    for (const unit of idleCandidates) {
+      if (!this.shouldProcessIdleDecision(unit, currentTick, idleDecisionStride)) {
+        continue
+      }
+
+      const partner = this.findTalkPartner(unit, worldStore, claimedUnitIds)
+      const action = this.chooseIdleBehavior(unit, worldStore, claimedUnitIds, partner)
 
       if (action === 'talk') {
-        const partner = this.findTalkPartner(unit, units, claimedUnitIds)
-
         if (partner && this.startTalkPair(unit, partner, worldStore, currentTick)) {
           claimedUnitIds.add(unit.id)
           claimedUnitIds.add(partner.id)
@@ -140,10 +151,10 @@ export class UnitStateSystem {
     }
   }
 
-  static chooseIdleBehavior(unit, units, worldStore, claimedUnitIds) {
+  static chooseIdleBehavior(unit, worldStore, claimedUnitIds, availableTalkPartner = null) {
     const options = []
 
-    if (this.findTalkPartner(unit, units, claimedUnitIds)) {
+    if (availableTalkPartner) {
       options.push({ action: 'talk', weight: IDLE_BEHAVIOR_WEIGHTS.talk })
     }
 
@@ -182,6 +193,33 @@ export class UnitStateSystem {
     }
 
     return options[options.length - 1]?.action ?? 'idle'
+  }
+
+  static getIdleDecisionStride(unitCount) {
+    const desiredBudget = Math.max(1, MAX_IDLE_DECISIONS_PER_TICK)
+
+    return Math.max(1, Math.ceil(Math.max(1, unitCount) / desiredBudget))
+  }
+
+  static shouldProcessIdleDecision(unit, currentTick, stride) {
+    if (stride <= 1) {
+      return true
+    }
+
+    const hash = this.getStableStringHash(unit.id)
+
+    return (currentTick + hash) % stride === 0
+  }
+
+  static getStableStringHash(value) {
+    const text = String(value ?? '')
+    let hash = 0
+
+    for (let index = 0; index < text.length; index += 1) {
+      hash = (hash * 31 + text.charCodeAt(index)) >>> 0
+    }
+
+    return hash
   }
 
   static ensureIdleMetadata(unit, currentTick) {
@@ -350,17 +388,18 @@ export class UnitStateSystem {
     )
   }
 
-  static findTalkPartner(unit, units, claimedUnitIds) {
+  static findTalkPartner(unit, worldStore, claimedUnitIds) {
     const unitGridTile = getUnitGridTile(unit)
 
     if (!unitGridTile) {
       return null
     }
 
+    const nearbyUnits = this.getNearbyUnits(worldStore, unitGridTile, TALK_DISTANCE_LIMIT_TILES)
     let bestPartner = null
     let bestDistance = Number.POSITIVE_INFINITY
 
-    for (const candidate of units) {
+    for (const candidate of nearbyUnits) {
       if (candidate.kind !== 'unit' || candidate.id === unit.id) {
         continue
       }
@@ -426,88 +465,56 @@ export class UnitStateSystem {
       return null
     }
 
-    const path = findPath(worldStore, unitATile, unitBTile)
-
-    if (path.length === 0) {
-      return null
+    const occupiedTiles = worldStore.simulationCache?.occupiedTiles?.occupiedTiles ?? this.buildOccupiedTileSet(worldStore)
+    const baseLeftTile = {
+      x: Math.floor((unitATile.x + unitBTile.x - 1) / 2),
+      y: Math.floor((unitATile.y + unitBTile.y) / 2),
     }
-
-    const middleIndex = Math.floor(path.length / 2)
-    const pivotTiles = []
-
-    for (let offset = 0; offset < path.length; offset += 1) {
-      const beforeIndex = middleIndex - offset
-      const afterIndex = middleIndex + offset
-
-      if (beforeIndex >= 0) {
-        pivotTiles.push(path[beforeIndex])
-      }
-
-      if (offset > 0 && afterIndex < path.length) {
-        pivotTiles.push(path[afterIndex])
-      }
-    }
-
+    const searchRadius = 2
     let bestAssignment = null
 
-    for (const pivotTile of pivotTiles) {
-      const meetingPair = this.findAdjacentMeetingPair(worldStore, pivotTile, unitA, unitB)
-
-      if (!meetingPair) {
-        continue
-      }
-
-      if (!bestAssignment || this.compareTalkAssignments(meetingPair, bestAssignment) < 0) {
-        bestAssignment = meetingPair
-      }
-    }
-
-    return bestAssignment
-  }
-
-  static findAdjacentMeetingPair(worldStore, pivotTile, unitA, unitB) {
-    const ignoredIds = new Set([unitA.id, unitB.id])
-    let bestAssignment = null
-
-    for (let radius = 0; radius <= TALK_MEETING_SEARCH_RADIUS; radius += 1) {
+    for (let radius = 0; radius <= searchRadius; radius += 1) {
       for (let dy = -radius; dy <= radius; dy += 1) {
         for (let dx = -radius; dx <= radius; dx += 1) {
           const leftTile = {
-            x: pivotTile.x + dx,
-            y: pivotTile.y + dy,
+            x: baseLeftTile.x + dx,
+            y: baseLeftTile.y + dy,
           }
           const rightTile = {
             x: leftTile.x + 1,
             y: leftTile.y,
           }
 
-          if (!this.isValidMeetingPair(worldStore, leftTile, rightTile, ignoredIds)) {
-            continue
-          }
+          const directAssignment = this.scoreTalkAssignmentByDistance(
+            worldStore,
+            unitATile,
+            unitBTile,
+            unitA,
+            unitB,
+            leftTile,
+            rightTile,
+            occupiedTiles,
+          )
 
-          const directAssignment = this.scoreTalkAssignment(worldStore, unitA, unitB, leftTile, rightTile)
-          const swappedAssignment = this.scoreTalkAssignment(worldStore, unitA, unitB, rightTile, leftTile)
+          const swappedAssignment = this.scoreTalkAssignmentByDistance(
+            worldStore,
+            unitATile,
+            unitBTile,
+            unitA,
+            unitB,
+            rightTile,
+            leftTile,
+            occupiedTiles,
+          )
 
           if (!directAssignment && !swappedAssignment) {
             continue
           }
 
           const candidateAssignment = !swappedAssignment
-            ? {
-                unitLeft: unitA,
-                unitRight: unitB,
-                leftTile,
-                rightTile,
-                score: this.getTalkScore(worldStore, leftTile, rightTile, unitA, unitB),
-              }
+            ? directAssignment
             : !directAssignment
-              ? {
-                  unitLeft: unitA,
-                  unitRight: unitB,
-                  leftTile: rightTile,
-                  rightTile: leftTile,
-                  score: this.getTalkScore(worldStore, rightTile, leftTile, unitA, unitB),
-                }
+              ? swappedAssignment
               : (this.compareTalkAssignments(directAssignment, swappedAssignment) <= 0
                   ? directAssignment
                   : swappedAssignment)
@@ -522,28 +529,22 @@ export class UnitStateSystem {
     return bestAssignment
   }
 
-  static scoreTalkAssignment(worldStore, unitA, unitB, leftTile, rightTile) {
-    if (!this.isValidMeetingPair(worldStore, leftTile, rightTile, new Set([unitA.id, unitB.id]))) {
+  static scoreTalkAssignmentByDistance(
+    worldStore,
+    unitATile,
+    unitBTile,
+    unitA,
+    unitB,
+    leftTile,
+    rightTile,
+    occupiedTiles,
+  ) {
+    if (!this.isValidMeetingPair(worldStore, leftTile, rightTile, occupiedTiles)) {
       return null
     }
 
-    const unitATile = getUnitGridTile(unitA)
-    const unitBTile = getUnitGridTile(unitB)
-
-    if (!unitATile || !unitBTile) {
-      return null
-    }
-
-    const pathA = findPath(worldStore, unitATile, leftTile)
-    const pathB = findPath(worldStore, unitBTile, rightTile)
-
-    if (!this.isReachablePath(unitATile, leftTile, pathA)) {
-      return null
-    }
-
-    if (!this.isReachablePath(unitBTile, rightTile, pathB)) {
-      return null
-    }
+    const distanceA = Math.abs(unitATile.x - leftTile.x) + Math.abs(unitATile.y - leftTile.y)
+    const distanceB = Math.abs(unitBTile.x - rightTile.x) + Math.abs(unitBTile.y - rightTile.y)
 
     return {
       unitLeft: unitA,
@@ -551,15 +552,8 @@ export class UnitStateSystem {
       leftTile,
       rightTile,
       score: this.getTalkScore(worldStore, leftTile, rightTile, unitA, unitB),
+      pathDistance: distanceA + distanceB,
     }
-  }
-
-  static isReachablePath(startTile, goalTile, path) {
-    if (startTile.x === goalTile.x && startTile.y === goalTile.y) {
-      return true
-    }
-
-    return Array.isArray(path) && path.length > 0
   }
 
   static getTalkScore(worldStore, leftTile, rightTile, unitA, unitB) {
@@ -573,12 +567,12 @@ export class UnitStateSystem {
       }
     }
 
-    const pathA = findPath(worldStore, unitATile, leftTile)
-    const pathB = findPath(worldStore, unitBTile, rightTile)
+    const pathA = Math.abs(unitATile.x - leftTile.x) + Math.abs(unitATile.y - leftTile.y)
+    const pathB = Math.abs(unitBTile.x - rightTile.x) + Math.abs(unitBTile.y - rightTile.y)
 
     return {
-      balance: Math.abs(pathA.length - pathB.length),
-      total: pathA.length + pathB.length,
+      balance: Math.abs(pathA - pathB),
+      total: pathA + pathB,
     }
   }
 
@@ -594,7 +588,7 @@ export class UnitStateSystem {
     return 0
   }
 
-  static isValidMeetingPair(worldStore, leftTile, rightTile, ignoredIds = new Set()) {
+  static isValidMeetingPair(worldStore, leftTile, rightTile, occupiedTiles = null) {
     if (!leftTile || !rightTile) {
       return false
     }
@@ -603,13 +597,16 @@ export class UnitStateSystem {
       return false
     }
 
-    const occupiedTiles = this.buildOccupiedTileSet(worldStore, ignoredIds)
+    const occupiedSet =
+      occupiedTiles instanceof Set
+        ? occupiedTiles
+        : worldStore.simulationCache?.occupiedTiles?.occupiedTiles ?? this.buildOccupiedTileSet(worldStore)
 
     return (
       isTraversableWorldTile(worldStore, leftTile) &&
       isTraversableWorldTile(worldStore, rightTile) &&
-      !occupiedTiles.has(getTileKey(leftTile)) &&
-      !occupiedTiles.has(getTileKey(rightTile))
+      !occupiedSet.has(getTileKey(leftTile)) &&
+      !occupiedSet.has(getTileKey(rightTile))
     )
   }
 
@@ -708,24 +705,25 @@ export class UnitStateSystem {
       return null
     }
 
-    const offsets = []
+    const occupiedTiles = worldStore.simulationCache?.occupiedTiles?.occupiedTiles ?? null
+    const candidates = []
 
     for (let radius = 1; radius <= 4; radius += 1) {
       for (let dy = -radius; dy <= radius; dy += 1) {
         for (let dx = -radius; dx <= radius; dx += 1) {
-          offsets.push({ dx, dy })
+          candidates.push({ dx, dy })
         }
       }
     }
 
-    for (let index = offsets.length - 1; index > 0; index -= 1) {
+    for (let index = candidates.length - 1; index > 0; index -= 1) {
       const swapIndex = Math.floor(Math.random() * (index + 1))
-      const temp = offsets[index]
-      offsets[index] = offsets[swapIndex]
-      offsets[swapIndex] = temp
+      const temp = candidates[index]
+      candidates[index] = candidates[swapIndex]
+      candidates[swapIndex] = temp
     }
 
-    for (const offset of offsets) {
+    for (const offset of candidates) {
       const candidate = {
         x: unitTile.x + offset.dx,
         y: unitTile.y + offset.dy,
@@ -739,11 +737,11 @@ export class UnitStateSystem {
         continue
       }
 
-      const path = findPath(worldStore, unitTile, candidate)
-
-      if (path.length > 0) {
-        return candidate
+      if (occupiedTiles?.has(getTileKey(candidate))) {
+        continue
       }
+
+      return candidate
     }
 
     return null
@@ -889,5 +887,33 @@ export class UnitStateSystem {
 
     unit.stateUntilTick = currentTick + delayToTicks(delayMs)
     unit.nextState = nextState
+  }
+
+  static getNearbyUnits(worldStore, centerTile, radius) {
+    const cache = worldStore.simulationCache?.unitsByTile
+
+    if (!cache) {
+      return worldStore.units ?? []
+    }
+
+    const results = []
+
+    for (let dy = -radius; dy <= radius; dy += 1) {
+      for (let dx = -radius; dx <= radius; dx += 1) {
+        const key = getTileKey({
+          x: centerTile.x + dx,
+          y: centerTile.y + dy,
+        })
+        const unitsAtTile = cache.get(key)
+
+        if (!unitsAtTile) {
+          continue
+        }
+
+        results.push(...unitsAtTile)
+      }
+    }
+
+    return results
   }
 }
