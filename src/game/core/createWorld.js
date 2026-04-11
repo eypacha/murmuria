@@ -12,6 +12,7 @@ import {
   CASTLE_FOOTPRINT,
   createCastle,
 } from '../domain/factories/createCastle.js'
+import { HOUSE_FOOTPRINT, createHouse } from '../domain/factories/createHouse.js'
 import { createGoldStone } from '../domain/factories/createGoldStone.js'
 import { createVillager } from '../domain/factories/createVillager.js'
 import { createRock } from '../domain/factories/createRock.js'
@@ -150,8 +151,86 @@ function isCastleFootprintTile(tile) {
   return tile?.terrain === 'grass' && tile.walkable && !tile.cliff
 }
 
+function isHouseFootprintTile(tile) {
+  return tile?.terrain === 'grass' && tile.walkable && !tile.cliff
+}
+
 function isCastleDropTile(tile) {
   return tile?.walkable ?? false
+}
+
+function isHousePlacementValid(tiles, width, height, x, y) {
+  if (x < 0 || y < 0) {
+    return false
+  }
+
+  if (x + HOUSE_FOOTPRINT.w > width || y + HOUSE_FOOTPRINT.h > height) {
+    return false
+  }
+
+  for (let dy = 0; dy < HOUSE_FOOTPRINT.h; dy += 1) {
+    for (let dx = 0; dx < HOUSE_FOOTPRINT.w; dx += 1) {
+      const tile = getTile(tiles, x + dx, y + dy)
+
+      if (!isHouseFootprintTile(tile)) {
+        return false
+      }
+    }
+  }
+
+  return true
+}
+
+function findHousePlacement(tiles, castle, width, height) {
+  const castleFootprint = castle.footprint ?? CASTLE_FOOTPRINT
+  const castleCenterX = castle.gridPos.x + Math.floor(castleFootprint.w / 2)
+  const castleCenterY = castle.gridPos.y + Math.floor(castleFootprint.h / 2)
+  const preferredPositions = [
+    { x: castle.gridPos.x + castleFootprint.w + 1, y: castle.gridPos.y },
+    { x: castle.gridPos.x - HOUSE_FOOTPRINT.w - 1, y: castle.gridPos.y },
+    { x: castle.gridPos.x, y: castle.gridPos.y + castleFootprint.h + 1 },
+    { x: castle.gridPos.x, y: castle.gridPos.y - HOUSE_FOOTPRINT.h - 1 },
+  ]
+
+  for (const position of preferredPositions) {
+    if (isHousePlacementValid(tiles, width, height, position.x, position.y)) {
+      return position
+    }
+  }
+
+  const searchRadius = 8
+  const fallbackPositions = []
+
+  for (
+    let y = Math.max(0, castleCenterY - searchRadius);
+    y <= Math.min(height - HOUSE_FOOTPRINT.h, castleCenterY + searchRadius);
+    y += 1
+  ) {
+    for (
+      let x = Math.max(0, castleCenterX - searchRadius);
+      x <= Math.min(width - HOUSE_FOOTPRINT.w, castleCenterX + searchRadius);
+      x += 1
+    ) {
+      fallbackPositions.push({
+        x,
+        y,
+        distance: Math.abs(x - castleCenterX) + Math.abs(y - castleCenterY),
+      })
+    }
+  }
+
+  fallbackPositions.sort((a, b) => a.distance - b.distance)
+
+  for (const position of fallbackPositions) {
+    if (isHousePlacementValid(tiles, width, height, position.x, position.y)) {
+      return position
+    }
+  }
+
+  return {
+    x: Math.max(0, Math.min(width - HOUSE_FOOTPRINT.w, castle.gridPos.x + castleFootprint.w + 1)),
+    y: Math.max(0, Math.min(height - HOUSE_FOOTPRINT.h, castle.gridPos.y)),
+  }
 }
 
 function isPlateauTile(tile) {
@@ -1375,9 +1454,12 @@ function spawnGold(tiles, castle, worldSeed, rng, extraReservedKeys = new Set())
   return resources
 }
 
-function spawnVillagers(tiles, castle, width, height, rng) {
+function spawnVillagers(tiles, castle, width, height, rng, extraReservedKeys = new Set()) {
   const units = []
-  const occupiedKeys = new Set(getOccupiedTiles(castle).map((tile) => positionKey(tile.x, tile.y)))
+  const occupiedKeys = new Set([
+    ...getOccupiedTiles(castle).map((tile) => positionKey(tile.x, tile.y)),
+    ...extraReservedKeys,
+  ])
   const villagerPositions = createVillagerPositions(castle, tiles, width, height, occupiedKeys, rng)
 
   for (const position of villagerPositions) {
@@ -1784,11 +1866,11 @@ function spawnSheep(tiles, castle, worldSeed, rng, extraReservedKeys = new Set()
   return resources
 }
 
-export function generatePlateaus(tiles, rng) {
+export function generatePlateaus(tiles, rng, extraProtectedKeys = new Set()) {
   const width = tiles[0]?.length ?? 0
   const height = tiles.length
   const plateauCount = Math.max(1, Math.round(width * height * PLATEAU_DENSITY))
-  const protectedKeys = new Set()
+  const protectedKeys = new Set(extraProtectedKeys)
 
   for (const row of tiles) {
     if (!Array.isArray(row)) {
@@ -1938,26 +2020,29 @@ export function createWorld(worldStore) {
   const tiles = buildTilesFromMask(mask)
   const castlePosition = findCastlePlacement(tiles, width, height)
   const castle = createCastle(castlePosition.x, castlePosition.y)
+  const housePosition = findHousePlacement(tiles, castle, width, height)
+  const house = createHouse(housePosition.x, housePosition.y, 0)
+  const houseReservedKeys = new Set(getOccupiedTiles(house).map((tile) => positionKey(tile.x, tile.y)))
 
   if (terrainVariant === TERRAIN_VARIANTS.ISLAND) {
-    generatePlateaus(tiles, rng)
+    generatePlateaus(tiles, rng, houseReservedKeys)
     detectCliffs(tiles, width, height)
     flattenCastlePlateau(tiles, castle)
     detectCliffs(tiles, width, height)
   } else {
-    generatePlateaus(tiles, rng)
+    generatePlateaus(tiles, rng, houseReservedKeys)
     detectCliffs(tiles, width, height)
   }
 
-  const villagerUnits = spawnVillagers(tiles, castle, width, height, rng)
+  const villagerUnits = spawnVillagers(tiles, castle, width, height, rng, houseReservedKeys)
   const villagerReservedKeys = new Set(
     villagerUnits.map((villager) => positionKey(villager.gridPos.x, villager.gridPos.y)),
   )
-  const goldResources = spawnGold(tiles, castle, seed, rng, villagerReservedKeys)
+  const goldResources = spawnGold(tiles, castle, seed, rng, new Set([...villagerReservedKeys, ...houseReservedKeys]))
   const goldReservedKeys = new Set(
     goldResources.map((resource) => positionKey(resource.gridPos.x, resource.gridPos.y)),
   )
-  const treeReservedKeys = new Set([...villagerReservedKeys, ...goldReservedKeys])
+  const treeReservedKeys = new Set([...villagerReservedKeys, ...goldReservedKeys, ...houseReservedKeys])
   const treeResources = spawnTrees(tiles, castle, seed, rng, treeReservedKeys)
   const treeResourceKeys = new Set(
     treeResources.map((resource) => positionKey(resource.gridPos.x, resource.gridPos.y)),
@@ -1972,7 +2057,7 @@ export function createWorld(worldStore) {
   const bushDecorationKeys = new Set(
     bushDecorations.map((resource) => positionKey(resource.gridPos.x, resource.gridPos.y)),
   )
-  const sheepReservedKeys = new Set([...bushReservedKeys, ...bushDecorationKeys])
+  const sheepReservedKeys = new Set([...bushReservedKeys, ...bushDecorationKeys, ...houseReservedKeys])
   const sheepResources = spawnSheep(tiles, castle, seed, rng, sheepReservedKeys)
   const resources = [...goldResources, ...treeResources, ...sheepResources]
   const decorations = [...rockDecorations, ...bushDecorations]
@@ -1989,5 +2074,6 @@ export function createWorld(worldStore) {
   worldStore.resources = resources
   worldStore.decorations = decorations
   worldStore.buildings = [castle]
+  worldStore.houses = [house]
   worldStore.units = villagerUnits
 }

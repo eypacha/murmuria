@@ -1,9 +1,10 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { createKingdomState } from '../game/core/createKingdomState.js'
+import { getHousingCapacity } from '../game/core/getHousingCapacity.js'
 
 export const useWorldStore = defineStore('world', () => {
-  const seed = ref(4) 
+  const seed = ref(Date.now().toString()) 
   const tick = ref(0)
   const terrainVariant = ref('flat_lakes')
 
@@ -18,6 +19,8 @@ export const useWorldStore = defineStore('world', () => {
   const units = ref([])
   const resources = ref([])
   const buildings = ref([])
+  const houses = ref([])
+  const housingCapacity = computed(() => getHousingCapacity(houses.value))
 
   return {
     seed,
@@ -28,5 +31,7 @@ export const useWorldStore = defineStore('world', () => {
     units,
     resources,
     buildings,
+    houses,
+    housingCapacity,
   }
 })

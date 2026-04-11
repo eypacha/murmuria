@@ -1,4 +1,4 @@
-export const DEBUG_MODE = false 
+export const DEBUG_MODE = true 
 export const FOAM_ANIMATION = true
 export const GRID_WIDTH = 50
 export const GRID_HEIGHT = 50
