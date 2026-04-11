@@ -1,4 +1,5 @@
 import { getOccupiedTiles } from './getOccupiedTiles.js'
+import { getBlockingEntities } from './getBlockingEntities.js'
 import { isTraversableWorldTile } from './isTraversableTile.js'
 
 function tileKey(tile) {
@@ -14,10 +15,7 @@ function isInsideWorld(worldStore, tile) {
 
 function buildOccupiedTileSet(worldStore) {
   const occupiedTiles = new Set()
-  const entities = [
-    ...(worldStore.buildings ?? []),
-    ...(worldStore.resources ?? []),
-  ]
+  const entities = getBlockingEntities(worldStore, { includeUnits: false })
 
   for (const entity of entities) {
     if (!entity?.gridPos) {

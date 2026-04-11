@@ -1,5 +1,6 @@
 import { SIMULATION_TICK_MS, TILE_SIZE } from '../../config/constants.js'
 import { getOccupiedTiles } from '../../core/getOccupiedTiles.js'
+import { getBlockingEntities } from '../../core/getBlockingEntities.js'
 import { isTraversableWorldTile } from '../../core/isTraversableTile.js'
 import { seededRandom } from '../../core/seededRandom.js'
 
@@ -23,11 +24,7 @@ function getRandomFacing() {
 }
 
 function isTileOccupied(worldStore, tile, ignoreEntityId) {
-  const entities = [
-    ...(worldStore.buildings ?? []),
-    ...(worldStore.resources ?? []),
-    ...(worldStore.units ?? []),
-  ]
+  const entities = getBlockingEntities(worldStore)
 
   for (const entity of entities) {
     if (!entity?.gridPos || entity.id === ignoreEntityId) {

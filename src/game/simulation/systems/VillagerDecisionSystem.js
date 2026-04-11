@@ -1,4 +1,5 @@
 import { getOccupiedTiles } from '../../core/getOccupiedTiles.js'
+import { getBlockingEntities } from '../../core/getBlockingEntities.js'
 import { isTraversableWorldTile } from '../../core/isTraversableTile.js'
 import { SIMULATION_TICK_MS, TILE_SIZE } from '../../config/constants.js'
 import { VILLAGER_INTENT_ACTION_DELAY_TICKS } from '../../config/constants.js'
@@ -360,11 +361,7 @@ export class VillagerDecisionSystem {
   }
 
   static isTileOccupied(tile, worldStore) {
-    const entities = [
-      ...(worldStore.buildings ?? []),
-      ...(worldStore.resources ?? []),
-      ...(worldStore.units ?? []),
-    ]
+    const entities = getBlockingEntities(worldStore)
 
     return entities.some((entity) => this.entityOccupiesTile(entity, tile))
   }
@@ -372,14 +369,7 @@ export class VillagerDecisionSystem {
   static buildOccupiedTileSet(worldStore, options = {}) {
     const includeUnits = options.includeUnits !== false
     const occupiedTiles = new Set()
-    const entities = [
-      ...(worldStore.buildings ?? []),
-      ...(worldStore.resources ?? []),
-    ]
-
-    if (includeUnits) {
-      entities.push(...(worldStore.units ?? []))
-    }
+    const entities = getBlockingEntities(worldStore, { includeUnits })
 
     for (const entity of entities) {
       if (!entity?.gridPos) {
