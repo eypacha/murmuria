@@ -20,6 +20,7 @@ export const useWorldStore = defineStore('world', () => {
   const resources = ref([])
   const buildings = ref([])
   const houses = ref([])
+  const constructionSites = ref([])
   const housingCapacity = computed(() => getHousingCapacity(houses.value))
 
   return {
@@ -32,6 +33,7 @@ export const useWorldStore = defineStore('world', () => {
     resources,
     buildings,
     houses,
+    constructionSites,
     housingCapacity,
   }
 })

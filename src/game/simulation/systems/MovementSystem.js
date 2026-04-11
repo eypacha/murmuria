@@ -213,6 +213,14 @@ export class MovementSystem {
       return
     }
 
+    if (unit.target?.type === 'constructionSite') {
+      unit.target = null
+      unit.targetId = null
+      unit.state = 'idle'
+      unit.idleSince = worldStore.tick ?? 0
+      return
+    }
+
     if (unit.interactionFacing === 'left' || unit.interactionFacing === 'right') {
       unit.facing = unit.interactionFacing
     }

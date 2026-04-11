@@ -1994,5 +1994,6 @@ export function createWorld(worldStore) {
   worldStore.decorations = decorations
   worldStore.buildings = [castle]
   worldStore.houses = []
+  worldStore.constructionSites = []
   worldStore.units = villagerUnits
 }

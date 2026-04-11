@@ -9,6 +9,7 @@ import {
 import { UnitSpriteController } from '../rendering/UnitSpriteController.js'
 import { renderGrid } from './renderers/renderGrid.js'
 import { syncBuildings } from './renderers/syncBuildings.js'
+import { syncConstructionSites } from './renderers/syncConstructionSites.js'
 import { syncHouses } from './renderers/syncHouses.js'
 import { syncResources } from './renderers/syncResources.js'
 import {
@@ -121,6 +122,7 @@ export class GameScene extends Phaser.Scene {
     this.worldStore = null
     this.unitControllers = new Map()
     this.houseSprites = new Map()
+    this.constructionSiteSprites = new Map()
     this.resourceSprites = new Map()
     this.resourceDebugBorders = new Map()
     this.targetZoom = CAMERA_DEFAULT_ZOOM
@@ -229,6 +231,11 @@ export class GameScene extends Phaser.Scene {
     }
     this.houseSprites.clear()
 
+    for (const sprite of this.constructionSiteSprites.values()) {
+      sprite.destroy()
+    }
+    this.constructionSiteSprites.clear()
+
     for (const sprite of this.resourceSprites.values()) {
       sprite.destroy()
     }
@@ -255,6 +262,7 @@ export class GameScene extends Phaser.Scene {
 
     renderGrid(this, this.worldStore)
     syncBuildings(this, this.worldStore)
+    syncConstructionSites(this, this.worldStore)
     syncHouses(this, this.worldStore)
     syncResources(this, this.worldStore)
     this.syncUnitControllers()
@@ -528,6 +536,7 @@ export class GameScene extends Phaser.Scene {
 
   update(_time, delta) {
     this.updateCameraZoom(delta)
+    syncConstructionSites(this, this.worldStore)
     syncHouses(this, this.worldStore)
     syncResources(this, this.worldStore)
     this.syncUnitControllers()

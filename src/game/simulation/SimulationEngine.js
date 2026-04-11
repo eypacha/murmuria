@@ -2,6 +2,7 @@ import { SIMULATION_TICK_MS } from '../config/constants.js'
 import { KingdomSystem } from './systems/KingdomSystem.js'
 import { HousingNeedSystem } from './systems/HousingNeedSystem.js'
 import { HousingProposalSystem } from './systems/HousingProposalSystem.js'
+import { ConstructionSiteSystem } from './systems/ConstructionSiteSystem.js'
 import { VillagerDecisionSystem } from './systems/VillagerDecisionSystem.js'
 import { BubbleSystem } from './systems/BubbleSystem.js'
 import { MovementSystem } from './systems/MovementSystem.js'
@@ -43,6 +44,7 @@ export class SimulationEngine {
     BubbleSystem.update(this.worldStore)
     UnitStateSystem.update(this.worldStore)
     MovementSystem.update(this.worldStore)
+    ConstructionSiteSystem.update(this.worldStore)
     VillagerWorkSystem.update(this.worldStore)
     SheepStateSystem.update(this.worldStore)
     SheepMovementSystem.update(this.worldStore)

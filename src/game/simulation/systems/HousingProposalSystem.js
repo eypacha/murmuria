@@ -1,8 +1,14 @@
-import { SIMULATION_TICK_MS, VILLAGER_INTENT_ACTION_DELAY_TICKS, VILLAGER_INTENT_BUBBLE_DURATION_TICKS } from '../../config/constants.js'
+import { VILLAGER_INTENT_BUBBLE_DURATION_TICKS } from '../../config/constants.js'
 import { getIntentBubbleText } from './getIntentBubbleText.js'
-import { UnitStateSystem } from './UnitStateSystem.js'
 import { findHousePlacement } from '../../core/findHousePlacement.js'
 import { getBlockingEntities } from '../../core/getBlockingEntities.js'
+import { createConstructionSite } from '../../domain/factories/createConstructionSite.js'
+
+function getActiveHouseConstructionSite(worldStore) {
+  return (worldStore.constructionSites ?? []).find((site) => {
+    return site?.type === 'constructionSite' && site?.buildingType === 'house'
+  }) ?? null
+}
 
 function getIdleVillagers(worldStore) {
   return (worldStore.units ?? []).filter((unit) => {
@@ -37,6 +43,10 @@ export class HousingProposalSystem {
       return
     }
 
+    if (getActiveHouseConstructionSite(worldStore)) {
+      return
+    }
+
     const housingPressure = Number(kingdom.housingPressure ?? 0)
 
     if (housingPressure <= 0) {
@@ -62,7 +72,7 @@ export class HousingProposalSystem {
       castle,
       width: worldStore.world?.width ?? 0,
       height: worldStore.world?.height ?? 0,
-      blockedEntities: getBlockingEntities(worldStore, { includeUnits: false }),
+      blockedEntities: getBlockingEntities(worldStore),
       allowFallback: false,
     })
 
@@ -78,17 +88,35 @@ export class HousingProposalSystem {
       createdTick: currentTick,
     }
 
-    proposer.state = 'proposing_house'
+    worldStore.constructionSites = worldStore.constructionSites ?? []
+    const hiddenSite = createConstructionSite({
+      x: placement.x,
+      y: placement.y,
+      buildingType: 'house',
+      capacity: 2,
+      proposerVillagerId: proposer.id,
+      createdTick: currentTick,
+      revealed: false,
+    })
+    worldStore.constructionSites.push(hiddenSite)
+    kingdom.houseProposal = null
+
+    proposer.target = {
+      type: 'constructionSite',
+      tile: {
+        x: placement.x,
+        y: placement.y,
+      },
+    }
+    proposer.targetId = null
+    proposer.workTargetId = null
+    proposer.workTargetType = null
+    proposer.path = []
+    proposer.pathGoalKey = null
     proposer.bubble = {
       text: getIntentBubbleText('house'),
       untilTick: currentTick + VILLAGER_INTENT_BUBBLE_DURATION_TICKS,
     }
-
-    UnitStateSystem.queueTimedTransition(
-      proposer,
-      worldStore,
-      'idle',
-      VILLAGER_INTENT_ACTION_DELAY_TICKS * SIMULATION_TICK_MS,
-    )
+    proposer.state = 'moving'
   }
 }
