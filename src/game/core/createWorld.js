@@ -12,7 +12,6 @@ import {
   CASTLE_FOOTPRINT,
   createCastle,
 } from '../domain/factories/createCastle.js'
-import { HOUSE_FOOTPRINT, createHouse } from '../domain/factories/createHouse.js'
 import { createGoldStone } from '../domain/factories/createGoldStone.js'
 import { createVillager } from '../domain/factories/createVillager.js'
 import { createRock } from '../domain/factories/createRock.js'
@@ -151,86 +150,8 @@ function isCastleFootprintTile(tile) {
   return tile?.terrain === 'grass' && tile.walkable && !tile.cliff
 }
 
-function isHouseFootprintTile(tile) {
-  return tile?.terrain === 'grass' && tile.walkable && !tile.cliff
-}
-
 function isCastleDropTile(tile) {
   return tile?.walkable ?? false
-}
-
-function isHousePlacementValid(tiles, width, height, x, y) {
-  if (x < 0 || y < 0) {
-    return false
-  }
-
-  if (x + HOUSE_FOOTPRINT.w > width || y + HOUSE_FOOTPRINT.h > height) {
-    return false
-  }
-
-  for (let dy = 0; dy < HOUSE_FOOTPRINT.h; dy += 1) {
-    for (let dx = 0; dx < HOUSE_FOOTPRINT.w; dx += 1) {
-      const tile = getTile(tiles, x + dx, y + dy)
-
-      if (!isHouseFootprintTile(tile)) {
-        return false
-      }
-    }
-  }
-
-  return true
-}
-
-function findHousePlacement(tiles, castle, width, height) {
-  const castleFootprint = castle.footprint ?? CASTLE_FOOTPRINT
-  const castleCenterX = castle.gridPos.x + Math.floor(castleFootprint.w / 2)
-  const castleCenterY = castle.gridPos.y + Math.floor(castleFootprint.h / 2)
-  const preferredPositions = [
-    { x: castle.gridPos.x + castleFootprint.w + 1, y: castle.gridPos.y },
-    { x: castle.gridPos.x - HOUSE_FOOTPRINT.w - 1, y: castle.gridPos.y },
-    { x: castle.gridPos.x, y: castle.gridPos.y + castleFootprint.h + 1 },
-    { x: castle.gridPos.x, y: castle.gridPos.y - HOUSE_FOOTPRINT.h - 1 },
-  ]
-
-  for (const position of preferredPositions) {
-    if (isHousePlacementValid(tiles, width, height, position.x, position.y)) {
-      return position
-    }
-  }
-
-  const searchRadius = 8
-  const fallbackPositions = []
-
-  for (
-    let y = Math.max(0, castleCenterY - searchRadius);
-    y <= Math.min(height - HOUSE_FOOTPRINT.h, castleCenterY + searchRadius);
-    y += 1
-  ) {
-    for (
-      let x = Math.max(0, castleCenterX - searchRadius);
-      x <= Math.min(width - HOUSE_FOOTPRINT.w, castleCenterX + searchRadius);
-      x += 1
-    ) {
-      fallbackPositions.push({
-        x,
-        y,
-        distance: Math.abs(x - castleCenterX) + Math.abs(y - castleCenterY),
-      })
-    }
-  }
-
-  fallbackPositions.sort((a, b) => a.distance - b.distance)
-
-  for (const position of fallbackPositions) {
-    if (isHousePlacementValid(tiles, width, height, position.x, position.y)) {
-      return position
-    }
-  }
-
-  return {
-    x: Math.max(0, Math.min(width - HOUSE_FOOTPRINT.w, castle.gridPos.x + castleFootprint.w + 1)),
-    y: Math.max(0, Math.min(height - HOUSE_FOOTPRINT.h, castle.gridPos.y)),
-  }
 }
 
 function isPlateauTile(tile) {
@@ -2020,9 +1941,7 @@ export function createWorld(worldStore) {
   const tiles = buildTilesFromMask(mask)
   const castlePosition = findCastlePlacement(tiles, width, height)
   const castle = createCastle(castlePosition.x, castlePosition.y)
-  const housePosition = findHousePlacement(tiles, castle, width, height)
-  const house = createHouse(housePosition.x, housePosition.y, 0)
-  const houseReservedKeys = new Set(getOccupiedTiles(house).map((tile) => positionKey(tile.x, tile.y)))
+  const houseReservedKeys = new Set()
 
   if (terrainVariant === TERRAIN_VARIANTS.ISLAND) {
     generatePlateaus(tiles, rng, houseReservedKeys)
@@ -2074,6 +1993,6 @@ export function createWorld(worldStore) {
   worldStore.resources = resources
   worldStore.decorations = decorations
   worldStore.buildings = [castle]
-  worldStore.houses = [house]
+  worldStore.houses = []
   worldStore.units = villagerUnits
 }

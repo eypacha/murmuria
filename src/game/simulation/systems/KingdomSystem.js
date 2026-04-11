@@ -18,9 +18,6 @@ export class KingdomSystem {
 
     kingdom.needs.food = Math.max(0, targetFood - currentFood)
 
-    const housingCapacity = Number(worldStore.housingCapacity ?? 0)
-    kingdom.needs.housing = Math.max(0, population - housingCapacity)
-
     if (kingdom.hunger == null) {
       kingdom.hunger = 0
     }

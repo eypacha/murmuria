@@ -1,4 +1,5 @@
 export { BubbleSystem } from './BubbleSystem.js'
+export { HousingProposalSystem } from './HousingProposalSystem.js'
 export { MovementSystem } from './MovementSystem.js'
 export { UnitStateSystem } from './UnitStateSystem.js'
 export { VillagerDecisionSystem } from './VillagerDecisionSystem.js'
