@@ -1,3 +1,5 @@
+import { isStartupGracePeriod } from '../../core/isStartupGracePeriod.js'
+
 export class KingdomSystem {
   static update(worldStore) {
     const kingdom = worldStore.kingdom
@@ -7,6 +9,18 @@ export class KingdomSystem {
 
     const units = worldStore.units ?? []
     const population = units.length
+
+    if (isStartupGracePeriod(worldStore)) {
+      kingdom.needs.food = 0
+
+      if (kingdom.hunger == null) {
+        kingdom.hunger = 0
+      } else {
+        kingdom.hunger = 0
+      }
+
+      return
+    }
 
     const FOOD_CONSUMPTION_PER_UNIT = 0.04
     const foodConsumed = population * FOOD_CONSUMPTION_PER_UNIT

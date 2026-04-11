@@ -1,3 +1,4 @@
+import { isStartupGracePeriod } from '../../core/isStartupGracePeriod.js'
 import {
   SIMULATION_TICK_MS,
   VILLAGER_CARRY_CAPACITY_WOOD,
@@ -55,6 +56,11 @@ export class ConstructionWoodDeliverySystem {
     const kingdom = worldStore?.kingdom
 
     if (!kingdom) {
+      return
+    }
+
+    if (isStartupGracePeriod(worldStore)) {
+      this.updateWoodNeed(worldStore, getHouseConstructionSites(worldStore))
       return
     }
 

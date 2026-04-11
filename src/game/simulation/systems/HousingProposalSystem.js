@@ -1,3 +1,4 @@
+import { isStartupGracePeriod } from '../../core/isStartupGracePeriod.js'
 import { VILLAGER_INTENT_BUBBLE_DURATION_TICKS } from '../../config/constants.js'
 import { getIntentBubbleText } from './getIntentBubbleText.js'
 import { findHousePlacement } from '../../core/findHousePlacement.js'
@@ -40,6 +41,10 @@ export class HousingProposalSystem {
     }
 
     if (kingdom.houseProposal) {
+      return
+    }
+
+    if (isStartupGracePeriod(worldStore)) {
       return
     }
 

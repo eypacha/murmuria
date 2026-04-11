@@ -1,3 +1,4 @@
+import { isStartupGracePeriod } from '../../core/isStartupGracePeriod.js'
 import {
   HOUSE_BUILD_TIME_MS,
   SIMULATION_TICK_MS,
@@ -250,6 +251,10 @@ export class ConstructionBuildAssignmentSystem {
       return
     }
 
+    if (isStartupGracePeriod(worldStore)) {
+      return
+    }
+
     const sites = getBuildReadySites(worldStore)
 
     if (sites.length === 0) {
@@ -336,6 +341,10 @@ export class ConstructionBuildProgressSystem {
     const sites = getBuildReadySites(worldStore)
 
     if (sites.length === 0) {
+      return
+    }
+
+    if (isStartupGracePeriod(worldStore)) {
       return
     }
 

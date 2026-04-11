@@ -1,10 +1,19 @@
 import { getHousingCapacity } from '../../core/getHousingCapacity.js'
+import { isStartupGracePeriod } from '../../core/isStartupGracePeriod.js'
 
 export class HousingNeedSystem {
   static update(worldStore) {
     const kingdom = worldStore.kingdom
 
     if (!kingdom) {
+      return
+    }
+
+    if (isStartupGracePeriod(worldStore)) {
+      kingdom.housingCapacity = getHousingCapacity(worldStore.houses ?? [])
+      kingdom.housingPressure = 0
+      kingdom.needs = kingdom.needs ?? {}
+      kingdom.needs.housing = 0
       return
     }
 
