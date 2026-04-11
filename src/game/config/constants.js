@@ -31,5 +31,5 @@ export const TREE_WOOD_AMOUNT = 50
 export const SHEEP_MEAT_AMOUNT = 10
 export const INITIAL_GOLD_COUNT = 12
 export const INITIAL_VILLAGERS = 2
-export const INITIAL_TREE_COUNT = 30
+export const INITIAL_TREE_COUNT = 50
 export const INITIAL_SHEEP_COUNT = 25
