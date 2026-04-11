@@ -179,7 +179,7 @@ export class VillagerDecisionSystem {
         continue
       }
 
-      const selection = this.findReachableAdjacentTile(resource, pathMap, occupiedTiles)
+      const selection = this.findReachableAdjacentTile(resource, worldStore, pathMap, occupiedTiles)
 
       if (!selection) {
         continue
@@ -204,9 +204,15 @@ export class VillagerDecisionSystem {
     }
   }
 
-  static findReachableAdjacentTile(resource, reachableTiles, occupiedTiles) {
+  static findReachableAdjacentTile(resource, worldStore, reachableTiles, occupiedTiles) {
     const resourceTile = this.getResourceGridPosition(resource)
     if (!resourceTile) {
+      return null
+    }
+
+    const resourceElevation = this.getTileElevation(worldStore, resourceTile)
+
+    if (!Number.isFinite(resourceElevation)) {
       return null
     }
 
@@ -223,8 +229,13 @@ export class VillagerDecisionSystem {
 
     for (const candidate of candidates) {
       const candidateKey = this.tileKey(candidate)
+      const candidateElevation = this.getTileElevation(worldStore, candidate)
 
       if (occupiedTiles?.has(candidateKey)) {
+        continue
+      }
+
+      if (!Number.isFinite(candidateElevation) || candidateElevation !== resourceElevation) {
         continue
       }
 
@@ -420,6 +431,20 @@ export class VillagerDecisionSystem {
     }
 
     return resource.gridPos ?? null
+  }
+
+  static getWorldTile(worldStore, tile) {
+    if (!worldStore?.world?.tiles || !tile) {
+      return null
+    }
+
+    return worldStore.world.tiles?.[tile.y]?.[tile.x] ?? null
+  }
+
+  static getTileElevation(worldStore, tile) {
+    const worldTile = this.getWorldTile(worldStore, tile)
+
+    return worldTile?.elevation
   }
 
   static getNeighbors(tile) {
