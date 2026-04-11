@@ -22,6 +22,10 @@ export class VillagerDecisionSystem {
         continue
       }
 
+      if (unit.constructionDelivery) {
+        continue
+      }
+
       if (
         (unit.inventory?.wood ?? 0) > 0 ||
         (unit.inventory?.gold ?? 0) > 0 ||

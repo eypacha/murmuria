@@ -32,16 +32,17 @@ export function createVillager(x = 0, y = 0, facing = 'right') {
     targetId: null,
     target: null,
     workTargetType: null,
+    constructionDelivery: null,
     interactionFacing: null,
     stateUntilTick: null,
     nextState: null,
     path: [],
     pathGoalKey: null,
-      inventory: {
-        wood: 0,
-        gold: 0,
-        meat: 0,
-      },
+    inventory: {
+      wood: 0,
+      gold: 0,
+      meat: 0,
+    },
     equipment: {
       tool: null,
     },

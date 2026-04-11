@@ -1,3 +1,4 @@
+import { HOUSE_WOOD_COST } from '../../config/constants.js'
 import { HOUSE_FOOTPRINT } from './createHouse.js'
 
 let constructionSiteIdCounter = 0
@@ -11,6 +12,9 @@ export function createConstructionSite({
   createdTick = 0,
   variant = 0,
   revealed = false,
+  woodRequired = HOUSE_WOOD_COST,
+  woodDelivered = 0,
+  woodReserved = 0,
 } = {}) {
   constructionSiteIdCounter += 1
 
@@ -31,5 +35,8 @@ export function createConstructionSite({
     proposerVillagerId,
     createdTick,
     revealed,
+    woodRequired,
+    woodDelivered,
+    woodReserved,
   }
 }

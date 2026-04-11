@@ -1,7 +1,7 @@
 export function createKingdomState() {
   return {
     resources: {
-      wood: 0,
+      wood: 20,
       gold: 0,
       meat: 15,
     },

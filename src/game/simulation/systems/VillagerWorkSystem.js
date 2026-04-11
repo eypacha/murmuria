@@ -11,6 +11,7 @@ import {
   SIMULATION_TICK_MS,
   TILE_SIZE,
 } from '../../config/constants.js'
+import { findCastleDropTile } from '../../core/findCastleDropTile.js'
 import { getOccupiedTiles } from '../../core/getOccupiedTiles.js'
 import { isTraversableWorldTile } from '../../core/isTraversableTile.js'
 import { UnitStateSystem } from './UnitStateSystem.js'
@@ -35,12 +36,22 @@ export class VillagerWorkSystem {
         continue
       }
 
+      if (unit.state === 'loading_construction_wood') {
+        this.completeConstructionPickup(unit, worldStore)
+        continue
+      }
+
       if (
         unit.state === 'delivering_wood' ||
         unit.state === 'delivering_gold' ||
         unit.state === 'delivering_meat'
       ) {
         this.completeDelivery(unit, worldStore)
+        continue
+      }
+
+      if (unit.state === 'delivering_construction_wood') {
+        this.completeConstructionDelivery(unit, worldStore)
       }
     }
   }
@@ -105,7 +116,7 @@ export class VillagerWorkSystem {
 
   static beginReturnToCastle(unit, worldStore) {
     const castle = this.getCastle(worldStore)
-    const returnTile = castle ? this.findCastleDropTile(castle, worldStore) : null
+    const returnTile = castle ? findCastleDropTile(castle, worldStore) : null
     const resourceType = this.getCarriedResourceType(unit)
     const intentText = getIntentBubbleText(`${resourceType}_delivery`)
 
@@ -145,24 +156,6 @@ export class VillagerWorkSystem {
       'returning_to_castle',
       VILLAGER_INTENT_ACTION_DELAY_TICKS * SIMULATION_TICK_MS,
     )
-  }
-
-  static findCastleDropTile(castle, worldStore) {
-    const footprint = castle.footprint ?? { w: 1, h: 1 }
-    const centerTile = {
-      x: castle.gridPos.x + Math.floor(footprint.w / 2),
-      y: castle.gridPos.y + footprint.h,
-    }
-
-    if (!this.isInsideWorld(centerTile, worldStore)) {
-      return null
-    }
-
-    if (!this.isWalkable(centerTile, worldStore)) {
-      return null
-    }
-
-    return centerTile
   }
 
   static completeDelivery(unit, worldStore) {
@@ -215,6 +208,108 @@ export class VillagerWorkSystem {
     unit.stateUntilTick = null
     unit.nextState = null
     unit.state = 'idle'
+  }
+
+  static completeConstructionPickup(unit, worldStore) {
+    const delivery = unit.constructionDelivery
+
+    if (!delivery) {
+      this.resetConstructionDelivery(unit, worldStore)
+      return
+    }
+
+    unit.inventory = unit.inventory ?? { wood: 0, gold: 0, meat: 0 }
+
+    const amount = Math.max(0, Number(delivery.amount ?? 0))
+    unit.inventory.wood = amount
+
+    const site = this.getConstructionSiteById(worldStore, delivery.siteId)
+
+    if (!site) {
+      worldStore.kingdom.resources.wood = (worldStore.kingdom.resources.wood ?? 0) + amount
+      this.resetConstructionDelivery(unit, worldStore)
+      return
+    }
+
+    const deliveryTile = delivery.targetTile ?? site.gridPos
+
+    unit.targetId = site.id
+    unit.target = {
+      type: 'constructionSite',
+      id: site.id,
+      tile: deliveryTile,
+    }
+    unit.path = []
+    unit.pathGoalKey = null
+    unit.state = 'moving'
+    unit.stateUntilTick = null
+    unit.nextState = null
+  }
+
+  static completeConstructionDelivery(unit, worldStore) {
+    const delivery = unit.constructionDelivery
+
+    if (!delivery) {
+      this.resetConstructionDelivery(unit, worldStore)
+      return
+    }
+
+    const site = this.getConstructionSiteById(worldStore, delivery.siteId)
+    const carriedAmount = Math.max(0, Number(unit.inventory?.wood ?? 0))
+
+    if (site && carriedAmount > 0) {
+      const remainingNeed = Math.max(
+        0,
+        Number(site.woodRequired ?? 0) -
+          Number(site.woodDelivered ?? 0) -
+          Number(site.woodReserved ?? 0),
+      )
+      const transferAmount = Math.min(carriedAmount, remainingNeed)
+
+      if (transferAmount > 0) {
+        site.woodDelivered = Math.max(0, Number(site.woodDelivered ?? 0)) + transferAmount
+        site.woodReserved = Math.max(0, Number(site.woodReserved ?? 0) - transferAmount)
+      }
+
+      const excessAmount = Math.max(0, carriedAmount - transferAmount)
+
+      if (excessAmount > 0) {
+        worldStore.kingdom.resources.wood = Math.max(
+          0,
+          Number(worldStore.kingdom.resources?.wood ?? 0) + excessAmount,
+        )
+      }
+    } else if (carriedAmount > 0) {
+      worldStore.kingdom.resources.wood = Math.max(
+        0,
+        Number(worldStore.kingdom.resources?.wood ?? 0) + carriedAmount,
+      )
+    }
+
+    unit.inventory = unit.inventory ?? { wood: 0, gold: 0, meat: 0 }
+    unit.inventory.wood = 0
+    this.resetConstructionDelivery(unit, worldStore)
+  }
+
+  static resetConstructionDelivery(unit, worldStore) {
+    unit.constructionDelivery = null
+    unit.targetId = null
+    unit.target = null
+    unit.interactionFacing = null
+    unit.path = []
+    unit.pathGoalKey = null
+    unit.stateUntilTick = null
+    unit.nextState = null
+    unit.state = 'idle'
+    unit.idleSince = worldStore.tick ?? 0
+  }
+
+  static getConstructionSiteById(worldStore, siteId) {
+    if (!siteId) {
+      return null
+    }
+
+    return (worldStore.constructionSites ?? []).find((site) => site.id === siteId) ?? null
   }
 
   static getCastle(worldStore) {

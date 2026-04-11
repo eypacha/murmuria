@@ -3,6 +3,7 @@ import { KingdomSystem } from './systems/KingdomSystem.js'
 import { HousingNeedSystem } from './systems/HousingNeedSystem.js'
 import { HousingProposalSystem } from './systems/HousingProposalSystem.js'
 import { ConstructionSiteSystem } from './systems/ConstructionSiteSystem.js'
+import { ConstructionWoodDeliverySystem } from './systems/ConstructionWoodDeliverySystem.js'
 import { VillagerDecisionSystem } from './systems/VillagerDecisionSystem.js'
 import { BubbleSystem } from './systems/BubbleSystem.js'
 import { MovementSystem } from './systems/MovementSystem.js'
@@ -40,6 +41,7 @@ export class SimulationEngine {
     KingdomSystem.update(this.worldStore)
     HousingNeedSystem.update(this.worldStore)
     HousingProposalSystem.update(this.worldStore)
+    ConstructionWoodDeliverySystem.update(this.worldStore)
     VillagerDecisionSystem.update(this.worldStore)
     BubbleSystem.update(this.worldStore)
     UnitStateSystem.update(this.worldStore)

@@ -202,6 +202,16 @@ export class MovementSystem {
     }
 
     if (unit.target?.type === 'castle') {
+      if (unit.constructionDelivery) {
+        UnitStateSystem.queueTimedTransition(
+          unit,
+          worldStore,
+          'loading_construction_wood',
+          SIMULATION_TICK_MS,
+        )
+        return
+      }
+
       // Keep the carry animation active for one more tick so the unit reaches the castle visually
       // before the delivery state clears the resource.
       UnitStateSystem.queueTimedTransition(
@@ -214,6 +224,16 @@ export class MovementSystem {
     }
 
     if (unit.target?.type === 'constructionSite') {
+      if (unit.constructionDelivery) {
+        UnitStateSystem.queueTimedTransition(
+          unit,
+          worldStore,
+          'delivering_construction_wood',
+          SIMULATION_TICK_MS,
+        )
+        return
+      }
+
       unit.target = null
       unit.targetId = null
       unit.state = 'idle'
