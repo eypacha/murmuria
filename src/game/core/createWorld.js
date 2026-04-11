@@ -29,9 +29,10 @@ import { createKingdomState } from './createKingdomState.js'
 
 const LAND_RATIO = 0.55
 const MAX_ELEVATION_LEVEL = 2
-const PLATEAU_COUNT = 3
+const PLATEAU_DENSITY = 0.005
 const PLATEAU_SIZE = 24
 const PLATEAU_SMOOTH_PASSES = 2
+const PLATEAU_SAFE_ZONE_SIZE = 10
 const GOLD_CLUSTER_COUNT = 4
 const GOLD_CLUSTER_SIZE_MIN = 3
 const GOLD_CLUSTER_SIZE_MAX = 5
@@ -46,6 +47,10 @@ const CASTLE_VISUAL_RESERVED_OFFSET_X = -1
 const CASTLE_VISUAL_RESERVED_OFFSET_Y = -3
 const CASTLE_VISUAL_RESERVED_WIDTH = CASTLE_FOOTPRINT.w + 2
 const CASTLE_VISUAL_RESERVED_HEIGHT = CASTLE_FOOTPRINT.h + 4
+const TERRAIN_VARIANTS = {
+  ISLAND: 'island',
+  FLAT_LAKES: 'flat_lakes',
+}
 
 const NEIGHBOR_OFFSETS = [
   { x: 0, y: -1 },
@@ -90,12 +95,44 @@ function createGrassTile(x, y) {
   }
 }
 
+function createFlatTileMask(width, height) {
+  return Array.from({ length: height }, () => Array.from({ length: width }, () => true))
+}
+
 function tileKey(tile) {
   return `${tile.x}:${tile.y}`
 }
 
 function positionKey(x, y) {
   return `${x}:${y}`
+}
+
+function getCenterSafeZoneBounds(width, height, zoneSize) {
+  const safeSize = Math.max(0, Math.min(zoneSize, width, height))
+  const startX = Math.max(0, Math.floor((width - safeSize) / 2))
+  const startY = Math.max(0, Math.floor((height - safeSize) / 2))
+
+  return {
+    startX,
+    startY,
+    endX: startX + safeSize - 1,
+    endY: startY + safeSize - 1,
+  }
+}
+
+function isInsideCenterSafeZone(tile, width, height, zoneSize = PLATEAU_SAFE_ZONE_SIZE) {
+  if (!tile) {
+    return false
+  }
+
+  const bounds = getCenterSafeZoneBounds(width, height, zoneSize)
+
+  return (
+    tile.x >= bounds.startX &&
+    tile.x <= bounds.endX &&
+    tile.y >= bounds.startY &&
+    tile.y <= bounds.endY
+  )
 }
 
 function getTile(tiles, x, y) {
@@ -196,6 +233,218 @@ function shuffleInPlace(items, rng) {
     items[i] = items[j]
     items[j] = temp
   }
+}
+
+function pickRandomInteriorTile(width, height, rng, margin = 2) {
+  const minX = Math.max(0, margin)
+  const minY = Math.max(0, margin)
+  const maxX = Math.max(minX, width - margin - 1)
+  const maxY = Math.max(minY, height - margin - 1)
+
+  return {
+    x: minX + rng.nextInt(maxX - minX + 1),
+    y: minY + rng.nextInt(maxY - minY + 1),
+  }
+}
+
+function carveLake(mask, center, targetSize, rng) {
+  if (!Array.isArray(mask) || mask.length === 0) {
+    return 0
+  }
+
+  const height = mask.length
+  const width = mask[0]?.length ?? 0
+
+  if (width <= 0 || height <= 0) {
+    return 0
+  }
+
+  const lakeTiles = [center]
+  const lakeKeys = new Set([positionKey(center.x, center.y)])
+  const frontier = [center]
+  const lakeOffsets = [
+    { x: 0, y: -1 },
+    { x: 1, y: 0 },
+    { x: 0, y: 1 },
+    { x: -1, y: 0 },
+    { x: 1, y: -1 },
+    { x: 1, y: 1 },
+    { x: -1, y: 1 },
+    { x: -1, y: -1 },
+  ]
+  const maxAttempts = Math.max(10, targetSize * 6)
+  let attempts = 0
+
+  while (lakeTiles.length < targetSize && frontier.length > 0 && attempts < maxAttempts) {
+    attempts += 1
+    const origin = frontier[rng.nextInt(frontier.length)]
+    const offset = lakeOffsets[rng.nextInt(lakeOffsets.length)]
+    const x = origin.x + offset.x
+    const y = origin.y + offset.y
+
+    if (x <= 1 || y <= 1 || x >= width - 2 || y >= height - 2) {
+      continue
+    }
+
+    const key = positionKey(x, y)
+
+    if (lakeKeys.has(key) || !mask[y]?.[x]) {
+      continue
+    }
+
+    mask[y][x] = false
+    const nextTile = { x, y }
+    lakeTiles.push(nextTile)
+    lakeKeys.add(key)
+    frontier.push(nextTile)
+  }
+
+  for (const tile of lakeTiles) {
+    mask[tile.y][tile.x] = false
+  }
+
+  return lakeTiles.length
+}
+
+function carveLakeShape(mask, origin, offsets) {
+  if (!Array.isArray(offsets) || offsets.length === 0) {
+    return 0
+  }
+
+  const height = mask.length
+  const width = mask[0]?.length ?? 0
+  const cells = []
+  const keys = new Set()
+
+  for (const offset of offsets) {
+    const x = origin.x + offset.x
+    const y = origin.y + offset.y
+
+    if (x <= 1 || y <= 1 || x >= width - 2 || y >= height - 2) {
+      return 0
+    }
+
+    const key = positionKey(x, y)
+
+    if (keys.has(key) || !mask[y]?.[x]) {
+      return 0
+    }
+
+    cells.push({ x, y })
+    keys.add(key)
+  }
+
+  for (const cell of cells) {
+    mask[cell.y][cell.x] = false
+  }
+
+  return cells.length
+}
+
+function pickLakeSize(rng) {
+  const weightedSizes = [
+    { size: 1, weight: 10 },
+    { size: 2, weight: 8 },
+    { size: 3, weight: 7 },
+    { size: 4, weight: 4 },
+    { size: 5, weight: 3 },
+    { size: 6, weight: 2 },
+    { size: 7, weight: 1 },
+  ]
+
+  return pickWeightedItem(weightedSizes, (item) => item.weight, rng)?.size ?? 1
+}
+
+function getLakeShapeOptions(size) {
+  if (size <= 1) {
+    return [[{ x: 0, y: 0 }]]
+  }
+
+  if (size === 2) {
+    return [
+      [{ x: 0, y: 0 }, { x: 1, y: 0 }],
+      [{ x: 0, y: 0 }, { x: 0, y: 1 }],
+    ]
+  }
+
+  if (size === 3) {
+    return [
+      [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 1 }],
+      [{ x: 0, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }],
+      [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0, y: -1 }],
+      [{ x: 0, y: 0 }, { x: -1, y: 0 }, { x: 0, y: -1 }],
+      [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: 0 }],
+      [{ x: 0, y: 0 }, { x: 0, y: 1 }, { x: 0, y: 2 }],
+    ]
+  }
+
+  if (size === 4) {
+    return [
+      [
+        { x: 0, y: 0 },
+        { x: 1, y: 0 },
+        { x: 0, y: 1 },
+        { x: 1, y: 1 },
+      ],
+      [
+        { x: 0, y: 0 },
+        { x: 1, y: 0 },
+        { x: 2, y: 0 },
+        { x: 0, y: 1 },
+      ],
+      [
+        { x: 0, y: 0 },
+        { x: 0, y: 1 },
+        { x: 0, y: 2 },
+        { x: 1, y: 1 },
+      ],
+    ]
+  }
+
+  if (size === 5) {
+    return [
+      [
+        { x: 0, y: 0 },
+        { x: 1, y: 0 },
+        { x: 2, y: 0 },
+        { x: 0, y: 1 },
+        { x: 1, y: 1 },
+      ],
+      [
+        { x: 0, y: 0 },
+        { x: 1, y: 0 },
+        { x: 0, y: 1 },
+        { x: -1, y: 1 },
+        { x: 0, y: 2 },
+      ],
+    ]
+  }
+
+  return null
+}
+
+export function generateFlatLakeMask(width, height, rng) {
+  const mask = createFlatTileMask(width, height)
+  const lakeCount = Math.max(10, Math.floor((width * height) / 100))
+
+  for (let i = 0; i < lakeCount; i += 1) {
+    const size = pickLakeSize(rng)
+    const center = pickRandomInteriorTile(width, height, rng, 3)
+    const shapeOptions = getLakeShapeOptions(size)
+
+    if (shapeOptions) {
+      const shape = shapeOptions[rng.nextInt(shapeOptions.length)]
+      const carved = carveLakeShape(mask, center, shape)
+
+      if (carved > 0) {
+        continue
+      }
+    }
+
+    carveLake(mask, center, size, rng)
+  }
+
+  return mask
 }
 
 function getSpawnFacing() {
@@ -576,6 +825,135 @@ function getEligibleLandTiles(tiles) {
   }
 
   return eligibleTiles
+}
+
+function applyElevationClusters(tiles, rng, options = {}) {
+  if (!Array.isArray(tiles) || tiles.length === 0 || typeof rng?.nextInt !== 'function') {
+    return
+  }
+
+  const clusterCount = Math.max(0, Number(options.clusterCount ?? 0))
+  const clusterSizeMin = Math.max(1, Number(options.clusterSizeMin ?? 1))
+  const clusterSizeMax = Math.max(clusterSizeMin, Number(options.clusterSizeMax ?? clusterSizeMin))
+  const smoothPasses = Math.max(0, Number(options.smoothPasses ?? 0))
+  const protectedKeys = options.protectedKeys instanceof Set ? options.protectedKeys : new Set()
+  const shouldElevateTile =
+    typeof options.shouldElevateTile === 'function'
+      ? options.shouldElevateTile
+      : (tile) => tile?.terrain === 'grass' && tile.elevation === 1
+
+  for (let clusterIndex = 0; clusterIndex < clusterCount; clusterIndex += 1) {
+    const eligibleTiles = getEligibleLandTiles(tiles)
+    const seedTiles = eligibleTiles.filter((tile) => {
+      if (protectedKeys.has(positionKey(tile.x, tile.y))) {
+        return false
+      }
+
+      return shouldElevateTile(tile, tiles, protectedKeys)
+    })
+
+    if (seedTiles.length === 0) {
+      break
+    }
+
+    const seed = seedTiles[rng.nextInt(seedTiles.length)]
+
+    if (!seed) {
+      break
+    }
+
+    const clusterSize = Math.max(1, clusterSizeMin + rng.nextInt(clusterSizeMax - clusterSizeMin + 1))
+    const frontier = [seed]
+    const frontierKeys = new Set([tileKey(seed)])
+    let elevatedTiles = 0
+
+    while (frontier.length > 0 && elevatedTiles < clusterSize) {
+      const frontierIndex = rng.nextInt(frontier.length)
+      const current = frontier[frontierIndex]
+
+      frontier[frontierIndex] = frontier[frontier.length - 1]
+      frontier.pop()
+      frontierKeys.delete(tileKey(current))
+
+      const tile = getTile(tiles, current.x, current.y)
+
+      if (!tile || tile.terrain !== 'grass' || tile.elevation !== 1) {
+        continue
+      }
+
+      if (protectedKeys.has(tileKey(tile)) || !shouldElevateTile(tile, tiles, protectedKeys)) {
+        continue
+      }
+
+      tile.elevation = MAX_ELEVATION_LEVEL
+      elevatedTiles += 1
+
+      for (const offset of NEIGHBOR_OFFSETS) {
+        const neighbor = getTile(tiles, current.x + offset.x, current.y + offset.y)
+
+        if (!neighbor || neighbor.terrain !== 'grass' || neighbor.elevation !== 1) {
+          continue
+        }
+
+        if (protectedKeys.has(tileKey(neighbor)) || !shouldElevateTile(neighbor, tiles, protectedKeys)) {
+          continue
+        }
+
+        const neighborKey = tileKey(neighbor)
+
+        if (frontierKeys.has(neighborKey)) {
+          continue
+        }
+
+        frontier.push(neighbor)
+        frontierKeys.add(neighborKey)
+      }
+    }
+  }
+
+  for (let pass = 0; pass < smoothPasses; pass += 1) {
+    const tilesToDowngrade = []
+
+    for (const row of tiles) {
+      if (!Array.isArray(row)) {
+        continue
+      }
+
+      for (const tile of row) {
+        if (!tile || tile.terrain !== 'grass' || tile.elevation !== MAX_ELEVATION_LEVEL) {
+          continue
+        }
+
+        const key = tileKey(tile)
+
+        if (protectedKeys.has(key)) {
+          continue
+        }
+
+        let elevatedNeighbors = 0
+
+        for (const offset of NEIGHBOR_OFFSETS) {
+          const neighbor = getTile(tiles, tile.x + offset.x, tile.y + offset.y)
+
+          if (neighbor?.elevation === MAX_ELEVATION_LEVEL) {
+            elevatedNeighbors += 1
+          }
+        }
+
+        if (elevatedNeighbors < 3) {
+          tilesToDowngrade.push(tile)
+        }
+      }
+    }
+
+    if (tilesToDowngrade.length === 0) {
+      break
+    }
+
+    for (const tile of tilesToDowngrade) {
+      tile.elevation = 1
+    }
+  }
 }
 
 function getGoldCandidates(tiles, reservedKeys) {
@@ -1407,112 +1785,39 @@ function spawnSheep(tiles, castle, worldSeed, rng, extraReservedKeys = new Set()
 }
 
 export function generatePlateaus(tiles, rng) {
-  if (!Array.isArray(tiles) || tiles.length === 0 || typeof rng?.nextInt !== 'function') {
-    return
-  }
+  const width = tiles[0]?.length ?? 0
+  const height = tiles.length
+  const plateauCount = Math.max(1, Math.round(width * height * PLATEAU_DENSITY))
+  const protectedKeys = new Set()
 
-  for (let plateauIndex = 0; plateauIndex < PLATEAU_COUNT; plateauIndex += 1) {
-    const eligibleTiles = getEligibleLandTiles(tiles)
-    const seedTiles = eligibleTiles.filter((tile) => {
-      if (tile.terrain !== 'grass') {
-        return false
-      }
-
-      if (tile.elevation !== 1) {
-        return false
-      }
-
-      return !touchesWater(tile, tiles)
-    })
-
-    if (seedTiles.length === 0) {
-      break
+  for (const row of tiles) {
+    if (!Array.isArray(row)) {
+      continue
     }
 
-    const seed = seedTiles[rng.nextInt(seedTiles.length)]
-
-    if (!seed) {
-      break
-    }
-
-    const plateauSize = Math.max(1, PLATEAU_SIZE + rng.nextInt(10) - 5)
-    const frontier = [seed]
-    const frontierKeys = new Set([tileKey(seed)])
-    let plateauTiles = 0
-
-    while (frontier.length > 0 && plateauTiles < plateauSize) {
-      const frontierIndex = rng.nextInt(frontier.length)
-      const current = frontier[frontierIndex]
-
-      frontier[frontierIndex] = frontier[frontier.length - 1]
-      frontier.pop()
-      frontierKeys.delete(tileKey(current))
-
-      const tile = getTile(tiles, current.x, current.y)
-
-      if (!tile || tile.terrain !== 'grass' || tile.elevation !== 1) {
+    for (const tile of row) {
+      if (!isInsideCenterSafeZone(tile, width, height)) {
         continue
       }
 
-      tile.elevation = MAX_ELEVATION_LEVEL
-      plateauTiles += 1
-
-      for (const offset of NEIGHBOR_OFFSETS) {
-        const neighbor = getTile(tiles, current.x + offset.x, current.y + offset.y)
-
-        if (!neighbor || neighbor.terrain !== 'grass' || neighbor.elevation !== 1) {
-          continue
-        }
-
-        const neighborKey = tileKey(neighbor)
-
-        if (frontierKeys.has(neighborKey)) {
-          continue
-        }
-
-        frontier.push(neighbor)
-        frontierKeys.add(neighborKey)
-      }
+      protectedKeys.add(positionKey(tile.x, tile.y))
     }
   }
 
-  for (let pass = 0; pass < PLATEAU_SMOOTH_PASSES; pass += 1) {
-    const tilesToDowngrade = []
-
-    for (const row of tiles) {
-      if (!Array.isArray(row)) {
-        continue
+  applyElevationClusters(tiles, rng, {
+    clusterCount: plateauCount,
+    clusterSizeMin: Math.max(1, PLATEAU_SIZE - 5),
+    clusterSizeMax: PLATEAU_SIZE + 5,
+    smoothPasses: PLATEAU_SMOOTH_PASSES,
+    protectedKeys,
+    shouldElevateTile: (tile, candidateTiles) => {
+      if (protectedKeys.has(positionKey(tile.x, tile.y))) {
+        return false
       }
 
-      for (const tile of row) {
-        if (tile.terrain !== 'grass' || tile.elevation !== MAX_ELEVATION_LEVEL) {
-          continue
-        }
-
-        let plateauNeighbors = 0
-
-        for (const offset of NEIGHBOR_OFFSETS) {
-          const neighbor = getTile(tiles, tile.x + offset.x, tile.y + offset.y)
-
-          if (neighbor?.elevation === MAX_ELEVATION_LEVEL) {
-            plateauNeighbors += 1
-          }
-        }
-
-        if (plateauNeighbors < 3) {
-          tilesToDowngrade.push(tile)
-        }
-      }
-    }
-
-    if (tilesToDowngrade.length === 0) {
-      break
-    }
-
-    for (const tile of tilesToDowngrade) {
-      tile.elevation = 1
-    }
-  }
+      return tile?.terrain === 'grass' && tile.elevation === 1 && !touchesWater(tile, candidateTiles)
+    },
+  })
 }
 
 function detectCliffs(tiles, width, height) {
@@ -1624,14 +1929,26 @@ export function createWorld(worldStore) {
   const width = GRID_WIDTH
   const height = GRID_HEIGHT
 
-  const mask = generateIslandMask(width, height, rng)
+  const terrainVariant =
+    typeof worldStore.terrainVariant === 'string' ? worldStore.terrainVariant : TERRAIN_VARIANTS.FLAT_LAKES
+  const mask =
+    terrainVariant === TERRAIN_VARIANTS.ISLAND
+      ? generateIslandMask(width, height, rng)
+      : generateFlatLakeMask(width, height, rng)
   const tiles = buildTilesFromMask(mask)
-  generatePlateaus(tiles, rng)
-  detectCliffs(tiles, width, height)
   const castlePosition = findCastlePlacement(tiles, width, height)
   const castle = createCastle(castlePosition.x, castlePosition.y)
-  flattenCastlePlateau(tiles, castle)
-  detectCliffs(tiles, width, height)
+
+  if (terrainVariant === TERRAIN_VARIANTS.ISLAND) {
+    generatePlateaus(tiles, rng)
+    detectCliffs(tiles, width, height)
+    flattenCastlePlateau(tiles, castle)
+    detectCliffs(tiles, width, height)
+  } else {
+    generatePlateaus(tiles, rng)
+    detectCliffs(tiles, width, height)
+  }
+
   const villagerUnits = spawnVillagers(tiles, castle, width, height, rng)
   const villagerReservedKeys = new Set(
     villagerUnits.map((villager) => positionKey(villager.gridPos.x, villager.gridPos.y)),
@@ -1662,6 +1979,7 @@ export function createWorld(worldStore) {
 
   worldStore.tick = 0
   worldStore.seed = seed
+  worldStore.terrainVariant = terrainVariant
   worldStore.kingdom = createKingdomState()
   Object.assign(worldStore.world, {
     width,

@@ -18,6 +18,9 @@ const CLIFF_AUTOTILE = {
   2: 41,
   3: 42,
 }
+const TERRAIN_VARIANTS = {
+  FLAT_LAKES: 'flat_lakes',
+}
 
 export const GRASS_AUTOTILE = {
   0: 30, // isolated
@@ -42,6 +45,17 @@ function getTileTerrain(tiles, x, y) {
   return tiles[y]?.[x]?.terrain
 }
 
+function getNeighborTerrain(worldStore, tiles, x, y) {
+  const terrainVariant =
+    typeof worldStore?.terrainVariant === 'string' ? worldStore.terrainVariant : TERRAIN_VARIANTS.FLAT_LAKES
+
+  if (x < 0 || y < 0 || y >= tiles.length || x >= (tiles[0]?.length ?? 0)) {
+    return terrainVariant === TERRAIN_VARIANTS.FLAT_LAKES ? 'grass' : null
+  }
+
+  return getTileTerrain(tiles, x, y)
+}
+
 function getTileElevation(tiles, x, y) {
   return tiles[y]?.[x]?.elevation
 }
@@ -60,22 +74,22 @@ function isBlockedByUpperDiagonalCliff(tiles, x, y, side) {
   return getTileCliff(tiles, diagonalX, y - 1)
 }
 
-export function computeGrassMask(x, y, tiles) {
+export function computeGrassMask(x, y, tiles, worldStore = null) {
   let mask = 0
 
-  if (getTileTerrain(tiles, x, y - 1) === 'grass') {
+  if (getNeighborTerrain(worldStore, tiles, x, y - 1) === 'grass') {
     mask |= 1
   }
 
-  if (getTileTerrain(tiles, x + 1, y) === 'grass') {
+  if (getNeighborTerrain(worldStore, tiles, x + 1, y) === 'grass') {
     mask |= 2
   }
 
-  if (getTileTerrain(tiles, x, y + 1) === 'grass') {
+  if (getNeighborTerrain(worldStore, tiles, x, y + 1) === 'grass') {
     mask |= 4
   }
 
-  if (getTileTerrain(tiles, x - 1, y) === 'grass') {
+  if (getNeighborTerrain(worldStore, tiles, x - 1, y) === 'grass') {
     mask |= 8
   }
 
@@ -140,8 +154,8 @@ function computeCliffMask(x, y, tiles) {
   return mask
 }
 
-function resolveGrassTileIndex(x, y, tiles) {
-  const mask = computeGrassMask(x, y, tiles)
+function resolveGrassTileIndex(x, y, tiles, worldStore = null) {
+  const mask = computeGrassMask(x, y, tiles, worldStore)
 
   return {
     mask,
@@ -178,8 +192,8 @@ function resolveCliffTileIndex(tile, tiles) {
   }
 }
 
-export function getGrassTileIndex(x, y, tiles) {
-  return resolveGrassTileIndex(x, y, tiles).tileIndex
+export function getGrassTileIndex(x, y, tiles, worldStore = null) {
+  return resolveGrassTileIndex(x, y, tiles, worldStore).tileIndex
 }
 
 function addWaterFoam(scene, x, y) {
@@ -227,7 +241,7 @@ export function renderGrid(scene, worldStore) {
 
       if (tile.terrain === 'grass') {
         const isPlateau = tile.elevation === PLATEAU_ELEVATION
-        const grassTile = resolveGrassTileIndex(tile.x, tile.y, tiles)
+        const grassTile = resolveGrassTileIndex(tile.x, tile.y, tiles, worldStore)
         const plateauTile = isPlateau
           ? resolveElevationTileIndex(tile.x, tile.y, tiles, PLATEAU_ELEVATION)
           : null
@@ -235,7 +249,12 @@ export function renderGrid(scene, worldStore) {
           ? resolveElevationOneTileIndex(tile.x, tile.y, tiles)
           : null
 
-        if (!isPlateau && FOAM_ANIMATION && grassTile.mask !== 15) {
+        if (
+          !isPlateau &&
+          FOAM_ANIMATION &&
+          worldStore.terrainVariant !== TERRAIN_VARIANTS.FLAT_LAKES &&
+          grassTile.mask !== 15
+        ) {
           addWaterFoam(scene, x, y)
         }
 
