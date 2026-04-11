@@ -10,6 +10,11 @@ const TALK_BUBBLE_SWITCH_MS = 1000
 const TALK_DISTANCE_LIMIT_TILES = 10
 const TALK_MEETING_SEARCH_RADIUS = 4
 const TALK_BUBBLE_TEXTS = ['🙂', '😐', '🤔', '🍖', '👑', '🔥', '😭', '🍎', '🍕', '🍷', '🌎', '🏰']
+const IDLE_BEHAVIOR_WEIGHTS = {
+  talk: 0.5,
+  wander: 0.25,
+  idle: 0.25,
+}
 
 function delayToTicks(delayMs) {
   return Math.max(1, Math.ceil(delayMs / SIMULATION_TICK_MS))
@@ -112,23 +117,71 @@ export class UnitStateSystem {
         continue
       }
 
-      const shouldTalk = Math.random() < 0.7
+      const action = this.chooseIdleBehavior(unit, units, worldStore, claimedUnitIds)
 
-      if (shouldTalk) {
+      if (action === 'talk') {
         const partner = this.findTalkPartner(unit, units, claimedUnitIds)
 
-        if (partner) {
-          this.startTalkPair(unit, partner, worldStore, currentTick)
+        if (partner && this.startTalkPair(unit, partner, worldStore, currentTick)) {
           claimedUnitIds.add(unit.id)
           claimedUnitIds.add(partner.id)
           continue
         }
       }
 
-      if (this.startWanderBehavior(unit, worldStore, currentTick)) {
+      if (action === 'wander' && this.startWanderBehavior(unit, worldStore, currentTick)) {
         claimedUnitIds.add(unit.id)
+        continue
+      }
+
+      if (action === 'idle') {
+        unit.idleSince = currentTick
       }
     }
+  }
+
+  static chooseIdleBehavior(unit, units, worldStore, claimedUnitIds) {
+    const options = []
+
+    if (this.findTalkPartner(unit, units, claimedUnitIds)) {
+      options.push({ action: 'talk', weight: IDLE_BEHAVIOR_WEIGHTS.talk })
+    }
+
+    options.push({ action: 'wander', weight: IDLE_BEHAVIOR_WEIGHTS.wander })
+    options.push({ action: 'idle', weight: IDLE_BEHAVIOR_WEIGHTS.idle })
+
+    return this.chooseWeightedAction(options)
+  }
+
+  static chooseWeightedAction(options) {
+    let totalWeight = 0
+
+    for (const option of options) {
+      totalWeight += Math.max(0, Number(option?.weight ?? 0))
+    }
+
+    if (totalWeight <= 0) {
+      return 'idle'
+    }
+
+    const targetWeight = Math.random() * totalWeight
+    let accumulatedWeight = 0
+
+    for (const option of options) {
+      const weight = Math.max(0, Number(option?.weight ?? 0))
+
+      if (weight <= 0) {
+        continue
+      }
+
+      accumulatedWeight += weight
+
+      if (targetWeight < accumulatedWeight) {
+        return option.action ?? 'idle'
+      }
+    }
+
+    return options[options.length - 1]?.action ?? 'idle'
   }
 
   static ensureIdleMetadata(unit, currentTick) {
