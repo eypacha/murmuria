@@ -564,6 +564,8 @@ export class UnitStateSystem {
     const occupiedTiles = new Set()
     const entities = [
       ...(worldStore.buildings ?? []),
+      ...(worldStore.constructionSites ?? []),
+      ...(worldStore.houses ?? []),
       ...(worldStore.resources ?? []),
       ...(worldStore.units ?? []),
     ]

@@ -139,7 +139,6 @@ export class GameScene extends Phaser.Scene {
     this.unitControllers = new Map()
     this.houseSprites = new Map()
     this.constructionSiteSprites = new Map()
-    this.constructionSiteIndicators = new Map()
     this.resourceSprites = new Map()
     this.resourceDebugBorders = new Map()
     this.targetZoom = CAMERA_DEFAULT_ZOOM
@@ -253,13 +252,6 @@ export class GameScene extends Phaser.Scene {
       sprite.destroy()
     }
     this.constructionSiteSprites.clear()
-
-    if (this.constructionSiteIndicators) {
-      for (const indicator of this.constructionSiteIndicators.values()) {
-        indicator.destroy()
-      }
-      this.constructionSiteIndicators.clear()
-    }
 
     for (const sprite of this.resourceSprites.values()) {
       sprite.destroy()
