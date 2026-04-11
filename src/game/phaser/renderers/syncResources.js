@@ -23,6 +23,8 @@ const DEBUG_BUSH_BORDER_COLOR = 0x5f8f47
 const SHEEP_HIT_TINT_COLOR = 0xff6b6b
 const SHEEP_HIT_FLASH_MS = 90
 const SHEEP_HIT_FLASH_FRAME_INDEX = 2
+const BUSH_ANIMATION_BOUND_KEY = 'bushAnimationBound'
+const BUSH_WAS_OCCUPIED_KEY = 'bushWasOccupied'
 const SHEEP_HIT_FLASH_BOUND_KEY = 'sheepHitFlashBound'
 const SHEEP_HIT_FLASH_TIMER_KEY = 'sheepHitFlashTimer'
 const RESOURCE_RENDER_START_X_KEY = 'resourceRenderStartX'
@@ -91,11 +93,11 @@ function getResourceAnimationKey(tree) {
     return getSheepAnimationKey(tree)
   }
 
-  if (tree.type === 'rock') {
-    return null
+  if (tree.type === 'bush') {
+    return getBushAnimationKey(tree)
   }
 
-  if (tree.type === 'bush') {
+  if (tree.type === 'rock') {
     return null
   }
 
@@ -146,6 +148,10 @@ function getBushVariantConfig(resource) {
   return BUSH_VARIANT_CONFIGS[clampedIndex] ?? BUSH_VARIANT_CONFIGS[0]
 }
 
+function getBushAnimationKey(resource) {
+  return `${getBushVariantConfig(resource).key}_anim`
+}
+
 function getSheepVariantConfig(resource) {
   const variantIndex = Number.isInteger(resource?.variant) ? resource.variant : 0
   const clampedIndex = Math.max(0, Math.min(SHEEP_VARIANT_CONFIGS.length - 1, variantIndex))
@@ -174,6 +180,46 @@ function getSheepAnimationKey(resource) {
 
 function isResourceFacingLeft(resource) {
   return resource?.facing === 'left'
+}
+
+function isBushOccupied(worldStore, bush) {
+  const bushTileKey = `${bush.gridPos?.x ?? -1}:${bush.gridPos?.y ?? -1}`
+  const entities = [
+    ...(worldStore.units ?? []),
+    ...((worldStore.resources ?? []).filter((resource) => resource.type === 'sheep')),
+  ]
+
+  for (const entity of entities) {
+    for (const tile of getOccupiedTiles(entity)) {
+      if (`${tile.x}:${tile.y}` === bushTileKey) {
+        return true
+      }
+    }
+  }
+
+  return false
+}
+
+function ensureBushAnimationBinding(sprite) {
+  if (sprite.getData(BUSH_ANIMATION_BOUND_KEY)) {
+    return
+  }
+
+  const handleAnimationComplete = (animation) => {
+    if (animation?.key !== `${sprite.getData('resourceTextureKey')}_anim`) {
+      return
+    }
+
+    if (sprite.active) {
+      sprite.setFrame(0)
+    }
+  }
+
+  sprite.on('animationcomplete', handleAnimationComplete)
+  sprite.once('destroy', () => {
+    sprite.off('animationcomplete', handleAnimationComplete)
+  })
+  sprite.setData(BUSH_ANIMATION_BOUND_KEY, true)
 }
 
 function clearSheepHitFlash(sprite) {
@@ -375,6 +421,7 @@ function updateResourceSprite(scene, resource) {
   const isSheep = resource.type === 'sheep'
   const isRock = resource.type === 'rock'
   const isBush = resource.type === 'bush'
+  const bushOccupied = isBush ? isBushOccupied(scene.worldStore, resource) : false
   let sprite = scene.resourceSprites.get(resource.id)
   const displaySize = getResourceDisplaySize(resource)
   const displayWidth = resource.type === 'gold' || isSheep || isRock || isBush
@@ -386,6 +433,7 @@ function updateResourceSprite(scene, resource) {
   const originX = 0.5
   const originY = resource.type === 'gold' || isSheep || isRock || isBush ? 0.5 : 1
   const shouldAnimate = isSheep || ((resource.type === 'gold' || isTreeTexture) && isHarvested)
+  const bushAnimationKey = isBush ? getBushAnimationKey(resource) : null
 
   if (!sprite) {
     const renderTextureKey = isSheep
@@ -395,16 +443,23 @@ function updateResourceSprite(scene, resource) {
         : isBush
           ? getBushVariantConfig(resource).key
         : textureKey
-    const renderAnimationKey = isSheep ? getSheepAnimationKey(resource) : animationKey
+    const renderAnimationKey = isSheep
+      ? getSheepAnimationKey(resource)
+      : isBush
+        ? bushAnimationKey
+        : animationKey
 
     sprite = scene.add.sprite(x, y, renderTextureKey)
     scene.resourceSprites.set(resource.id, sprite)
     sprite.setData('resourceTextureKey', renderTextureKey)
+    if (isBush) {
+      sprite.setData(BUSH_WAS_OCCUPIED_KEY, bushOccupied)
+    }
     sprite.setOrigin(originX, originY)
     sprite.setDisplaySize(displayWidth, displayHeight)
     sprite.setDepth(depth)
 
-    if (shouldAnimate && renderAnimationKey) {
+    if ((shouldAnimate || bushOccupied) && renderAnimationKey) {
       sprite.play(renderAnimationKey, true)
     } else {
       sprite.anims?.stop()
@@ -427,7 +482,11 @@ function updateResourceSprite(scene, resource) {
         : isBush
           ? getBushVariantConfig(resource).key
         : textureKey
-    const renderAnimationKey = isSheep ? getSheepAnimationKey(resource) : animationKey
+    const renderAnimationKey = isSheep
+      ? getSheepAnimationKey(resource)
+      : isBush
+        ? bushAnimationKey
+        : animationKey
 
     sprite.anims?.stop()
     sprite.setTexture(renderTextureKey)
@@ -436,12 +495,23 @@ function updateResourceSprite(scene, resource) {
     sprite.setDisplaySize(displayWidth, displayHeight)
     sprite.setDepth(depth)
 
-    if (shouldAnimate && renderAnimationKey) {
+    if ((shouldAnimate || bushOccupied) && renderAnimationKey) {
       sprite.play(renderAnimationKey, true)
     } else {
       sprite.anims?.stop()
       sprite.setFrame(0)
     }
+  } else if (isBush) {
+    const wasBushOccupied = Boolean(sprite.getData(BUSH_WAS_OCCUPIED_KEY))
+
+    if (bushOccupied && !wasBushOccupied && bushAnimationKey) {
+      sprite.play(bushAnimationKey, true)
+    } else if (!bushOccupied && wasBushOccupied) {
+      sprite.anims?.stop()
+      sprite.setFrame(0)
+    }
+
+    sprite.setData(BUSH_WAS_OCCUPIED_KEY, bushOccupied)
   } else if (shouldAnimate) {
     const renderAnimationKey = isSheep ? getSheepAnimationKey(resource) : animationKey
 
@@ -458,6 +528,10 @@ function updateResourceSprite(scene, resource) {
 
   if (isSheep) {
     ensureSheepHitFlashBinding(scene, sprite, resource)
+  }
+
+  if (isBush) {
+    ensureBushAnimationBinding(sprite)
   }
 
   if (isSheep) {

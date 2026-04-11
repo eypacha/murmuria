@@ -493,6 +493,24 @@ export class GameScene extends Phaser.Scene {
         })
       }
     }
+
+    for (const bushVariant of BUSH_VARIANT_CONFIGS) {
+      const animationKey = `${bushVariant.key}_anim`
+
+      if (this.anims.exists(animationKey)) {
+        continue
+      }
+
+      this.anims.create({
+        key: animationKey,
+        frames: this.anims.generateFrameNumbers(bushVariant.key, {
+          start: 0,
+          end: 7,
+        }),
+        frameRate: 10,
+        repeat: 0,
+      })
+    }
   }
 
   update(_time, delta) {
