@@ -78,10 +78,12 @@ export class VillagerDecisionSystem {
           SheepStateSystem.lockSheepAtTileCenter(resource, worldStore.tick ?? 0)
         }
 
+        this.reserveResourceTargetTile(resource, targetTile)
         resource.reservedBy = unit.id
         unit.targetId = resource.id
         unit.workTargetId = resource.id
         unit.workTargetType = resource.type
+        unit.workTargetTile = { x: targetTile.x, y: targetTile.y }
         unit.target = {
           type: resource.type,
           id: resource.id,
@@ -223,6 +225,7 @@ export class VillagerDecisionSystem {
 
     const footprint = resource.footprint ?? { w: 1, h: 1 }
     const candidates = []
+    const reservedTargetTiles = this.getReservedTargetTiles(resource)
 
     for (let dy = 0; dy < footprint.h; dy += 1) {
       candidates.push({ x: resourceTile.x - 1, y: resourceTile.y + dy })
@@ -237,6 +240,10 @@ export class VillagerDecisionSystem {
       const candidateElevation = this.getTileElevation(worldStore, candidate)
 
       if (occupiedTiles?.has(candidateKey)) {
+        continue
+      }
+
+      if (reservedTargetTiles.has(candidateKey)) {
         continue
       }
 
@@ -264,6 +271,50 @@ export class VillagerDecisionSystem {
       targetTile: closestTile,
       pathLength: shortestPathLength,
     }
+  }
+
+  static claimResourceTarget(resource, targetTile) {
+    if (!resource || !targetTile) {
+      return
+    }
+
+    this.reserveResourceTargetTile(resource, targetTile)
+  }
+
+  static reserveResourceTargetTile(resource, targetTile) {
+    if (!resource || !targetTile) {
+      return
+    }
+
+    const tileKey = this.tileKey(targetTile)
+    const reservedTargetTiles = Array.isArray(resource.reservedTargetTiles)
+      ? resource.reservedTargetTiles
+      : []
+
+    if (!reservedTargetTiles.includes(tileKey)) {
+      reservedTargetTiles.push(tileKey)
+    }
+
+    resource.reservedTargetTiles = reservedTargetTiles
+  }
+
+  static releaseResourceTargetTile(resource, targetTile) {
+    if (!resource || !targetTile || !Array.isArray(resource.reservedTargetTiles)) {
+      return
+    }
+
+    const tileKey = this.tileKey(targetTile)
+    const remaining = resource.reservedTargetTiles.filter((reservedTileKey) => reservedTileKey !== tileKey)
+
+    if (remaining.length > 0) {
+      resource.reservedTargetTiles = remaining
+    } else {
+      delete resource.reservedTargetTiles
+    }
+  }
+
+  static getReservedTargetTiles(resource) {
+    return new Set(Array.isArray(resource?.reservedTargetTiles) ? resource.reservedTargetTiles : [])
   }
 
   static buildReachabilityMap(startTile, worldStore, occupiedTiles) {
@@ -363,10 +414,15 @@ export class VillagerDecisionSystem {
   }
 
   static isResourceAvailable(resource) {
-    return (
-      (resource.reservedBy === null || resource.reservedBy === undefined) &&
-      (resource.amount ?? 0) > 0
-    )
+    if ((resource.amount ?? 0) <= 0) {
+      return false
+    }
+
+    if (resource.type === 'sheep') {
+      return resource.reservedBy === null || resource.reservedBy === undefined
+    }
+
+    return true
   }
 
   static isInsideWorld(tile, worldStore) {

@@ -108,6 +108,13 @@ export class VillagerWorkSystem {
       }
     }
 
+    if (resource) {
+      VillagerDecisionSystem.releaseResourceTargetTile(
+        resource,
+        unit.workTargetTile ?? unit.target?.tile ?? null,
+      )
+    }
+
     if (resourceType === 'sheep') {
       this.removeResourceById(worldStore, resource?.id ?? unit.workTargetId ?? unit.targetId)
     }
@@ -117,6 +124,7 @@ export class VillagerWorkSystem {
       unit.workTargetType = null
     }
 
+    unit.workTargetTile = null
     this.beginReturnToCastle(unit, worldStore)
   }
 
@@ -257,6 +265,7 @@ export class VillagerWorkSystem {
 
     unit.workTargetId = null
     unit.workTargetType = null
+    unit.workTargetTile = null
     unit.targetId = null
     unit.target = null
     unit.interactionFacing = null
@@ -370,10 +379,12 @@ export class VillagerWorkSystem {
 
     const { resource, targetTile } = selection
 
+    VillagerDecisionSystem.claimResourceTarget(resource, targetTile)
     resource.reservedBy = unit.id
     unit.targetId = resource.id
     unit.workTargetId = resource.id
     unit.workTargetType = resource.type
+    unit.workTargetTile = { x: targetTile.x, y: targetTile.y }
     unit.target = {
       type: resource.type,
       id: resource.id,

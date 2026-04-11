@@ -59,6 +59,13 @@ export class SheepStateSystem {
       return
     }
 
+    const motionDirection =
+      sheep.motion?.direction === 'left' || sheep.motion?.direction === 'right'
+        ? sheep.motion.direction
+        : sheep.facing === 'left' || sheep.facing === 'right'
+          ? sheep.facing
+          : 'right'
+
     const tile = sheep.gridPos ?? this.getGridPositionFromWorldPosition(sheep.pos)
 
     if (tile) {
@@ -70,6 +77,7 @@ export class SheepStateSystem {
     }
 
     sheep.motion = null
+    sheep.facing = motionDirection
     sheep.state = nextState
     sheep.stateUntilTick = null
     sheep.stateCycle = Number.isInteger(sheep.stateCycle) ? sheep.stateCycle : 0

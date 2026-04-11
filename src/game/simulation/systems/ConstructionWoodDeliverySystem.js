@@ -179,10 +179,12 @@ export class ConstructionWoodDeliverySystem {
 
       const { resource, targetTile: treeTargetTile } = selection
 
+      VillagerDecisionSystem.claimResourceTarget(resource, treeTargetTile)
       resource.reservedBy = villager.id
       villager.targetId = resource.id
       villager.workTargetId = resource.id
       villager.workTargetType = resource.type
+      villager.workTargetTile = { x: treeTargetTile.x, y: treeTargetTile.y }
       villager.target = {
         type: resource.type,
         id: resource.id,
