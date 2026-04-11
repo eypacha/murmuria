@@ -5,6 +5,7 @@ import { BubbleSystem } from './systems/BubbleSystem.js'
 import { MovementSystem } from './systems/MovementSystem.js'
 import { UnitStateSystem } from './systems/UnitStateSystem.js'
 import { VillagerWorkSystem } from './systems/VillagerWorkSystem.js'
+import { SheepStateSystem } from './systems/SheepStateSystem.js'
 import { SheepMovementSystem } from './systems/SheepMovementSystem.js'
 
 export class SimulationEngine {
@@ -39,6 +40,7 @@ export class SimulationEngine {
     UnitStateSystem.update(this.worldStore)
     MovementSystem.update(this.worldStore)
     VillagerWorkSystem.update(this.worldStore)
+    SheepStateSystem.update(this.worldStore)
     SheepMovementSystem.update(this.worldStore)
     this.worldStore.tick++
   }

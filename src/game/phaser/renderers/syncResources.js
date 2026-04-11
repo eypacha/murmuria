@@ -108,19 +108,15 @@ function getGoldVariantConfig(resource) {
   return GOLD_VARIANT_CONFIGS[clampedIndex] ?? GOLD_VARIANT_CONFIGS[0]
 }
 
-function getSheepVariantConfig(resource, variantIndexOverride = null) {
-  const variantIndex = Number.isInteger(variantIndexOverride)
-    ? variantIndexOverride
-    : Number.isInteger(resource?.variant)
-      ? resource.variant
-      : 0
+function getSheepVariantConfig(resource) {
+  const variantIndex = Number.isInteger(resource?.variant) ? resource.variant : 0
   const clampedIndex = Math.max(0, Math.min(SHEEP_VARIANT_CONFIGS.length - 1, variantIndex))
 
   return SHEEP_VARIANT_CONFIGS[clampedIndex] ?? SHEEP_VARIANT_CONFIGS[0]
 }
 
-function getSheepVariantTextureKey(resource, variantIndexOverride = null) {
-  const variantConfig = getSheepVariantConfig(resource, variantIndexOverride)
+function getSheepVariantTextureKey(resource) {
+  const variantConfig = getSheepVariantConfig(resource)
   const state = typeof resource?.state === 'string' ? resource.state : 'idle'
 
   if (state === 'moving') {
@@ -134,8 +130,8 @@ function getSheepVariantTextureKey(resource, variantIndexOverride = null) {
   return variantConfig.idleKey
 }
 
-function getSheepAnimationKey(resource, variantIndexOverride = null) {
-  return `${getSheepVariantTextureKey(resource, variantIndexOverride)}_anim`
+function getSheepAnimationKey(resource) {
+  return `${getSheepVariantTextureKey(resource)}_anim`
 }
 
 function isResourceFacingLeft(resource) {
@@ -200,9 +196,9 @@ function ensureSheepHitFlashBinding(scene, sprite, resource) {
   sprite.setData(SHEEP_HIT_FLASH_BOUND_KEY, true)
 }
 
-function getResourceDisplaySize(resource, variantIndexOverride = null) {
+function getResourceDisplaySize(resource) {
   if (resource.type === 'sheep') {
-    const variantConfig = getSheepVariantConfig(resource, variantIndexOverride)
+    const variantConfig = getSheepVariantConfig(resource)
 
     return {
       width: variantConfig.displayWidth ?? TREE_DISPLAY_WIDTH,
@@ -322,16 +318,7 @@ function updateResourceSprite(scene, resource) {
   const isHarvested = (resource.amount ?? 0) > 0 && isResourceBeingHarvested(resource, scene.worldStore)
   const isSheep = resource.type === 'sheep'
   let sprite = scene.resourceSprites.get(resource.id)
-  const existingSheepVariantIndex = isSheep ? sprite?.getData('sheepVisualVariant') ?? null : null
-  const sheepVariantIndex =
-    isSheep && Number.isInteger(existingSheepVariantIndex)
-      ? existingSheepVariantIndex
-      : Number.isInteger(resource.sheepVisualVariant)
-        ? resource.sheepVisualVariant
-        : null
-  const displaySize = isSheep
-    ? getResourceDisplaySize(resource, sheepVariantIndex)
-    : getResourceDisplaySize(resource)
+  const displaySize = getResourceDisplaySize(resource)
   const displayWidth = resource.type === 'gold' || isSheep
     ? displaySize.width
     : (isTreeTexture ? TREE_DISPLAY_WIDTH : STUMP_DISPLAY_WIDTH)
@@ -343,26 +330,12 @@ function updateResourceSprite(scene, resource) {
   const shouldAnimate = isSheep || ((resource.type === 'gold' || isTreeTexture) && isHarvested)
 
   if (!sprite) {
-    if (isSheep && sheepVariantIndex == null) {
-      resource.sheepVisualVariant = Math.floor(Math.random() * SHEEP_VARIANT_CONFIGS.length)
-    }
-
-    const renderVariantIndex = isSheep
-      ? resource.sheepVisualVariant ?? Math.floor(Math.random() * SHEEP_VARIANT_CONFIGS.length)
-      : null
-    const renderTextureKey = isSheep
-      ? getSheepVariantTextureKey(resource, renderVariantIndex)
-      : textureKey
-    const renderAnimationKey = isSheep
-      ? getSheepAnimationKey(resource, renderVariantIndex)
-      : animationKey
+    const renderTextureKey = isSheep ? getSheepVariantTextureKey(resource) : textureKey
+    const renderAnimationKey = isSheep ? getSheepAnimationKey(resource) : animationKey
 
     sprite = scene.add.sprite(x, y, renderTextureKey)
     scene.resourceSprites.set(resource.id, sprite)
     sprite.setData('resourceTextureKey', renderTextureKey)
-    if (isSheep) {
-      sprite.setData('sheepVisualVariant', renderVariantIndex)
-    }
     sprite.setOrigin(originX, originY)
     sprite.setDisplaySize(displayWidth, displayHeight)
     sprite.setDepth(depth)
@@ -375,15 +348,10 @@ function updateResourceSprite(scene, resource) {
     }
   } else if (
     sprite.getData('resourceTextureKey') !==
-    (isSheep ? getSheepVariantTextureKey(resource, sprite.getData('sheepVisualVariant')) : textureKey)
+    (isSheep ? getSheepVariantTextureKey(resource) : textureKey)
   ) {
-    const renderVariantIndex = isSheep ? sprite.getData('sheepVisualVariant') : null
-    const renderTextureKey = isSheep
-      ? getSheepVariantTextureKey(resource, renderVariantIndex)
-      : textureKey
-    const renderAnimationKey = isSheep
-      ? getSheepAnimationKey(resource, renderVariantIndex)
-      : animationKey
+    const renderTextureKey = isSheep ? getSheepVariantTextureKey(resource) : textureKey
+    const renderAnimationKey = isSheep ? getSheepAnimationKey(resource) : animationKey
 
     sprite.anims?.stop()
     sprite.setTexture(renderTextureKey)
@@ -399,8 +367,7 @@ function updateResourceSprite(scene, resource) {
       sprite.setFrame(0)
     }
   } else if (shouldAnimate) {
-    const renderVariantIndex = isSheep ? sprite.getData('sheepVisualVariant') : null
-    const renderAnimationKey = isSheep ? getSheepAnimationKey(resource, renderVariantIndex) : animationKey
+    const renderAnimationKey = isSheep ? getSheepAnimationKey(resource) : animationKey
 
     if (
       renderAnimationKey &&

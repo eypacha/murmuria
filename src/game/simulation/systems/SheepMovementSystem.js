@@ -98,6 +98,7 @@ export class SheepMovementSystem {
         sheep.motion.speed = SHEEP_MOVE_SPEED
       }
 
+      sheep.facing = sheep.motion.direction
       return sheep.motion
     }
 
@@ -115,6 +116,8 @@ export class SheepMovementSystem {
       turnIntervalTicks,
       nextTurnTick: (worldStore.tick ?? 0) + turnIntervalTicks,
     }
+
+    sheep.facing = sheep.motion.direction
 
     return sheep.motion
   }
