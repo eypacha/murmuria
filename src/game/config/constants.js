@@ -33,5 +33,5 @@ export const INITIAL_GOLD_COUNT = 12
 export const INITIAL_VILLAGERS = 2
 export const INITIAL_TREE_COUNT = 50
 export const INITIAL_SHEEP_COUNT = 25
-export const INITIAL_ROCK_COUNT = 18
-export const INITIAL_BUSH_COUNT = 220
+export const INITIAL_ROCK_COUNT = 25
+export const INITIAL_BUSH_COUNT = 25
