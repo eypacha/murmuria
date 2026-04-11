@@ -1,58 +1,76 @@
-import { hasClearPerimeter } from './getPerimeterTiles.js'
-import { getOccupiedTiles } from './getOccupiedTiles.js'
 import { isTraversableWorldTile } from './isTraversableTile.js'
 
-export function findCastleDropTile(castle, worldStore) {
+function getCastleDropCandidates(castle) {
+  const footprint = castle.footprint ?? { w: 1, h: 1 }
+  const centerX = castle.gridPos.x + Math.floor(footprint.w / 2)
+
+  return [
+    {
+      x: centerX,
+      y: castle.gridPos.y - 1,
+      side: 'top',
+    },
+    {
+      x: centerX,
+      y: castle.gridPos.y + footprint.h,
+      side: 'bottom',
+    },
+  ]
+}
+
+function getDistanceScore(unit, tile) {
+  const unitPos = unit?.gridPos ?? unit?.pos ?? null
+
+  if (!unitPos) {
+    return 0
+  }
+
+  const unitX = Number.isFinite(unitPos.x) ? unitPos.x : 0
+  const unitY = Number.isFinite(unitPos.y) ? unitPos.y : 0
+
+  return Math.abs(unitX - tile.x) + Math.abs(unitY - tile.y)
+}
+
+export function findCastleDropTile(castle, worldStore, unit = null) {
   if (!castle?.gridPos) {
     return null
   }
 
-  if (!hasClearPerimeter(castle, worldStore)) {
-    return null
-  }
-
-  const footprint = castle.footprint ?? { w: 1, h: 1 }
-  const centerTile = {
-    x: castle.gridPos.x + Math.floor(footprint.w / 2),
-    y: castle.gridPos.y + footprint.h,
-  }
-
   const width = worldStore.world?.width ?? 0
   const height = worldStore.world?.height ?? 0
+  const candidates = getCastleDropCandidates(castle)
+    .filter((candidate) => {
+      return (
+        candidate.x >= 0 &&
+        candidate.y >= 0 &&
+        candidate.x < width &&
+        candidate.y < height &&
+        isTraversableWorldTile(worldStore, candidate)
+      )
+    })
+    .map((candidate) => ({
+      ...candidate,
+      score: getDistanceScore(unit, candidate),
+    }))
 
-  if (
-    centerTile.x < 0 ||
-    centerTile.y < 0 ||
-    centerTile.x >= width ||
-    centerTile.y >= height
-  ) {
+  if (candidates.length === 0) {
     return null
   }
 
-  if (!isTraversableWorldTile(worldStore, centerTile)) {
-    return null
-  }
-
-  const occupiedEntities = [
-    ...(worldStore.buildings ?? []),
-    ...(worldStore.constructionSites ?? []),
-    ...(worldStore.houses ?? []),
-    ...(worldStore.resources ?? []),
-    ...(worldStore.decorations ?? []),
-    ...(worldStore.units ?? []),
-  ]
-
-  for (const entity of occupiedEntities) {
-    if (!entity?.gridPos) {
-      continue
+  candidates.sort((a, b) => {
+    if (a.score !== b.score) {
+      return a.score - b.score
     }
 
-    for (const tile of getOccupiedTiles(entity)) {
-      if (tile.x === centerTile.x && tile.y === centerTile.y) {
-        return null
-      }
+    if (a.side === b.side) {
+      return 0
     }
-  }
 
-  return centerTile
+    return a.side === 'top' ? -1 : 1
+  })
+
+  return {
+    x: candidates[0].x,
+    y: candidates[0].y,
+  }
 }

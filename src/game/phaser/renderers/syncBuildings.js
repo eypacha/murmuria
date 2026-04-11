@@ -7,8 +7,37 @@ const CASTLE_DEPTH_EPSILON = 0.1
 const DEBUG_CASTLE_FILL = 0x5ad8ff
 const DEBUG_CASTLE_STROKE = 0x5ad8ff
 
+function getCastleEntryTiles(castle) {
+  const footprint = castle.footprint ?? { w: 1, h: 1 }
+  const centerX = castle.gridPos.x + Math.floor(footprint.w / 2)
+
+  return [
+    { x: centerX, y: castle.gridPos.y - 1 },
+    { x: centerX, y: castle.gridPos.y + footprint.h },
+  ]
+}
+
 function drawDebugCastleTiles(scene, castle, depth) {
   for (const tile of getOccupiedTiles(castle)) {
+    const centerX = tile.x * TILE_SIZE + TILE_SIZE / 2
+    const centerY = tile.y * TILE_SIZE + TILE_SIZE / 2
+
+    const debugTile = scene.add.rectangle(
+      centerX,
+      centerY,
+      TILE_SIZE,
+      TILE_SIZE,
+      DEBUG_CASTLE_FILL,
+      0.12,
+    )
+
+    debugTile.setStrokeStyle(2, DEBUG_CASTLE_STROKE, 1)
+    debugTile.setDepth(depth - 0.01)
+  }
+}
+
+function drawDebugCastleEntryTiles(scene, castle, depth) {
+  for (const tile of getCastleEntryTiles(castle)) {
     const centerX = tile.x * TILE_SIZE + TILE_SIZE / 2
     const centerY = tile.y * TILE_SIZE + TILE_SIZE / 2
 
@@ -42,6 +71,7 @@ export function syncBuildings(scene, worldStore) {
 
     if (DEBUG_MODE) {
       drawDebugCastleTiles(scene, castle, depth)
+      drawDebugCastleEntryTiles(scene, castle, depth)
     }
 
     return sprite

@@ -43,6 +43,21 @@ function getResourceDebugAmountText(resource) {
   return String(Math.max(0, Math.floor(Number(resource.amount ?? 0))))
 }
 
+function getResourceDebugLabelText(resource) {
+  if (resource.type !== 'tree' && resource.type !== 'gold') {
+    return null
+  }
+
+  const amountText = getResourceDebugAmountText(resource)
+  const idText = resource?.id ?? ''
+
+  if (resource.type === 'tree') {
+    return amountText ? `${idText}\n${amountText}` : idText
+  }
+
+  return amountText ? `${idText}\n${amountText}` : idText
+}
+
 function ensureResourceDebugLabels(scene) {
   if (!scene.resourceDebugLabels) {
     scene.resourceDebugLabels = new Map()
@@ -471,7 +486,7 @@ function updateResourceSprite(scene, resource) {
   const originY = resource.type === 'gold' || isSheep || isRock || isBush ? 0.5 : 1
   const shouldAnimate = isSheep || ((resource.type === 'gold' || isTreeTexture) && isHarvested)
   const bushAnimationKey = isBush ? getBushAnimationKey(resource) : null
-  const debugAmountText = getResourceDebugAmountText(resource)
+  const debugLabelText = getResourceDebugLabelText(resource)
 
   if (!sprite) {
     const renderTextureKey = isSheep
@@ -602,19 +617,20 @@ function updateResourceSprite(scene, resource) {
   const labels = ensureResourceDebugLabels(scene)
   const existingLabel = labels.get(resource.id)
 
-  if (DEBUG_MODE && debugAmountText) {
+  if (DEBUG_MODE && debugLabelText) {
     const labelPosition = getResourceDebugLabelPosition(sprite, resource)
     const label =
       existingLabel ??
-      scene.add.text(0, 0, debugAmountText, {
+      scene.add.text(0, 0, debugLabelText, {
         fontFamily: 'monospace',
         fontSize: RESOURCE_DEBUG_LABEL_FONT_SIZE,
         color: '#ffffff',
         backgroundColor: 'rgba(0, 0, 0, 0.55)',
         padding: { left: 4, right: 4, top: 2, bottom: 2 },
+        align: 'center',
       })
 
-    label.setText(debugAmountText)
+    label.setText(debugLabelText)
     label.setOrigin(0.5, 1)
     label.setPosition(labelPosition.x, labelPosition.y)
     label.setDepth(depth + 1)

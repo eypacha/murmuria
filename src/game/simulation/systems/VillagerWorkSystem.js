@@ -127,7 +127,7 @@ export class VillagerWorkSystem {
     }
 
     const castle = this.getCastle(worldStore)
-    const returnTile = castle ? findCastleDropTile(castle, worldStore) : null
+    const returnTile = castle ? findCastleDropTile(castle, worldStore, unit) : null
     const resourceType = this.getCarriedResourceType(unit)
     const intentText = getIntentBubbleText(`${resourceType}_delivery`)
 

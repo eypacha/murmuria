@@ -65,11 +65,10 @@ export class ConstructionWoodDeliverySystem {
     }
 
     const castle = getCastle(worldStore)
-    const castleDropTile = castle ? findCastleDropTile(castle, worldStore) : null
     const sites = getHouseConstructionSites(worldStore)
     const idleVillagers = getIdleVillagers(worldStore)
 
-    if (!castle || !castleDropTile || sites.length === 0 || idleVillagers.length === 0) {
+    if (!castle || sites.length === 0 || idleVillagers.length === 0) {
       this.updateWoodNeed(worldStore, sites)
       return
     }
@@ -108,6 +107,7 @@ export class ConstructionWoodDeliverySystem {
       site.woodReserved = Math.max(0, Number(site.woodReserved ?? 0)) + amount
       claimedTargetKeys.add(`${targetTile.x}:${targetTile.y}`)
 
+      const castleDropTile = findCastleDropTile(castle, worldStore, villager)
       const shouldPickupFromCastle = Boolean(castleDropTile) && availableCastleWood >= amount
 
       if (shouldPickupFromCastle) {

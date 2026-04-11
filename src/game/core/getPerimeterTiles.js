@@ -50,7 +50,8 @@ export function hasClearPerimeter(entity, worldStore, ignoredIds = new Set()) {
     }
 
     for (const occupiedTile of getOccupiedTiles(blockingEntity)) {
-      occupiedTiles.add(tileKey(occupiedTile))
+      const key = tileKey(occupiedTile)
+      occupiedTiles.add(key)
     }
   }
 
