@@ -1,7 +1,6 @@
 import { SIMULATION_TICK_MS } from '../config/constants.js'
 import { KingdomSystem } from './systems/KingdomSystem.js'
 import { VillagerDecisionSystem } from './systems/VillagerDecisionSystem.js'
-import { ConstructionSystem } from './systems/ConstructionSystem.js'
 import { BubbleSystem } from './systems/BubbleSystem.js'
 import { MovementSystem } from './systems/MovementSystem.js'
 import { UnitStateSystem } from './systems/UnitStateSystem.js'
@@ -35,7 +34,6 @@ export class SimulationEngine {
     }
 
     KingdomSystem.update(this.worldStore)
-    ConstructionSystem.update(this.worldStore)
     VillagerDecisionSystem.update(this.worldStore)
     BubbleSystem.update(this.worldStore)
     UnitStateSystem.update(this.worldStore)

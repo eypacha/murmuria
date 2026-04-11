@@ -17,7 +17,6 @@ export const useWorldStore = defineStore('world', () => {
   const units = ref([])
   const resources = ref([])
   const buildings = ref([])
-  const constructionSites = ref([])
 
   return {
     seed,
@@ -27,6 +26,5 @@ export const useWorldStore = defineStore('world', () => {
     units,
     resources,
     buildings,
-    constructionSites,
   }
 })

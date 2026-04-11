@@ -9,7 +9,6 @@ import {
 import { UnitSpriteController } from '../rendering/UnitSpriteController.js'
 import { renderGrid } from './renderers/renderGrid.js'
 import { syncBuildings } from './renderers/syncBuildings.js'
-import { syncConstructionSites } from './renderers/syncBuildings.js'
 import { syncResources } from './renderers/syncResources.js'
 import {
   GOLD_FRAME_COUNT,
@@ -140,7 +139,6 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.load.image('castle_blue', '/assets/buildings/blue/castle.png')
-    this.load.image('house_blue_ghost', '/assets/buildings/blue/house-0.png')
 
     for (const goldVariant of GOLD_VARIANT_CONFIGS) {
       this.load.spritesheet(goldVariant.key, goldVariant.path, {
@@ -232,7 +230,6 @@ export class GameScene extends Phaser.Scene {
 
     renderGrid(this, this.worldStore)
     syncBuildings(this, this.worldStore)
-    syncConstructionSites(this, this.worldStore)
     syncResources(this, this.worldStore)
     this.syncUnitControllers()
   }
@@ -487,7 +484,6 @@ export class GameScene extends Phaser.Scene {
 
   update(_time, delta) {
     this.updateCameraZoom(delta)
-    syncConstructionSites(this, this.worldStore)
     syncResources(this, this.worldStore)
     this.syncUnitControllers()
   }

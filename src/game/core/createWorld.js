@@ -1640,5 +1640,4 @@ export function createWorld(worldStore) {
   worldStore.resources = resources
   worldStore.buildings = [castle]
   worldStore.units = villagerUnits
-  worldStore.constructionSites = []
 }
