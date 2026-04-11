@@ -1,8 +1,13 @@
+import { hasClearPerimeter } from './getPerimeterTiles.js'
 import { getOccupiedTiles } from './getOccupiedTiles.js'
 import { isTraversableWorldTile } from './isTraversableTile.js'
 
 export function findCastleDropTile(castle, worldStore) {
   if (!castle?.gridPos) {
+    return null
+  }
+
+  if (!hasClearPerimeter(castle, worldStore)) {
     return null
   }
 
@@ -34,6 +39,7 @@ export function findCastleDropTile(castle, worldStore) {
     ...(worldStore.houses ?? []),
     ...(worldStore.resources ?? []),
     ...(worldStore.decorations ?? []),
+    ...(worldStore.units ?? []),
   ]
 
   for (const entity of occupiedEntities) {

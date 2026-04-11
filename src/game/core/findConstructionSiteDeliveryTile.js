@@ -1,4 +1,5 @@
 import { findPath } from './findPath.js'
+import { getPerimeterCandidates, hasClearPerimeter } from './getPerimeterTiles.js'
 import { isTraversableWorldTile } from './isTraversableTile.js'
 import { getOccupiedTiles } from './getOccupiedTiles.js'
 
@@ -29,36 +30,6 @@ function buildOccupiedTileSet(worldStore, ignoredIds = new Set()) {
   return occupiedTiles
 }
 
-function getPerimeterCandidates(site) {
-  const position = site.gridPos ?? { x: site.x ?? 0, y: site.y ?? 0 }
-  const footprint = site.footprint ?? { w: 1, h: 1 }
-  const candidates = []
-  const seen = new Set()
-
-  const pushCandidate = (x, y) => {
-    const key = `${x}:${y}`
-
-    if (seen.has(key)) {
-      return
-    }
-
-    seen.add(key)
-    candidates.push({ x, y })
-  }
-
-  for (let dx = 0; dx < footprint.w; dx += 1) {
-    pushCandidate(position.x + dx, position.y - 1)
-    pushCandidate(position.x + dx, position.y + footprint.h)
-  }
-
-  for (let dy = 0; dy < footprint.h; dy += 1) {
-    pushCandidate(position.x - 1, position.y + dy)
-    pushCandidate(position.x + footprint.w, position.y + dy)
-  }
-
-  return candidates
-}
-
 function isInsideWorld(worldStore, tile) {
   const width = worldStore.world?.width ?? 0
   const height = worldStore.world?.height ?? 0
@@ -68,6 +39,10 @@ function isInsideWorld(worldStore, tile) {
 
 export function findConstructionSiteDeliveryTile(site, worldStore, unit, claimedTileKeys = new Set()) {
   if (!site?.gridPos || !unit?.gridPos) {
+    return null
+  }
+
+  if (!hasClearPerimeter(site, worldStore, new Set([unit.id]))) {
     return null
   }
 

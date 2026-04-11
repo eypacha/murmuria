@@ -108,7 +108,7 @@ export class ConstructionWoodDeliverySystem {
       site.woodReserved = Math.max(0, Number(site.woodReserved ?? 0)) + amount
       claimedTargetKeys.add(`${targetTile.x}:${targetTile.y}`)
 
-      const shouldPickupFromCastle = availableCastleWood >= amount
+      const shouldPickupFromCastle = Boolean(castleDropTile) && availableCastleWood >= amount
 
       if (shouldPickupFromCastle) {
         reservedCastleWood += amount
