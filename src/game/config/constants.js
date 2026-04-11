@@ -1,19 +1,31 @@
-export const DEBUG_MODE = true 
+// Debug / feature flags
+export const DEBUG_MODE = true
 export const FOAM_ANIMATION = true
+
+// World / grid
 export const GRID_WIDTH = 50
 export const GRID_HEIGHT = 50
 export const TILE_SIZE = 64
+
+// Render depths
 export const DEPTH_GRID = 0
 export const DEPTH_BUILDINGS = 10
 export const DEPTH_RESOURCES = 20
 export const DEPTH_UNITS = 30
 export const UNIT_RENDER_OFFSET_Y = 48
+
+// Camera
 export const CAMERA_DEFAULT_ZOOM = 1
 export const CAMERA_MIN_ZOOM = 0.75
 export const CAMERA_MAX_ZOOM = 1
 export const CAMERA_PAN_SPEED = 650
 export const CAMERA_WHEEL_ZOOM_RATE = 0.0012
+
+// Simulation
 export const SIMULATION_TICK_MS = 500
+export const STARTUP_GRACE_PERIOD_TICKS = 20
+
+// Villager behavior
 export const VILLAGER_ARRIVAL_THRESHOLD = 4
 export const VILLAGER_PREPARE_TO_TREE_MS = 1000
 export const VILLAGER_PREPARE_TO_GATHER_MS = 1000
@@ -25,16 +37,24 @@ export const VILLAGER_MEAT_HARVEST_CHUNK = 10
 export const VILLAGER_CARRY_CAPACITY_WOOD = 5
 export const VILLAGER_CARRY_CAPACITY_GOLD = 5
 export const VILLAGER_CARRY_CAPACITY_MEAT = 5
-export const HOUSE_WOOD_COST = 20
-export const HOUSE_BUILD_TIME_MS = 20000
-export const STARTUP_GRACE_PERIOD_TICKS = 20
 export const VILLAGER_INTENT_BUBBLE_DURATION_TICKS = 2
 export const VILLAGER_INTENT_ACTION_DELAY_TICKS = 2
+
+// Economy / construction
+export const HOUSE_WOOD_COST = 20
+export const HOUSE_BUILD_TIME_MS = 20000
 export const TREE_WOOD_AMOUNT = 50
 export const SHEEP_MEAT_AMOUNT = 10
 export const INITIAL_GOLD_COUNT = 12
+
+// Initial world population
 export const INITIAL_VILLAGERS = 2
 export const INITIAL_TREE_COUNT = 50
 export const INITIAL_SHEEP_COUNT = 25
 export const INITIAL_ROCK_COUNT = 25
 export const INITIAL_BUSH_COUNT = 25
+
+// Initial resources
+export const INITIAL_WOOD = 10
+export const INITIAL_GOLD = 0
+export const INITIAL_MEAT = 10
