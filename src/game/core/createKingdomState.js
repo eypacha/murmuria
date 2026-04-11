@@ -10,12 +10,5 @@ export function createKingdomState() {
       gold: 0,
       food: 0,
     },
-    desires: {
-      wood: 0,
-      gold: 0,
-      food: 0,
-    },
-    morale: 0,
-    fear: 0,
   }
 }

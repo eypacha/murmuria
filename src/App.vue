@@ -1,7 +1,6 @@
 <script setup>
 import HudPanel from './components/HudPanel.vue'
 import GameCanvas from './components/GameCanvas.vue'
-import KingSpeechInput from './components/KingSpeechInput.vue'
 import KingdomStatsBar from './components/KingdomStatsBar.vue'
 </script>
 
@@ -10,6 +9,5 @@ import KingdomStatsBar from './components/KingdomStatsBar.vue'
     <GameCanvas class="absolute inset-0" />
     <HudPanel class="absolute left-4 top-4 z-20" />
     <KingdomStatsBar />
-    <KingSpeechInput />
   </main>
 </template>

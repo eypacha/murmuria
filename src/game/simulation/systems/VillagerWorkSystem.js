@@ -14,17 +14,8 @@ import {
 import { getOccupiedTiles } from '../../core/getOccupiedTiles.js'
 import { isTraversableWorldTile } from '../../core/isTraversableTile.js'
 import { UnitStateSystem } from './UnitStateSystem.js'
-import { computeWorkSpeedMultiplier } from './KingSpeechIntentSystem.js'
+import { computeWorkSpeedMultiplier } from './KingdomBehaviorSystem.js'
 import { getIntentBubbleText } from './getIntentBubbleText.js'
-
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, value))
-}
-
-export function computeTaskAbandonChance(kingdom) {
-  const morale = kingdom?.morale ?? 0
-  return clamp(0.05 - morale * 0.003, 0.01, 0.08)
-}
 
 export class VillagerWorkSystem {
   static update(worldStore) {
@@ -36,11 +27,6 @@ export class VillagerWorkSystem {
       }
 
       if (unit.state === 'gathering') {
-        if (Math.random() < computeTaskAbandonChance(worldStore.kingdom)) {
-          this.abandonWork(unit, worldStore)
-          continue
-        }
-
         this.ensureGatherTimer(unit, worldStore)
         continue
       }
@@ -117,31 +103,6 @@ export class VillagerWorkSystem {
     }
 
     this.beginReturnToCastle(unit, worldStore)
-  }
-
-  static abandonWork(unit, worldStore) {
-    const resource = this.getResourceById(worldStore, unit.workTargetId ?? unit.targetId)
-
-    if (resource) {
-      resource.reservedBy = null
-    }
-
-    unit.workTargetId = null
-    unit.workTargetType = null
-    unit.targetId = null
-    unit.target = null
-    unit.interactionFacing = null
-    unit.path = []
-    unit.pathGoalKey = null
-    unit.stateUntilTick = null
-    unit.nextState = null
-    unit.state = 'idle'
-    unit.idleSince = worldStore.tick ?? 0
-    unit.idleAction = null
-
-    if (unit.equipment) {
-      unit.equipment.tool = null
-    }
   }
 
   static beginReturnToCastle(unit, worldStore) {

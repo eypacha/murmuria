@@ -5,15 +5,9 @@ import { useWorldStore } from '../stores/worldStore.js'
 const worldStore = useWorldStore()
 
 const kingdomStats = computed(() => {
-  const desires = worldStore.kingdom?.desires ?? {}
   const needs = worldStore.kingdom?.needs ?? {}
 
   return {
-    desires: {
-      wood: Number(desires.wood ?? 0),
-      gold: Number(desires.gold ?? 0),
-      food: Number(desires.food ?? 0),
-    },
     needs: {
       wood: Number(needs.wood ?? 0),
       gold: Number(needs.gold ?? 0),
@@ -23,11 +17,7 @@ const kingdomStats = computed(() => {
   }
 })
 
-function formatStatGroup(label, group) {
-  if (label === 'Desires') {
-    return `Deseos madera ${group.wood.toFixed(2)} oro ${group.gold.toFixed(2)} comida ${group.food.toFixed(2)}`
-  }
-
+function formatNeeds(group) {
   return `Necesidades madera ${group.wood.toFixed(2)} oro ${group.gold.toFixed(2)} comida ${group.food.toFixed(2)}`
 }
 </script>
@@ -38,9 +28,7 @@ function formatStatGroup(label, group) {
   >
     <div class="flex items-center gap-3 whitespace-nowrap">
       <span class="uppercase tracking-[0.18em] text-slate-400">Kingdom</span>
-      <span>{{ formatStatGroup('Desires', kingdomStats.desires) }}</span>
-      <span class="text-slate-500">•</span>
-      <span>{{ formatStatGroup('Needs', kingdomStats.needs) }}</span>
+      <span>{{ formatNeeds(kingdomStats.needs) }}</span>
       <span class="text-slate-500">•</span>
       <span>Hambre {{ kingdomStats.hunger.toFixed(2) }}%</span>
     </div>

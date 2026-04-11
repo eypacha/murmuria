@@ -1,21 +1,9 @@
 export class KingdomSystem {
   static update(worldStore) {
     const kingdom = worldStore.kingdom
-    if (!kingdom || !kingdom.desires) return
+    if (!kingdom) return
 
     kingdom.needs = kingdom.needs ?? {}
-
-    const DESIRE_DECAY_RATE = 0.001
-
-    for (const key of Object.keys(kingdom.desires)) {
-      const value = kingdom.desires[key] ?? 0
-      if (value > 0) {
-        kingdom.desires[key] = Math.max(0, value - DESIRE_DECAY_RATE)
-      }
-    }
-
-    kingdom.morale = Math.max(-10, Math.min(10, (kingdom.morale ?? 0) * 0.995))
-    kingdom.fear = Math.max(-10, Math.min(10, (kingdom.fear ?? 0) * 0.995))
 
     const units = worldStore.units ?? []
     const population = units.length

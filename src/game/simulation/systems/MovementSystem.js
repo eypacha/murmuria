@@ -6,7 +6,7 @@ import {
 } from '../../config/constants.js'
 import { findPath } from '../../core/findPath.js'
 import { UnitStateSystem } from './UnitStateSystem.js'
-import { VillagerWorkSystem, computeTaskAbandonChance } from './VillagerWorkSystem.js'
+import { VillagerWorkSystem } from './VillagerWorkSystem.js'
 
 export class MovementSystem {
   static update(worldStore) {
@@ -24,16 +24,6 @@ export class MovementSystem {
         unit.state !== 'returning_to_castle' &&
         unit.state !== 'moving'
       ) {
-        continue
-      }
-
-      if (
-        (unit.state === 'moving_to_tree' ||
-          unit.state === 'moving_to_gold' ||
-          unit.state === 'moving_to_meat') &&
-        Math.random() < computeTaskAbandonChance(worldStore.kingdom)
-      ) {
-        VillagerWorkSystem.abandonWork(unit, worldStore)
         continue
       }
 

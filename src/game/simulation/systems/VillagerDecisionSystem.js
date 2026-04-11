@@ -4,7 +4,6 @@ import { SIMULATION_TICK_MS, TILE_SIZE } from '../../config/constants.js'
 import { VILLAGER_INTENT_ACTION_DELAY_TICKS } from '../../config/constants.js'
 import { VILLAGER_INTENT_BUBBLE_DURATION_TICKS } from '../../config/constants.js'
 import { UnitStateSystem } from './UnitStateSystem.js'
-import { computeObedience } from './KingSpeechIntentSystem.js'
 import { getIntentBubbleText } from './getIntentBubbleText.js'
 
 export class VillagerDecisionSystem {
@@ -12,7 +11,6 @@ export class VillagerDecisionSystem {
     const units = worldStore.units ?? []
     const occupiedTiles = this.buildOccupiedTileSet(worldStore)
     const blockedTiles = this.buildOccupiedTileSet(worldStore, { includeUnits: false })
-    const obedience = computeObedience(worldStore.kingdom)
 
     for (const unit of units) {
       if (unit.role !== 'villager') {
@@ -37,8 +35,7 @@ export class VillagerDecisionSystem {
         continue
       }
 
-      const desireWeight = Math.random() > obedience ? 0 : obedience
-      const scores = this.computeResourceScores(worldStore, desireWeight)
+      const scores = this.computeResourceScores(worldStore)
 
       if (scores.length === 0) {
         continue
@@ -110,22 +107,15 @@ export class VillagerDecisionSystem {
     }
   }
 
-  static computeResourceScores(worldStore, desireWeight = 0.5) {
+  static computeResourceScores(worldStore) {
     const woodNeed = Number(worldStore.kingdom?.needs?.wood ?? 0)
-    const woodDesire = Number(worldStore.kingdom?.desires?.wood ?? 0)
     const goldNeed = Number(worldStore.kingdom?.needs?.gold ?? 0)
-    const goldDesire = Number(worldStore.kingdom?.desires?.gold ?? 0)
     const foodNeed = Number(worldStore.kingdom?.needs?.food ?? 0)
-    const foodDesire = Number(worldStore.kingdom?.desires?.food ?? 0)
-
-    const woodScore = woodNeed + woodDesire * desireWeight
-    const goldScore = goldNeed + goldDesire * desireWeight
-    const foodScore = foodNeed + foodDesire * desireWeight
 
     return [
-      { type: 'tree', score: woodScore },
-      { type: 'gold', score: goldScore },
-      { type: 'sheep', score: foodScore },
+      { type: 'tree', score: woodNeed },
+      { type: 'gold', score: goldNeed },
+      { type: 'sheep', score: foodNeed },
     ].filter(({ score }) => score > 0)
   }
 
