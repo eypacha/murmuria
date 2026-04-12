@@ -602,7 +602,7 @@ function updateResourceSprite(scene, resource) {
   }
 
   if (isSheep) {
-    ensureSheepHitFlashBinding(scene, sprite, resource)
+    sprite.clearTint()
   }
 
   if (isBush) {

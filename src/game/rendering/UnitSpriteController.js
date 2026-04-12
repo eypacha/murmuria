@@ -16,6 +16,8 @@ const TALK_BUBBLE_SIDE_OFFSET_X = 34
 const DEBUG_UNIT_LABEL_FONT_SIZE = '14px'
 const DEBUG_UNIT_LABEL_OFFSET_Y = 10
 const DEBUG_UNIT_BORDER_COLOR = 0x5ad8ff
+const SHEEP_HIT_TINT_COLOR = 0xff6b6b
+const SHEEP_HIT_FRAME_INDEX = 2
 const TALK_EMOJI_STYLE = {
   fontFamily: 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif',
   fontSize: '38px',
@@ -133,6 +135,7 @@ export class UnitSpriteController {
     this.updatePosition()
     this.updateDirection()
     this.updateAnimation()
+    this.updateImpactFlash()
     this.updateTalkBubble()
     this.updateDebugLabel()
   }
@@ -184,6 +187,34 @@ export class UnitSpriteController {
 
     this.sprite.anims.play(animationKey, true)
     this.currentAnimationKey = animationKey
+  }
+
+  updateImpactFlash() {
+    if (!this.isSheepInteractionImpactFrame()) {
+      return
+    }
+
+    const resourceSprite = this.scene.resourceSprites?.get(this.unit.workTargetId ?? this.unit.targetId)
+
+    if (!resourceSprite?.active) {
+      return
+    }
+
+    resourceSprite.setTint(SHEEP_HIT_TINT_COLOR)
+  }
+
+  isSheepInteractionImpactFrame() {
+    if (this.currentAnimationKey !== 'villager-interact-knife') {
+      return false
+    }
+
+    if ((this.unit?.workTargetType ?? this.unit?.target?.type) !== 'sheep') {
+      return false
+    }
+
+    const currentFrameIndex = this.sprite?.anims?.currentFrame?.index
+
+    return currentFrameIndex === SHEEP_HIT_FRAME_INDEX
   }
 
   isVisuallyTraveling() {
