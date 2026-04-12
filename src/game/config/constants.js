@@ -3,8 +3,8 @@ export const DEBUG_MODE = false
 export const FOAM_ANIMATION = true
 
 // World / grid
-export const GRID_WIDTH = 50
-export const GRID_HEIGHT = 50
+export const GRID_WIDTH = 64
+export const GRID_HEIGHT = 64
 export const TILE_SIZE = 64
 
 // Render depths
@@ -49,14 +49,14 @@ export const HOUSE_WOOD_COST = 20
 export const HOUSE_BUILD_TIME_MS = 20000
 export const TREE_WOOD_AMOUNT = 50
 export const SHEEP_MEAT_AMOUNT = 10
-export const INITIAL_GOLD_COUNT = 12
+export const INITIAL_GOLD_COUNT = 128
 
 // Initial world population
 export const INITIAL_VILLAGERS = 2
-export const INITIAL_TREE_COUNT = 50
-export const INITIAL_SHEEP_COUNT = 25
-export const INITIAL_ROCK_COUNT = 25
-export const INITIAL_BUSH_COUNT = 25
+export const INITIAL_TREE_COUNT = 192
+export const INITIAL_SHEEP_COUNT = 64
+export const INITIAL_ROCK_COUNT = 64
+export const INITIAL_BUSH_COUNT = 64
 
 // Initial resources
 export const INITIAL_WOOD = 10
