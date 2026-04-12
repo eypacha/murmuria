@@ -583,14 +583,14 @@ export class VillagerWorkSystem {
 
   static getCarryCapacity(unit, resourceType) {
     if (resourceType === 'gold') {
-      return unit.stats?.carryCapacityGold ?? VILLAGER_CARRY_CAPACITY_GOLD
+      return VILLAGER_CARRY_CAPACITY_GOLD
     }
 
     if (resourceType === 'sheep' || resourceType === 'meat') {
-      return unit.stats?.carryCapacityMeat ?? VILLAGER_CARRY_CAPACITY_MEAT
+      return VILLAGER_CARRY_CAPACITY_MEAT
     }
 
-    return unit.stats?.carryCapacityWood ?? VILLAGER_CARRY_CAPACITY_WOOD
+    return VILLAGER_CARRY_CAPACITY_WOOD
   }
 
   static getHarvestChunk(resourceType) {

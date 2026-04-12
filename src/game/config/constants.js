@@ -25,6 +25,9 @@ export const CAMERA_WHEEL_ZOOM_RATE = 0.0012
 export const SIMULATION_TICK_MS = 500
 export const STARTUP_GRACE_PERIOD_TICKS = 20
 
+// Units
+export const UNIT_BASE_MOVE_SPEED = 64
+
 // Villager behavior
 export const VILLAGER_ARRIVAL_THRESHOLD = 4
 export const VILLAGER_PREPARE_TO_TREE_MS = 1000

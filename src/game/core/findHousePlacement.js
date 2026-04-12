@@ -1,5 +1,6 @@
 import { CASTLE_FOOTPRINT } from '../domain/factories/createCastle.js'
 import { HOUSE_FOOTPRINT } from '../domain/factories/createHouse.js'
+import { buildNoBuildZoneTileSet } from './getNoBuildZoneTiles.js'
 import { getOccupiedTiles } from './getOccupiedTiles.js'
 import { isTraversableTile } from './isTraversableTile.js'
 
@@ -23,7 +24,7 @@ function buildBlockedTileSet(blockedEntities = [], reservedKeys = new Set()) {
   return blockedKeys
 }
 
-function isValidHouseFootprint(tiles, x, y, width, height, blockedKeys) {
+function isValidHouseFootprint(tiles, x, y, width, height, blockedKeys, noBuildZoneKeys) {
   if (x < 0 || y < 0) {
     return false
   }
@@ -41,6 +42,10 @@ function isValidHouseFootprint(tiles, x, y, width, height, blockedKeys) {
       }
 
       if (blockedKeys.has(`${x + dx}:${y + dy}`)) {
+        return false
+      }
+
+      if (noBuildZoneKeys.has(`${x + dx}:${y + dy}`)) {
         return false
       }
     }
@@ -67,6 +72,7 @@ export function findHousePlacement({
   const castleCenterX = castle.gridPos.x + Math.floor(castleFootprint.w / 2)
   const castleCenterY = castle.gridPos.y + Math.floor(castleFootprint.h / 2)
   const blockedKeys = buildBlockedTileSet([castle, ...blockedEntities], reservedKeys)
+  const noBuildZoneKeys = buildNoBuildZoneTileSet([castle, ...blockedEntities], reservedKeys)
   const preferredPositions = [
     { x: castle.gridPos.x + castleFootprint.w + 1, y: castle.gridPos.y },
     { x: castle.gridPos.x - HOUSE_FOOTPRINT.w - 1, y: castle.gridPos.y },
@@ -75,7 +81,17 @@ export function findHousePlacement({
   ]
 
   for (const position of preferredPositions) {
-    if (isValidHouseFootprint(tiles, position.x, position.y, width, height, blockedKeys)) {
+    if (
+      isValidHouseFootprint(
+        tiles,
+        position.x,
+        position.y,
+        width,
+        height,
+        blockedKeys,
+        noBuildZoneKeys,
+      )
+    ) {
       return position
     }
   }
@@ -103,7 +119,17 @@ export function findHousePlacement({
   fallbackPositions.sort((a, b) => a.distance - b.distance)
 
   for (const position of fallbackPositions) {
-    if (isValidHouseFootprint(tiles, position.x, position.y, width, height, blockedKeys)) {
+    if (
+      isValidHouseFootprint(
+        tiles,
+        position.x,
+        position.y,
+        width,
+        height,
+        blockedKeys,
+        noBuildZoneKeys,
+      )
+    ) {
       return position
     }
   }

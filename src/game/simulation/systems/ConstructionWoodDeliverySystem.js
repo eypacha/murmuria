@@ -96,7 +96,7 @@ export class ConstructionWoodDeliverySystem {
       }
 
       const amount = Math.min(
-        villager.stats?.carryCapacityWood ?? VILLAGER_CARRY_CAPACITY_WOOD,
+        VILLAGER_CARRY_CAPACITY_WOOD,
         getSiteRemainingNeed(site),
       )
 

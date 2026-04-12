@@ -1,4 +1,5 @@
 import {
+  UNIT_BASE_MOVE_SPEED,
   VILLAGER_ARRIVAL_THRESHOLD,
   VILLAGER_PREPARE_TO_GATHER_MS,
   SIMULATION_TICK_MS,
@@ -63,7 +64,7 @@ export class MovementSystem {
       return
     }
 
-    const speed = unit.stats?.moveSpeed ?? 0
+    const speed = UNIT_BASE_MOVE_SPEED
 
     if (speed <= 0) {
       return

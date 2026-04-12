@@ -1,7 +1,4 @@
 import {
-  VILLAGER_CARRY_CAPACITY_GOLD,
-  VILLAGER_CARRY_CAPACITY_MEAT,
-  VILLAGER_CARRY_CAPACITY_WOOD,
   TILE_SIZE,
 } from '../../config/constants.js'
 
@@ -23,6 +20,9 @@ export function createVillager(x = 0, y = 0, facing = 'right') {
     talkPartner: null,
     talkTargetTile: null,
     bubble: null,
+    status: {
+      health: 100,
+    },
     facing,
     gridPos: {
       x,
@@ -49,12 +49,6 @@ export function createVillager(x = 0, y = 0, facing = 'right') {
     },
     equipment: {
       tool: null,
-    },
-    stats: {
-      moveSpeed: 64,
-      carryCapacityWood: VILLAGER_CARRY_CAPACITY_WOOD,
-      carryCapacityGold: VILLAGER_CARRY_CAPACITY_GOLD,
-      carryCapacityMeat: VILLAGER_CARRY_CAPACITY_MEAT,
     },
   }
 }
