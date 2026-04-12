@@ -28,6 +28,10 @@ const WATER_FOAM_ANIMATION_KEY = 'water-foam_anim'
 const WATER_FOAM_FRAME_COUNT = 16
 const PLATEAU_TERRAIN_TEXTURE_KEY = 'terrain_tileset_plateau'
 const WOOD_RESOURCE_TEXTURE_KEY = 'construction-site-wood-resource'
+const CURSOR_TEXTURE_KEY = 'ui-cursor-default'
+const POINTER_TEXTURE_KEY = 'ui-cursor-pointer'
+const CURSOR_HOTSPOT_X = 22
+const CURSOR_HOTSPOT_Y = 17
 
 const VILLAGER_ASSETS = [
   {
@@ -144,16 +148,22 @@ export class GameScene extends Phaser.Scene {
     this.targetZoom = CAMERA_DEFAULT_ZOOM
     this.zoomAnchor = null
     this.isCameraDragging = false
+    this.cursorSprite = null
+    this.cursorMode = 'default'
     this.lastDragPointerX = 0
     this.lastDragPointerY = 0
     this.handleCameraWheel = this.handleCameraWheel.bind(this)
     this.handleCameraPointerDown = this.handleCameraPointerDown.bind(this)
     this.handleCameraPointerMove = this.handleCameraPointerMove.bind(this)
     this.handleCameraPointerUp = this.handleCameraPointerUp.bind(this)
+    this.handlePointerMove = this.handlePointerMove.bind(this)
     this.handleResize = this.handleResize.bind(this)
   }
 
   preload() {
+    this.load.image(CURSOR_TEXTURE_KEY, '/assets/ui/elements/cursors/cursor.png')
+    this.load.image(POINTER_TEXTURE_KEY, '/assets/ui/elements/cursors/pointer.png')
+
     for (const asset of VILLAGER_ASSETS) {
       this.load.spritesheet(asset.key, asset.path, {
         frameWidth: 192,
@@ -275,7 +285,7 @@ export class GameScene extends Phaser.Scene {
     this.setupCameraControls()
     this.scale.on(Phaser.Scale.Events.RESIZE, this.handleResize, this)
     this.centerCameraOnCastle()
-    this.setCanvasCursor('grab')
+    this.setupCursor()
 
     renderGrid(this, this.worldStore)
     syncBuildings(this, this.worldStore)
@@ -306,6 +316,29 @@ export class GameScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.DESTROY, this.cleanupCameraControls, this)
   }
 
+  setupCursor() {
+    if (this.cursorSprite) {
+      this.cursorSprite.destroy()
+    }
+
+    this.cursorSprite = this.add.image(0, 0, CURSOR_TEXTURE_KEY)
+    this.cursorSprite.setScrollFactor(0)
+    this.cursorSprite.setDepth(10000)
+    this.cursorSprite.setOrigin(0, 0)
+    this.cursorSprite.setVisible(false)
+
+    if (this.game?.canvas) {
+      this.game.canvas.style.cursor = 'none'
+    }
+
+    if (this.input) {
+      this.input.on('pointermove', this.handlePointerMove)
+      this.handlePointerMove(this.input.activePointer)
+    }
+
+    this.setCursorMode('default')
+  }
+
   cleanupCameraControls() {
     if (this.input) {
       this.input.off('wheel', this.handleCameraWheel)
@@ -314,6 +347,7 @@ export class GameScene extends Phaser.Scene {
       this.input.off('pointerup', this.handleCameraPointerUp)
       this.input.off('pointerupoutside', this.handleCameraPointerUp)
       this.input.off('gameout', this.handleCameraPointerUp)
+      this.input.off('pointermove', this.handlePointerMove)
     }
 
     if (this.scale) {
@@ -321,7 +355,14 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.isCameraDragging = false
-    this.setCanvasCursor('')
+    if (this.cursorSprite) {
+      this.cursorSprite.destroy()
+      this.cursorSprite = null
+    }
+
+    if (this.game?.canvas) {
+      this.game.canvas.style.cursor = ''
+    }
   }
 
   centerCameraOnCastle() {
@@ -397,7 +438,7 @@ export class GameScene extends Phaser.Scene {
     this.lastDragPointerY = pointer.y
     this.zoomAnchor = null
     this.targetZoom = this.cameras.main.zoom
-    this.setCanvasCursor('grabbing')
+    this.setCursorMode('default')
   }
 
   handleCameraPointerMove(pointer) {
@@ -426,17 +467,25 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.isCameraDragging = false
-    this.setCanvasCursor('grab')
+    this.setCursorMode('default')
   }
 
-  setCanvasCursor(cursor) {
-    const canvas = this.game?.canvas
-
-    if (!canvas) {
+  handlePointerMove(pointer) {
+    if (!pointer || !this.cursorSprite) {
       return
     }
 
-    canvas.style.cursor = cursor
+    this.cursorSprite.setPosition(pointer.x - CURSOR_HOTSPOT_X, pointer.y - CURSOR_HOTSPOT_Y)
+    this.cursorSprite.setVisible(true)
+  }
+
+  setCursorMode(mode) {
+    if (!this.cursorSprite || this.cursorMode === mode) {
+      return
+    }
+
+    this.cursorMode = mode
+    this.cursorSprite.setTexture(mode === 'pointer' ? POINTER_TEXTURE_KEY : CURSOR_TEXTURE_KEY)
   }
 
   ensureAnimations() {
