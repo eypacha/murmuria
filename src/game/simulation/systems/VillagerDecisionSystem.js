@@ -8,14 +8,112 @@ import { UnitStateSystem } from './UnitStateSystem.js'
 import { SheepStateSystem } from './SheepStateSystem.js'
 import { getIntentBubbleText } from './getIntentBubbleText.js'
 
-export class VillagerDecisionSystem {
+export const MIN_INTENT_THRESHOLD = 0.01
+
+function clamp01(value) {
+  return Math.max(0, Math.min(1, Number(value ?? 0)))
+}
+
+function getCurrentTick(worldStore) {
+  return worldStore?.tick ?? 0
+}
+
+function getIntentContract(type, targetId = null, targetPos = null, createdTick = 0) {
+  return {
+    type,
+    targetId,
+    targetPos,
+    createdTick,
+  }
+}
+
+export const IdleAction = {
+  name: 'idle',
+  isValid() {
+    return true
+  },
+  score() {
+    return 0.05
+  },
+  buildIntent(_unit, _worldStore, currentTick) {
+    return getIntentContract('idle', null, null, currentTick)
+  },
+}
+
+function createGatherAction(resourceType, actionName) {
+  return {
+    name: actionName,
+    resourceType,
+    isValid(unit, worldStore) {
+      if (!DecisionSystem.canUnitDecide(unit)) {
+        return false
+      }
+
+      if (DecisionSystem.getProfileActions(unit.role).length === 0) {
+        return false
+      }
+
+      return DecisionSystem.hasAvailableResourceType(worldStore, resourceType)
+    },
+    score(_unit, worldStore) {
+      const totalNeed = Math.max(
+        0,
+        Number(worldStore?.kingdom?.needs?.wood ?? 0) +
+          Number(worldStore?.kingdom?.needs?.gold ?? 0) +
+          Number(worldStore?.kingdom?.needs?.food ?? 0),
+      )
+
+      if (totalNeed <= 0) {
+        return 0
+      }
+
+      const needMap = {
+        tree: Number(worldStore?.kingdom?.needs?.wood ?? 0),
+        gold: Number(worldStore?.kingdom?.needs?.gold ?? 0),
+        sheep: Number(worldStore?.kingdom?.needs?.food ?? 0),
+      }
+
+      return clamp01((needMap[resourceType] ?? 0) / totalNeed)
+    },
+    buildIntent(unit, worldStore, currentTick) {
+      const selection = DecisionSystem.findBestResourceTarget(unit, worldStore, resourceType)
+
+      if (!selection) {
+        return null
+      }
+
+      return getIntentContract('gather', selection.resource.id, selection.targetTile, currentTick)
+    },
+  }
+}
+
+export const ACTION_REGISTRY = [
+  createGatherAction('tree', 'gather_wood'),
+  createGatherAction('gold', 'gather_gold'),
+  createGatherAction('sheep', 'gather_food'),
+  IdleAction,
+]
+
+export const ROLE_PROFILES = {
+  villager: {
+    actions: ['gather_wood', 'gather_gold', 'gather_food', 'idle'],
+  },
+  default: {
+    actions: ['idle'],
+  },
+}
+
+export class DecisionSystem {
   static update(worldStore) {
     const units = worldStore.units ?? []
-    const occupiedTiles = this.buildOccupiedTileSet(worldStore)
-    const blockedTiles = this.buildOccupiedTileSet(worldStore, { includeUnits: false })
+    const currentTick = getCurrentTick(worldStore)
 
     for (const unit of units) {
-      if (unit.role !== 'villager') {
+      if (!this.canUnitDecide(unit)) {
+        continue
+      }
+
+      if (currentTick < Number(unit.decisionLockUntilTick ?? 0)) {
         continue
       }
 
@@ -23,7 +121,7 @@ export class VillagerDecisionSystem {
         continue
       }
 
-      if (unit.constructionDelivery) {
+      if (unit.constructionDelivery || unit.constructionBuild) {
         continue
       }
 
@@ -35,131 +133,303 @@ export class VillagerDecisionSystem {
         continue
       }
 
-      const unitPosition = this.getGridPosition(unit)
+      const availableActions = this.getAvailableActions(unit)
+      const candidates = []
 
-      if (!unitPosition) {
-        continue
-      }
-
-      const scores = this.computeResourceScores(worldStore)
-
-      if (scores.length === 0) {
-        continue
-      }
-
-      const reachableTiles = this.buildReachabilityMap(unitPosition, worldStore, blockedTiles)
-      let availableScores = scores
-
-      while (availableScores.length > 0) {
-        const resourceType = this.chooseWeightedResource(availableScores)
-
-        if (!resourceType) {
-          break
-        }
-
-        const resources = (worldStore.resources ?? []).filter((resource) => resource.type === resourceType)
-        const selection = this.findNearestAvailableResource(
-          unit,
-          resources,
-          worldStore,
-          occupiedTiles,
-          blockedTiles,
-          reachableTiles,
-        )
-
-        if (!selection) {
-          availableScores = availableScores.filter((score) => score.type !== resourceType)
+      for (const action of availableActions) {
+        if (!action?.isValid?.(unit, worldStore)) {
           continue
         }
 
-        const { resource, targetTile } = selection
+        const score = clamp01(action.score?.(unit, worldStore) ?? 0)
 
-        if (resource.type === 'sheep') {
-          SheepStateSystem.lockSheepAtTileCenter(resource, worldStore.tick ?? 0)
+        if (score < 0) {
+          continue
         }
 
-        this.reserveResourceTargetTile(resource, targetTile)
-        resource.reservedBy = unit.id
-        unit.targetId = resource.id
-        unit.workTargetId = resource.id
-        unit.workTargetType = resource.type
-        unit.workTargetTile = { x: targetTile.x, y: targetTile.y }
-        unit.target = {
-          type: resource.type,
-          id: resource.id,
-          tile: targetTile,
-        }
-        unit.path = []
-        unit.pathGoalKey = null
-        unit.interactionFacing = this.getFacingForResource(resource, targetTile)
-        unit.facing = unit.interactionFacing
-        unit.equipment = unit.equipment ?? { tool: null }
-        unit.equipment.tool = this.getToolForResourceType(resourceType)
-        unit.state = this.getPreparingStateForResourceType(resourceType)
+        const intent = action.buildIntent?.(unit, worldStore, currentTick)
 
-        const intentText = getIntentBubbleText(resourceType)
-
-        if (intentText) {
-          const currentTick = worldStore.tick ?? 0
-
-          unit.bubble = {
-            text: intentText,
-            untilTick: currentTick + VILLAGER_INTENT_BUBBLE_DURATION_TICKS,
-          }
+        if (!intent) {
+          continue
         }
 
-        UnitStateSystem.queueTimedTransition(
-          unit,
-          worldStore,
-          this.getMovingStateForResourceType(resourceType),
-          VILLAGER_INTENT_ACTION_DELAY_TICKS * SIMULATION_TICK_MS,
-        )
-        break
+        candidates.push({
+          action,
+          score,
+          intent,
+        })
       }
-    }
-  }
 
-  static computeResourceScores(worldStore) {
-    const woodNeed = Number(worldStore.kingdom?.needs?.wood ?? 0)
-    const goldNeed = Number(worldStore.kingdom?.needs?.gold ?? 0)
-    const foodNeed = Number(worldStore.kingdom?.needs?.food ?? 0)
-
-    return [
-      { type: 'tree', score: woodNeed },
-      { type: 'gold', score: goldNeed },
-      { type: 'sheep', score: foodNeed },
-    ].filter(({ score }) => score > 0)
-  }
-
-  static chooseWeightedResource(scores) {
-    let totalScore = 0
-
-    for (const { score } of scores) {
-      if (score > 0) {
-        totalScore += score
-      }
-    }
-
-    if (totalScore <= 0) {
-      return null
-    }
-
-    const targetScore = Math.random() * totalScore
-    let accumulatedScore = 0
-
-    for (const { type, score } of scores) {
-      if (score <= 0) {
+      if (candidates.length === 0) {
+        unit.intent = getIntentContract('idle', null, null, currentTick)
+        unit.lastDecision = {
+          action: 'idle',
+          score: IdleAction.score(unit, worldStore),
+          candidates: [],
+          tick: currentTick,
+        }
+        unit.decisionLockUntilTick = currentTick + 1
         continue
       }
 
-      accumulatedScore += score
+      candidates.sort((left, right) => right.score - left.score)
+      const bestCandidate = candidates[0]
 
-      if (targetScore < accumulatedScore) {
-        return type
+      if (!bestCandidate || bestCandidate.score < MIN_INTENT_THRESHOLD) {
+        unit.intent = getIntentContract('idle', null, null, currentTick)
+        unit.lastDecision = {
+          action: 'idle',
+          score: IdleAction.score(unit, worldStore),
+          candidates: candidates.map((candidate) => ({
+            action: candidate.action.name,
+            score: candidate.score,
+          })),
+          tick: currentTick,
+        }
+        unit.decisionLockUntilTick = currentTick + 1
+        continue
       }
+
+      unit.intent = bestCandidate.intent
+      unit.lastDecision = {
+        action: bestCandidate.action.name,
+        score: bestCandidate.score,
+        candidates: candidates.map((candidate) => ({
+          action: candidate.action.name,
+          score: candidate.score,
+        })),
+        tick: currentTick,
+      }
+      unit.decisionLockUntilTick = currentTick + 1
+    }
+  }
+
+  static resolveIntents(worldStore) {
+    const currentTick = getCurrentTick(worldStore)
+    const units = worldStore.units ?? []
+
+    for (const unit of units) {
+      const intent = unit.intent
+
+      if (!intent || intent.type === 'idle') {
+        continue
+      }
+
+      if (intent.type !== 'gather') {
+        continue
+      }
+
+      const resource = (worldStore.resources ?? []).find((candidate) => candidate.id === intent.targetId)
+
+      if (!resource || !this.isResourceAvailable(resource)) {
+        unit.intent = null
+        unit.decisionLockUntilTick = currentTick + 1
+        continue
+      }
+
+      const targetTile = intent.targetPos
+
+      if (!targetTile) {
+        unit.intent = null
+        unit.decisionLockUntilTick = currentTick + 1
+        continue
+      }
+
+      const claimResult = this.tryClaimResourceTarget(resource, targetTile, unit.id)
+
+      if (!claimResult) {
+        const fallbackSelection = this.findBestResourceTarget(unit, worldStore, resource.type)
+        const fallbackTargetTile = fallbackSelection?.resource?.id === resource.id
+          ? fallbackSelection.targetTile
+          : null
+
+        if (!fallbackTargetTile || !this.tryClaimResourceTarget(resource, fallbackTargetTile, unit.id)) {
+          unit.intent = null
+          unit.decisionLockUntilTick = currentTick + 1
+          continue
+        }
+
+        targetTile.x = fallbackTargetTile.x
+        targetTile.y = fallbackTargetTile.y
+      }
+
+      if (resource.type === 'sheep') {
+        SheepStateSystem.lockSheepAtTileCenter(resource, currentTick)
+      }
+
+      unit.targetId = resource.id
+      unit.workTargetId = resource.id
+      unit.workTargetType = resource.type
+      unit.workTargetTile = { x: targetTile.x, y: targetTile.y }
+      unit.target = {
+        type: resource.type,
+        id: resource.id,
+        tile: { x: targetTile.x, y: targetTile.y },
+      }
+      unit.path = []
+      unit.pathGoalKey = null
+      unit.interactionFacing = this.getFacingForResource(resource, targetTile)
+      unit.facing = unit.interactionFacing
+      unit.equipment = unit.equipment ?? { tool: null }
+      unit.equipment.tool = this.getToolForResourceType(resource.type)
+      unit.state = this.getPreparingStateForResourceType(resource.type)
+
+      const intentText = getIntentBubbleText(resource.type)
+
+      if (intentText) {
+        unit.bubble = {
+          text: intentText,
+          untilTick: currentTick + VILLAGER_INTENT_BUBBLE_DURATION_TICKS,
+        }
+      }
+
+      UnitStateSystem.queueTimedTransition(
+        unit,
+        worldStore,
+        this.getMovingStateForResourceType(resource.type),
+        VILLAGER_INTENT_ACTION_DELAY_TICKS * SIMULATION_TICK_MS,
+      )
+
+      unit.intent = null
+    }
+  }
+
+  static getAvailableActions(unit) {
+    const profileActions = this.getProfileActions(unit?.role)
+
+    return ACTION_REGISTRY.filter((action) => profileActions.includes(action.name))
+  }
+
+  static getProfileActions(role) {
+    return ROLE_PROFILES[role]?.actions ?? ROLE_PROFILES.default.actions
+  }
+
+  static canUnitDecide(unit) {
+    return Boolean(unit) && unit.kind === 'unit'
+  }
+
+  static hasAvailableResourceType(worldStore, resourceType) {
+    return (worldStore?.resources ?? []).some((resource) => {
+      if (resource.type !== resourceType) {
+        return false
+      }
+
+      return this.isResourceAvailable(resource)
+    })
+  }
+
+  static getWorkSlots(target) {
+    if (!target) {
+      return []
     }
 
-    return scores.find(({ score }) => score > 0)?.type ?? null
+    if (Array.isArray(target.workSlots) && target.workSlots.length > 0) {
+      return target.workSlots
+        .map((slot) => {
+          if (!slot) {
+            return null
+          }
+
+          if (Number.isFinite(slot.x) && Number.isFinite(slot.y)) {
+            return { x: slot.x, y: slot.y }
+          }
+
+          if (
+            Number.isFinite(slot.offsetX) &&
+            Number.isFinite(slot.offsetY) &&
+            target.gridPos &&
+            Number.isFinite(target.gridPos.x) &&
+            Number.isFinite(target.gridPos.y)
+          ) {
+            return {
+              x: target.gridPos.x + slot.offsetX,
+              y: target.gridPos.y + slot.offsetY,
+            }
+          }
+
+          return null
+        })
+        .filter(Boolean)
+    }
+
+    if (Array.isArray(target.workSlotOffsets) && target.workSlotOffsets.length > 0) {
+      return target.workSlotOffsets
+        .map((offset) => {
+          if (
+            !offset ||
+            !target.gridPos ||
+            !Number.isFinite(target.gridPos.x) ||
+            !Number.isFinite(target.gridPos.y)
+          ) {
+            return null
+          }
+
+          const offsetX = Number(offset.x ?? offset.offsetX)
+          const offsetY = Number(offset.y ?? offset.offsetY)
+
+          if (!Number.isFinite(offsetX) || !Number.isFinite(offsetY)) {
+            return null
+          }
+
+          return {
+            x: target.gridPos.x + offsetX,
+            y: target.gridPos.y + offsetY,
+          }
+        })
+        .filter(Boolean)
+    }
+
+    const position = target.gridPos
+    const footprint = target.footprint ?? { w: 1, h: 1 }
+
+    if (
+      !position ||
+      !Number.isFinite(position.x) ||
+      !Number.isFinite(position.y) ||
+      !Number.isFinite(footprint.w) ||
+      !Number.isFinite(footprint.h)
+    ) {
+      return []
+    }
+
+    const slots = []
+
+    for (let dy = 0; dy < footprint.h; dy += 1) {
+      slots.push({ x: position.x - 1, y: position.y + dy })
+      slots.push({ x: position.x + footprint.w, y: position.y + dy })
+    }
+
+    return slots
+  }
+
+  static getResourceWorkSlots(resource) {
+    return this.getWorkSlots(resource)
+  }
+
+  static getWorkSlotLimit(target) {
+    if (!target) {
+      return 0
+    }
+
+    if (Number.isFinite(target.workSlotLimit)) {
+      return Math.max(0, Math.floor(Number(target.workSlotLimit)))
+    }
+
+    if (target.type === 'tree' || target.type === 'gold') {
+      return 2
+    }
+
+    if (target.type === 'sheep') {
+      return 1
+    }
+
+    const slots = this.getWorkSlots(target)
+
+    if (slots.length > 0) {
+      return slots.length
+    }
+
+    return 1
   }
 
   static findNearestAvailableResource(
@@ -211,6 +481,62 @@ export class VillagerDecisionSystem {
     }
   }
 
+  static findBestResourceTarget(unit, worldStore, resourceType) {
+    const occupiedTiles = this.buildOccupiedTileSet(worldStore)
+    const blockedTiles = this.buildOccupiedTileSet(worldStore, { includeUnits: false })
+    const unitPosition = this.getGridPosition(unit)
+
+    if (!unitPosition) {
+      return null
+    }
+
+    const reachableTiles = this.buildReachabilityMap(unitPosition, worldStore, blockedTiles)
+    const resources = (worldStore.resources ?? []).filter((resource) => resource.type === resourceType)
+
+    return this.findNearestAvailableResource(
+      unit,
+      resources,
+      worldStore,
+      occupiedTiles,
+      blockedTiles,
+      reachableTiles,
+    )
+  }
+
+  static tryClaimResourceTarget(resource, targetTile, unitId) {
+    if (!resource || !targetTile || !unitId) {
+      return false
+    }
+
+    const availableSlots = this.getWorkSlots(resource)
+    const targetIsValidSlot = availableSlots.some((slot) => {
+      return slot.x === targetTile.x && slot.y === targetTile.y
+    })
+
+    if (!targetIsValidSlot) {
+      return false
+    }
+
+    const tileKey = this.tileKey(targetTile)
+    const reservedTargetTiles = Array.isArray(resource.reservedTargetTiles)
+      ? resource.reservedTargetTiles
+      : []
+
+    if (reservedTargetTiles.includes(tileKey)) {
+      return false
+    }
+
+    const claimLimit = this.getWorkSlotLimit(resource)
+
+    if (claimLimit <= 0 || reservedTargetTiles.length >= claimLimit) {
+      return false
+    }
+
+    reservedTargetTiles.push(tileKey)
+    resource.reservedTargetTiles = reservedTargetTiles
+    return true
+  }
+
   static findReachableAdjacentTile(resource, worldStore, reachableTiles, occupiedTiles) {
     const resourceTile = this.getResourceGridPosition(resource)
     if (!resourceTile) {
@@ -223,14 +549,8 @@ export class VillagerDecisionSystem {
       return null
     }
 
-    const footprint = resource.footprint ?? { w: 1, h: 1 }
-    const candidates = []
+    const candidates = this.getResourceWorkSlots(resource)
     const reservedTargetTiles = this.getReservedTargetTiles(resource)
-
-    for (let dy = 0; dy < footprint.h; dy += 1) {
-      candidates.push({ x: resourceTile.x - 1, y: resourceTile.y + dy })
-      candidates.push({ x: resourceTile.x + footprint.w, y: resourceTile.y + dy })
-    }
 
     let closestTile = null
     let shortestPathLength = Number.POSITIVE_INFINITY
@@ -273,15 +593,15 @@ export class VillagerDecisionSystem {
     }
   }
 
-  static claimResourceTarget(resource, targetTile) {
+  static claimResourceTarget(resource, targetTile, unitId) {
     if (!resource || !targetTile) {
-      return
+      return false
     }
 
-    this.reserveResourceTargetTile(resource, targetTile)
+    return this.tryClaimResourceTarget(resource, targetTile, unitId)
   }
 
-  static reserveResourceTargetTile(resource, targetTile) {
+  static reserveWorkSlot(resource, targetTile) {
     if (!resource || !targetTile) {
       return
     }
@@ -298,7 +618,11 @@ export class VillagerDecisionSystem {
     resource.reservedTargetTiles = reservedTargetTiles
   }
 
-  static releaseResourceTargetTile(resource, targetTile) {
+  static reserveResourceTargetTile(resource, targetTile) {
+    return this.reserveWorkSlot(resource, targetTile)
+  }
+
+  static releaseWorkSlot(resource, targetTile) {
     if (!resource || !targetTile || !Array.isArray(resource.reservedTargetTiles)) {
       return
     }
@@ -311,6 +635,10 @@ export class VillagerDecisionSystem {
     } else {
       delete resource.reservedTargetTiles
     }
+  }
+
+  static releaseResourceTargetTile(resource, targetTile) {
+    return this.releaseWorkSlot(resource, targetTile)
   }
 
   static getReservedTargetTiles(resource) {
@@ -418,11 +746,16 @@ export class VillagerDecisionSystem {
       return false
     }
 
-    if (resource.type === 'sheep') {
-      return resource.reservedBy === null || resource.reservedBy === undefined
+    const reservedTargetTiles = Array.isArray(resource?.reservedTargetTiles)
+      ? resource.reservedTargetTiles
+      : []
+    const claimLimit = this.getWorkSlotLimit(resource)
+
+    if (claimLimit <= 0) {
+      return false
     }
 
-    return true
+    return reservedTargetTiles.length < claimLimit
   }
 
   static isInsideWorld(tile, worldStore) {
@@ -521,3 +854,5 @@ export class VillagerDecisionSystem {
     return `${tile.x}:${tile.y}`
   }
 }
+
+export { DecisionSystem as VillagerDecisionSystem }

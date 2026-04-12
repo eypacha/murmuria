@@ -8,7 +8,7 @@ import {
 import { findCastleDropTile } from '../../core/findCastleDropTile.js'
 import { findConstructionSiteDeliveryTile } from '../../core/findConstructionSiteDeliveryTile.js'
 import { UnitStateSystem } from './UnitStateSystem.js'
-import { VillagerDecisionSystem } from './VillagerDecisionSystem.js'
+import { DecisionSystem } from './DecisionSystem.js'
 import { getIntentBubbleText } from './getIntentBubbleText.js'
 
 function getHouseConstructionSites(worldStore) {
@@ -154,17 +154,17 @@ export class ConstructionWoodDeliverySystem {
         continue
       }
 
-      const unitPosition = VillagerDecisionSystem.getGridPosition(villager)
-      const occupiedTiles = VillagerDecisionSystem.buildOccupiedTileSet(worldStore)
-      const blockedTiles = VillagerDecisionSystem.buildOccupiedTileSet(worldStore, { includeUnits: false })
+      const unitPosition = DecisionSystem.getGridPosition(villager)
+      const occupiedTiles = DecisionSystem.buildOccupiedTileSet(worldStore)
+      const blockedTiles = DecisionSystem.buildOccupiedTileSet(worldStore, { includeUnits: false })
 
       if (!unitPosition) {
         continue
       }
 
-      const reachableTiles = VillagerDecisionSystem.buildReachabilityMap(unitPosition, worldStore, blockedTiles)
+      const reachableTiles = DecisionSystem.buildReachabilityMap(unitPosition, worldStore, blockedTiles)
       const trees = (worldStore.resources ?? []).filter((resource) => resource.type === 'tree')
-      const selection = VillagerDecisionSystem.findNearestAvailableResource(
+      const selection = DecisionSystem.findNearestAvailableResource(
         villager,
         trees,
         worldStore,
@@ -179,8 +179,10 @@ export class ConstructionWoodDeliverySystem {
 
       const { resource, targetTile: treeTargetTile } = selection
 
-      VillagerDecisionSystem.claimResourceTarget(resource, treeTargetTile)
-      resource.reservedBy = villager.id
+      if (!DecisionSystem.claimResourceTarget(resource, treeTargetTile, villager.id)) {
+        continue
+      }
+
       villager.targetId = resource.id
       villager.workTargetId = resource.id
       villager.workTargetType = resource.type
@@ -192,7 +194,7 @@ export class ConstructionWoodDeliverySystem {
       }
       villager.path = []
       villager.pathGoalKey = null
-      villager.interactionFacing = VillagerDecisionSystem.getFacingForResource(resource, treeTargetTile)
+      villager.interactionFacing = DecisionSystem.getFacingForResource(resource, treeTargetTile)
       villager.facing = villager.interactionFacing
       villager.equipment = villager.equipment ?? { tool: null }
       villager.equipment.tool = 'axe'

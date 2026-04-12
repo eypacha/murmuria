@@ -8,7 +8,7 @@ import {
   ConstructionBuildAssignmentSystem,
   ConstructionBuildProgressSystem,
 } from './systems/ConstructionBuildSystem.js'
-import { VillagerDecisionSystem } from './systems/VillagerDecisionSystem.js'
+import { DecisionSystem } from './systems/DecisionSystem.js'
 import { BubbleSystem } from './systems/BubbleSystem.js'
 import { MovementSystem } from './systems/MovementSystem.js'
 import { UnitStateSystem } from './systems/UnitStateSystem.js'
@@ -51,7 +51,8 @@ export class SimulationEngine {
     ConstructionWoodDeliverySystem.update(this.worldStore)
     ConstructionSiteSystem.update(this.worldStore)
     ConstructionBuildAssignmentSystem.update(this.worldStore)
-    VillagerDecisionSystem.update(this.worldStore)
+    DecisionSystem.update(this.worldStore)
+    DecisionSystem.resolveIntents(this.worldStore)
     BubbleSystem.update(this.worldStore)
     UnitStateSystem.update(this.worldStore)
     MovementSystem.update(this.worldStore)

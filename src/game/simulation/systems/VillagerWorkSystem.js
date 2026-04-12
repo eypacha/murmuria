@@ -15,7 +15,7 @@ import { findCastleDropTile } from '../../core/findCastleDropTile.js'
 import { getOccupiedTiles } from '../../core/getOccupiedTiles.js'
 import { isTraversableWorldTile } from '../../core/isTraversableTile.js'
 import { UnitStateSystem } from './UnitStateSystem.js'
-import { VillagerDecisionSystem } from './VillagerDecisionSystem.js'
+import { DecisionSystem } from './DecisionSystem.js'
 import { getIntentBubbleText } from './getIntentBubbleText.js'
 
 export class VillagerWorkSystem {
@@ -109,10 +109,11 @@ export class VillagerWorkSystem {
     }
 
     if (resource) {
-      VillagerDecisionSystem.releaseResourceTargetTile(
+      DecisionSystem.releaseResourceTargetTile(
         resource,
         unit.workTargetTile ?? unit.target?.tile ?? null,
       )
+      resource.reservedBy = null
     }
 
     if (resourceType === 'sheep') {
@@ -353,17 +354,17 @@ export class VillagerWorkSystem {
 
     const currentTick = worldStore.tick ?? 0
     const unitPosition = this.getGridPosition(unit)
-    const occupiedTiles = VillagerDecisionSystem.buildOccupiedTileSet(worldStore)
-    const blockedTiles = VillagerDecisionSystem.buildOccupiedTileSet(worldStore, { includeUnits: false })
+    const occupiedTiles = DecisionSystem.buildOccupiedTileSet(worldStore)
+    const blockedTiles = DecisionSystem.buildOccupiedTileSet(worldStore, { includeUnits: false })
 
     if (!unitPosition) {
       this.resetConstructionDelivery(unit, worldStore)
       return
     }
 
-    const reachableTiles = VillagerDecisionSystem.buildReachabilityMap(unitPosition, worldStore, blockedTiles)
+    const reachableTiles = DecisionSystem.buildReachabilityMap(unitPosition, worldStore, blockedTiles)
     const trees = (worldStore.resources ?? []).filter((resource) => resource?.type === 'tree')
-    const selection = VillagerDecisionSystem.findNearestAvailableResource(
+    const selection = DecisionSystem.findNearestAvailableResource(
       unit,
       trees,
       worldStore,
@@ -379,8 +380,11 @@ export class VillagerWorkSystem {
 
     const { resource, targetTile } = selection
 
-    VillagerDecisionSystem.claimResourceTarget(resource, targetTile)
-    resource.reservedBy = unit.id
+    if (!DecisionSystem.claimResourceTarget(resource, targetTile, unit.id)) {
+      this.resetConstructionDelivery(unit, worldStore)
+      return
+    }
+
     unit.targetId = resource.id
     unit.workTargetId = resource.id
     unit.workTargetType = resource.type

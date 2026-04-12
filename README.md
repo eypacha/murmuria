@@ -47,7 +47,7 @@ src/
 
 - `src/game/core/createWorld.js`: genera la isla, ubica el castillo y spawnea unidades y recursos iniciales.
 - `src/game/simulation/SimulationEngine.js`: coordina el loop de simulacion.
-- `src/game/simulation/systems/VillagerDecisionSystem.js`: decide que recurso buscar segun los deseos del reino.
+- `src/game/simulation/systems/DecisionSystem.js`: decide intents de las unidades segun sus perfiles y las necesidades del reino.
 - `src/game/simulation/systems/MovementSystem.js`: resuelve rutas y movimiento de peones.
 - `src/game/simulation/systems/UnitStateSystem.js`: maneja transiciones con delay por tick.
 - `src/game/simulation/systems/VillagerWorkSystem.js`: procesa recoleccion, capacidad de carga y entrega.

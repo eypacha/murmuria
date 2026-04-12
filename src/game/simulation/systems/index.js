@@ -6,6 +6,7 @@ export {
 export { ConstructionSiteSystem } from './ConstructionSiteSystem.js'
 export { ConstructionWoodDeliverySystem } from './ConstructionWoodDeliverySystem.js'
 export { HousingProposalSystem } from './HousingProposalSystem.js'
+export { DecisionSystem } from './DecisionSystem.js'
 export { MovementSystem } from './MovementSystem.js'
 export { UnitStateSystem } from './UnitStateSystem.js'
 export { VillagerDecisionSystem } from './VillagerDecisionSystem.js'
