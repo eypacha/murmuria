@@ -8,6 +8,8 @@ import {
 import { resolveUnitAnimation } from './resolveUnitAnimation.js'
 
 const VILLAGER_DISPLAY_SIZE = 192
+const UNIT_INTERACTION_SIZE = 64
+const UNIT_INTERACTION_OFFSET_Y = VILLAGER_DISPLAY_SIZE * 0.4
 const TALK_BUBBLE_TEXTURE_KEY = 'villager-talk-bubble'
 const TALK_BUBBLE_WIDTH = 98
 const TALK_BUBBLE_HEIGHT = 104
@@ -110,6 +112,7 @@ export class UnitSpriteController {
     this.debugLabel = null
     this.debugLabelKey = null
     this.debugBorder = DEBUG_MODE ? scene.add.graphics() : null
+    this.interactionZone = null
 
     const initialPosition = this.getRenderPosition()
     const initialAnimationKey = resolveUnitAnimation(unit)
@@ -122,6 +125,18 @@ export class UnitSpriteController {
     this.sprite.setDisplaySize(VILLAGER_DISPLAY_SIZE, VILLAGER_DISPLAY_SIZE)
     this.sprite.setDepth(initialPosition.y)
     this.sprite.play(initialAnimationKey, true)
+
+    this.interactionZone = scene.add.zone(
+      initialPosition.x,
+      initialPosition.y - UNIT_INTERACTION_OFFSET_Y,
+      UNIT_INTERACTION_SIZE,
+      UNIT_INTERACTION_SIZE,
+    )
+    this.interactionZone.setOrigin(0.5, 0.5)
+    this.interactionZone.setInteractive({ useHandCursor: false })
+    this.interactionZone.on('pointerover', this.handlePointerOver, this)
+    this.interactionZone.on('pointerout', this.handlePointerOut, this)
+    this.interactionZone.on('pointerdown', this.handlePointerDown, this)
 
     this.currentAnimationKey = initialAnimationKey
     this.updateDirection()
@@ -168,6 +183,10 @@ export class UnitSpriteController {
 
     this.sprite.setPosition(nextX, nextY)
     this.sprite.setDepth(nextY)
+    if (this.interactionZone) {
+      this.interactionZone.setPosition(nextX, nextY - UNIT_INTERACTION_OFFSET_Y)
+      this.interactionZone.setDepth(nextY + 0.01)
+    }
 
     if (this.debugBorder) {
       this.updateDebugBorder()
@@ -391,6 +410,26 @@ export class UnitSpriteController {
     this.debugBorder.setDepth(this.sprite.depth - 1)
   }
 
+  handlePointerOver() {
+    this.scene?.handleUnitPointerOver?.(this.unit?.id)
+  }
+
+  handlePointerOut() {
+    this.scene?.handleUnitPointerOut?.(this.unit?.id)
+  }
+
+  handlePointerDown(pointer, _localX, _localY, event) {
+    if (event?.stopPropagation) {
+      event.stopPropagation()
+    }
+
+    if (pointer?.button !== 0) {
+      return
+    }
+
+    this.scene?.handleUnitPointerDown?.(this.unit?.id)
+  }
+
   getRenderPosition() {
     const worldPosition = getUnitWorldPosition(this.unit)
 
@@ -412,6 +451,14 @@ export class UnitSpriteController {
     if (this.sprite) {
       this.sprite.destroy()
       this.sprite = null
+    }
+
+    if (this.interactionZone) {
+      this.interactionZone.off('pointerover', this.handlePointerOver, this)
+      this.interactionZone.off('pointerout', this.handlePointerOut, this)
+      this.interactionZone.off('pointerdown', this.handlePointerDown, this)
+      this.interactionZone.destroy()
+      this.interactionZone = null
     }
   }
 }

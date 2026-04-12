@@ -12,6 +12,7 @@ import { syncBuildings } from './renderers/syncBuildings.js'
 import { syncConstructionSites } from './renderers/syncConstructionSites.js'
 import { syncHouses } from './renderers/syncHouses.js'
 import { syncResources } from './renderers/syncResources.js'
+import { SelectionCameraSystem } from './systems/SelectionCameraSystem.js'
 import {
   GOLD_FRAME_COUNT,
   GOLD_VARIANT_CONFIGS,
@@ -150,12 +151,14 @@ export class GameScene extends Phaser.Scene {
     this.isCameraDragging = false
     this.cursorSprite = null
     this.cursorMode = 'default'
+    this.selectionCameraSystem = new SelectionCameraSystem(this)
     this.lastDragPointerX = 0
     this.lastDragPointerY = 0
     this.handleCameraWheel = this.handleCameraWheel.bind(this)
     this.handleCameraPointerDown = this.handleCameraPointerDown.bind(this)
     this.handleCameraPointerMove = this.handleCameraPointerMove.bind(this)
     this.handleCameraPointerUp = this.handleCameraPointerUp.bind(this)
+    this.handleScenePointerDown = this.handleScenePointerDown.bind(this)
     this.handlePointerMove = this.handlePointerMove.bind(this)
     this.handleResize = this.handleResize.bind(this)
   }
@@ -293,6 +296,7 @@ export class GameScene extends Phaser.Scene {
     syncHouses(this, this.worldStore)
     syncResources(this, this.worldStore)
     this.syncUnitControllers()
+    this.selectionCameraSystem.update()
   }
 
   getWorldPixelSize() {
@@ -306,12 +310,14 @@ export class GameScene extends Phaser.Scene {
   }
 
   setupCameraControls() {
+    this.input.setTopOnly(true)
     this.input.on('wheel', this.handleCameraWheel)
     this.input.on('pointerdown', this.handleCameraPointerDown)
     this.input.on('pointermove', this.handleCameraPointerMove)
     this.input.on('pointerup', this.handleCameraPointerUp)
     this.input.on('pointerupoutside', this.handleCameraPointerUp)
     this.input.on('gameout', this.handleCameraPointerUp)
+    this.input.on('pointerdown', this.handleScenePointerDown)
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.cleanupCameraControls, this)
     this.events.once(Phaser.Scenes.Events.DESTROY, this.cleanupCameraControls, this)
   }
@@ -347,6 +353,7 @@ export class GameScene extends Phaser.Scene {
       this.input.off('pointerup', this.handleCameraPointerUp)
       this.input.off('pointerupoutside', this.handleCameraPointerUp)
       this.input.off('gameout', this.handleCameraPointerUp)
+      this.input.off('pointerdown', this.handleScenePointerDown)
       this.input.off('pointermove', this.handlePointerMove)
     }
 
@@ -355,6 +362,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.isCameraDragging = false
+    this.clearSelectedUnit()
     if (this.cursorSprite) {
       this.cursorSprite.destroy()
       this.cursorSprite = null
@@ -468,6 +476,46 @@ export class GameScene extends Phaser.Scene {
 
     this.isCameraDragging = false
     this.setCursorMode('default')
+  }
+
+  handleScenePointerDown(pointer, currentlyOver = []) {
+    if (!pointer || pointer.button !== 0) {
+      return
+    }
+
+    if (Array.isArray(currentlyOver) && currentlyOver.length > 0) {
+      return
+    }
+
+    this.clearSelectedUnit()
+  }
+
+  handleUnitPointerOver() {
+    this.setCursorMode('pointer')
+  }
+
+  handleUnitPointerOut() {
+    this.setCursorMode('default')
+  }
+
+  handleUnitPointerDown(unitId) {
+    if (!unitId) {
+      return
+    }
+
+    this.selectUnit(unitId)
+  }
+
+  selectUnit(unitId) {
+    if (!unitId || this.selectionCameraSystem.selectedUnitId === unitId) {
+      return
+    }
+
+    this.selectionCameraSystem.selectUnit(unitId)
+  }
+
+  clearSelectedUnit() {
+    this.selectionCameraSystem.clearSelection()
   }
 
   handlePointerMove(pointer) {
@@ -606,6 +654,7 @@ export class GameScene extends Phaser.Scene {
     syncHouses(this, this.worldStore)
     syncResources(this, this.worldStore)
     this.syncUnitControllers()
+    this.selectionCameraSystem.update(delta)
   }
 
   updateCameraZoom(delta) {
@@ -674,6 +723,10 @@ export class GameScene extends Phaser.Scene {
     for (const [unitId, controller] of this.unitControllers.entries()) {
       if (activeUnitIds.has(unitId)) {
         continue
+      }
+
+      if (this.selectionCameraSystem.selectedUnitId === unitId) {
+        this.clearSelectedUnit()
       }
 
       controller.destroy()
