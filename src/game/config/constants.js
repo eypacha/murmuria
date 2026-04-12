@@ -27,6 +27,7 @@ export const STARTUP_GRACE_PERIOD_TICKS = 20
 
 // Units
 export const UNIT_BASE_MOVE_SPEED = 64
+export const UNIT_INITIAL_HEALTH = 20
 
 // Villager behavior
 export const VILLAGER_ARRIVAL_THRESHOLD = 4
