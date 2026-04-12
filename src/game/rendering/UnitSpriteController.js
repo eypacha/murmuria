@@ -19,6 +19,8 @@ const DEBUG_UNIT_LABEL_FONT_SIZE = '14px'
 const DEBUG_UNIT_LABEL_OFFSET_Y = 10
 const DEBUG_UNIT_BORDER_COLOR = 0x5ad8ff
 const SHEEP_HIT_TINT_COLOR = 0xff6b6b
+const UNIT_HIT_TINT_COLOR = 0xff6b6b
+const UNIT_HIT_FLASH_MS = 90
 const SHEEP_HIT_FRAME_INDEX = 2
 const TALK_EMOJI_STYLE = {
   fontFamily: 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif',
@@ -113,6 +115,8 @@ export class UnitSpriteController {
     this.debugLabelKey = null
     this.debugBorder = DEBUG_MODE ? scene.add.graphics() : null
     this.interactionZone = null
+    this.healthFlashTimer = null
+    this.lastHealth = this.getCurrentHealth()
 
     const initialPosition = this.getRenderPosition()
     const initialAnimationKey = resolveUnitAnimation(unit)
@@ -147,6 +151,7 @@ export class UnitSpriteController {
   }
 
   update() {
+    this.updateHealthFlash()
     this.updatePosition()
     this.updateDirection()
     this.updateAnimation()
@@ -220,6 +225,37 @@ export class UnitSpriteController {
     }
 
     resourceSprite.setTint(SHEEP_HIT_TINT_COLOR)
+  }
+
+  updateHealthFlash() {
+    const currentHealth = this.getCurrentHealth()
+
+    if (currentHealth < this.lastHealth) {
+      this.flashDamageTint()
+    }
+
+    this.lastHealth = currentHealth
+  }
+
+  flashDamageTint() {
+    if (!this.sprite) {
+      return
+    }
+
+    if (this.healthFlashTimer) {
+      this.healthFlashTimer.remove(false)
+      this.healthFlashTimer = null
+    }
+
+    this.sprite.setTint(UNIT_HIT_TINT_COLOR)
+
+    this.healthFlashTimer = this.scene.time.delayedCall(UNIT_HIT_FLASH_MS, () => {
+      if (this.sprite?.active) {
+        this.sprite.clearTint()
+      }
+
+      this.healthFlashTimer = null
+    })
   }
 
   isSheepInteractionImpactFrame() {
@@ -439,9 +475,18 @@ export class UnitSpriteController {
     }
   }
 
+  getCurrentHealth() {
+    return Number(this.unit?.status?.health ?? 100)
+  }
+
   destroy() {
     this.destroyTalkBubble()
     this.destroyDebugLabel()
+
+    if (this.healthFlashTimer) {
+      this.healthFlashTimer.remove(false)
+      this.healthFlashTimer = null
+    }
 
     if (this.debugBorder) {
       this.debugBorder.destroy()

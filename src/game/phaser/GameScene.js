@@ -33,6 +33,8 @@ const CURSOR_TEXTURE_KEY = 'ui-cursor-default'
 const POINTER_TEXTURE_KEY = 'ui-cursor-pointer'
 const CURSOR_HOTSPOT_X = 22
 const CURSOR_HOTSPOT_Y = 17
+const SKULL_HOLD_FRAME_INDEX = 6
+const SKULL_HOLD_DURATION_MS = 5000
 
 const VILLAGER_ASSETS = [
   {
@@ -131,6 +133,13 @@ const VILLAGER_ASSETS = [
     frameCount: 6,
   },
   {
+    key: 'villager-dead',
+    path: '/assets/units/dead.png',
+    frameCount: 14,
+    frameWidth: 128,
+    frameHeight: 128,
+  },
+  {
     key: 'villager-interact-hammer',
     path: '/assets/units/blue/villager/villager-interact-hammer.png',
     frameCount: 3,
@@ -146,6 +155,7 @@ export class GameScene extends Phaser.Scene {
     this.constructionSiteSprites = new Map()
     this.resourceSprites = new Map()
     this.resourceDebugBorders = new Map()
+    this.skullEffects = new Map()
     this.targetZoom = CAMERA_DEFAULT_ZOOM
     this.zoomAnchor = null
     this.isCameraDragging = false
@@ -169,8 +179,8 @@ export class GameScene extends Phaser.Scene {
 
     for (const asset of VILLAGER_ASSETS) {
       this.load.spritesheet(asset.key, asset.path, {
-        frameWidth: 192,
-        frameHeight: 192,
+        frameWidth: asset.frameWidth ?? 192,
+        frameHeight: asset.frameHeight ?? 192,
       })
     }
 
@@ -275,6 +285,11 @@ export class GameScene extends Phaser.Scene {
       border.destroy()
     }
     this.resourceDebugBorders.clear()
+
+    for (const effect of this.skullEffects.values()) {
+      effect.destroy()
+    }
+    this.skullEffects.clear()
 
     const { width, height } = this.getWorldPixelSize()
     const camera = this.cameras.main
@@ -567,6 +582,18 @@ export class GameScene extends Phaser.Scene {
       })
     }
 
+    if (!this.anims.exists('villager-dead_anim') && this.textures.exists('villager-dead')) {
+      this.anims.create({
+        key: 'villager-dead_anim',
+        frames: this.anims.generateFrameNumbers('villager-dead', {
+          start: 0,
+          end: 13,
+        }),
+        frameRate: 10,
+        repeat: 0,
+      })
+    }
+
     for (const treeVariant of TREE_VARIANT_CONFIGS) {
       const animationKey = `${treeVariant.key}_idle_anim`
 
@@ -650,11 +677,84 @@ export class GameScene extends Phaser.Scene {
 
   update(_time, delta) {
     this.updateCameraZoom(delta)
+    this.syncSkullEffects()
     syncConstructionSites(this, this.worldStore)
     syncHouses(this, this.worldStore)
     syncResources(this, this.worldStore)
     this.syncUnitControllers()
     this.selectionCameraSystem.update(delta)
+  }
+
+  syncSkullEffects() {
+    if (!this.worldStore) {
+      return
+    }
+
+    const effects = Array.isArray(this.worldStore.pendingSkullEffects)
+      ? this.worldStore.pendingSkullEffects
+      : []
+
+    for (const effect of effects) {
+      if (!effect?.id || this.skullEffects.has(effect.id)) {
+        continue
+      }
+
+      const x = effect.x * TILE_SIZE + TILE_SIZE / 2
+      const y = effect.y * TILE_SIZE + TILE_SIZE / 2
+      const sprite = this.add.sprite(x, y, 'villager-dead')
+      let skullHoldTriggered = false
+
+      sprite.setOrigin(0.5, 0.5)
+      sprite.setDisplaySize(128, 128)
+      sprite.setDepth(y)
+      sprite.setFlipX(effect.facing === 'left')
+      sprite.play('villager-dead_anim', true)
+
+      const handleAnimationUpdate = (animation, frame, gameObject) => {
+        if (animation?.key !== 'villager-dead_anim' || skullHoldTriggered) {
+          return
+        }
+
+        const currentFrame = gameObject?.anims?.currentFrame ?? frame
+
+        if (currentFrame?.index !== SKULL_HOLD_FRAME_INDEX) {
+          return
+        }
+
+        skullHoldTriggered = true
+        sprite.anims.pause()
+
+        this.time.delayedCall(SKULL_HOLD_DURATION_MS, () => {
+          if (sprite.active && sprite.anims?.isPaused) {
+            sprite.anims.resume()
+          }
+        })
+      }
+
+      const handleAnimationComplete = (animation) => {
+        if (animation?.key !== 'villager-dead_anim') {
+          return
+        }
+
+        if (sprite.active) {
+          sprite.destroy()
+        }
+      }
+
+      sprite.on('animationupdate', handleAnimationUpdate)
+      sprite.on('animationcomplete', handleAnimationComplete)
+      sprite.once('destroy', () => {
+        sprite.off('animationupdate', handleAnimationUpdate)
+        sprite.off('animationcomplete', handleAnimationComplete)
+        this.skullEffects.delete(effect.id)
+      })
+
+      this.skullEffects.set(effect.id, sprite)
+    }
+
+    if (effects.length > 0) {
+      this.worldStore.pendingSkullEffects = []
+    }
   }
 
   updateCameraZoom(delta) {

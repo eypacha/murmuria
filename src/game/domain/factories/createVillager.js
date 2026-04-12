@@ -1,5 +1,6 @@
 import {
   TILE_SIZE,
+  UNIT_INITIAL_HEALTH
 } from '../../config/constants.js'
 
 function getWorldPosition(x, y) {
@@ -21,7 +22,7 @@ export function createVillager(x = 0, y = 0, facing = 'right') {
     talkTargetTile: null,
     bubble: null,
     status: {
-      health: 100,
+      health: UNIT_INITIAL_HEALTH,
     },
     facing,
     gridPos: {

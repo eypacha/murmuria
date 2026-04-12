@@ -1,5 +1,6 @@
 import { SIMULATION_TICK_MS } from '../config/constants.js'
 import { KingdomSystem } from './systems/KingdomSystem.js'
+import { VillagerHealthSystem } from './systems/VillagerHealthSystem.js'
 import { HousingNeedSystem } from './systems/HousingNeedSystem.js'
 import { HousingProposalSystem } from './systems/HousingProposalSystem.js'
 import { ConstructionSiteSystem } from './systems/ConstructionSiteSystem.js'
@@ -43,6 +44,7 @@ export class SimulationEngine {
       return
     }
 
+    VillagerHealthSystem.update(this.worldStore)
     this.worldStore.simulationCache = buildSimulationCache(this.worldStore)
 
     KingdomSystem.update(this.worldStore)

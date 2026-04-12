@@ -1995,5 +1995,6 @@ export function createWorld(worldStore) {
   worldStore.buildings = [castle]
   worldStore.houses = []
   worldStore.constructionSites = []
+  worldStore.pendingSkullEffects = []
   worldStore.units = villagerUnits
 }

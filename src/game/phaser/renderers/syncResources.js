@@ -23,6 +23,8 @@ const DEBUG_BUSH_BORDER_COLOR = 0x5f8f47
 const SHEEP_HIT_TINT_COLOR = 0xff6b6b
 const SHEEP_HIT_FLASH_MS = 90
 const SHEEP_HIT_FLASH_FRAME_INDEX = 2
+const SKULL_ANIMATION_BOUND_KEY = 'skullAnimationBound'
+const SKULL_ANIMATION_COMPLETE_KEY = 'skullAnimationComplete'
 const BUSH_ANIMATION_BOUND_KEY = 'bushAnimationBound'
 const BUSH_WAS_OCCUPIED_KEY = 'bushWasOccupied'
 const SHEEP_HIT_FLASH_BOUND_KEY = 'sheepHitFlashBound'
@@ -112,6 +114,10 @@ function ensureResourceCaches(scene) {
 }
 
 function getResourceTextureKey(tree, currentTick = 0) {
+  if (tree.type === 'skull') {
+    return 'villager-dead'
+  }
+
   if (tree.type === 'sheep') {
     return getSheepVariantTextureKey(tree, currentTick)
   }
@@ -134,6 +140,10 @@ function getResourceTextureKey(tree, currentTick = 0) {
 }
 
 function getResourceAnimationKey(tree, currentTick = 0) {
+  if (tree.type === 'skull') {
+    return 'villager-dead_anim'
+  }
+
   if (tree.type === 'sheep') {
     return getSheepAnimationKey(tree, currentTick)
   }
@@ -343,7 +353,39 @@ function ensureSheepHitFlashBinding(scene, sprite, resource) {
   sprite.setData(SHEEP_HIT_FLASH_BOUND_KEY, true)
 }
 
+function ensureSkullAnimationBinding(sprite) {
+  if (sprite.getData(SKULL_ANIMATION_BOUND_KEY)) {
+    return
+  }
+
+  const handleAnimationComplete = (animation) => {
+    if (animation?.key !== 'villager-dead_anim') {
+      return
+    }
+
+    if (sprite.active) {
+      sprite.setFrame(6)
+      sprite.anims?.stop()
+    }
+
+    sprite.setData(SKULL_ANIMATION_COMPLETE_KEY, true)
+  }
+
+  sprite.on('animationcomplete', handleAnimationComplete)
+  sprite.once('destroy', () => {
+    sprite.off('animationcomplete', handleAnimationComplete)
+  })
+  sprite.setData(SKULL_ANIMATION_BOUND_KEY, true)
+}
+
 function getResourceDisplaySize(resource) {
+  if (resource.type === 'skull') {
+    return {
+      width: 128,
+      height: 128,
+    }
+  }
+
   if (resource.type === 'sheep') {
     const variantConfig = getSheepVariantConfig(resource)
 
@@ -385,7 +427,13 @@ function getResourceWorldPosition(resource) {
     return resource.pos
   }
 
-  if (resource.type === 'gold' || resource.type === 'sheep' || resource.type === 'rock' || resource.type === 'bush') {
+  if (
+    resource.type === 'gold' ||
+    resource.type === 'sheep' ||
+    resource.type === 'rock' ||
+    resource.type === 'bush' ||
+    resource.type === 'skull'
+  ) {
     return {
       x: resource.gridPos.x * TILE_SIZE + TILE_SIZE / 2,
       y: resource.gridPos.y * TILE_SIZE + TILE_SIZE / 2,
@@ -489,21 +537,23 @@ function updateResourceSprite(scene, resource) {
   const isTreeTexture = resource.type === 'tree' && (resource.amount ?? 0) > 0
   const isHarvested = (resource.amount ?? 0) > 0 && isResourceBeingHarvested(resource, scene.worldStore)
   const isSheep = resource.type === 'sheep'
+  const isSkull = resource.type === 'skull'
   const isRock = resource.type === 'rock'
   const isBush = resource.type === 'bush'
   const bushOccupied = isBush ? isBushOccupied(scene.worldStore, resource) : false
   let sprite = scene.resourceSprites.get(resource.id)
   const displaySize = getResourceDisplaySize(resource)
-  const displayWidth = resource.type === 'gold' || isSheep || isRock || isBush
+  const displayWidth = resource.type === 'gold' || isSheep || isRock || isBush || isSkull
     ? displaySize.width
     : (isTreeTexture ? TREE_DISPLAY_WIDTH : STUMP_DISPLAY_WIDTH)
-  const displayHeight = resource.type === 'gold' || isSheep || isRock || isBush
+  const displayHeight = resource.type === 'gold' || isSheep || isRock || isBush || isSkull
     ? displaySize.height
     : (isTreeTexture ? getTreeVariantConfig(resource).displayHeight : STUMP_DISPLAY_HEIGHT)
   const originX = 0.5
-  const originY = resource.type === 'gold' || isSheep || isRock || isBush ? 0.5 : 1
-  const shouldAnimate = isSheep || ((resource.type === 'gold' || isTreeTexture) && isHarvested)
+  const originY = resource.type === 'gold' || isSheep || isRock || isBush || isSkull ? 0.5 : 1
+  const shouldAnimate = isSheep || isSkull || ((resource.type === 'gold' || isTreeTexture) && isHarvested)
   const bushAnimationKey = isBush ? getBushAnimationKey(resource) : null
+  const skullAnimationKey = isSkull ? getResourceAnimationKey(resource) : null
   const debugLabelText = getResourceDebugLabelText(resource)
   const currentTick = scene.worldStore?.tick ?? 0
   const sheepRenderState = isSheep ? getSheepRenderState(resource, currentTick) : null
@@ -515,11 +565,15 @@ function updateResourceSprite(scene, resource) {
         ? getRockVariantConfig(resource).key
         : isBush
           ? getBushVariantConfig(resource).key
+          : isSkull
+            ? getResourceTextureKey(resource)
           : textureKey
     const renderAnimationKey = isSheep
       ? getSheepAnimationKey({ ...resource, state: sheepRenderState }, currentTick)
       : isBush
         ? bushAnimationKey
+        : isSkull
+          ? skullAnimationKey
         : animationKey
 
     sprite = scene.add.sprite(x, y, renderTextureKey)
@@ -534,6 +588,10 @@ function updateResourceSprite(scene, resource) {
 
     if ((shouldAnimate || bushOccupied) && renderAnimationKey) {
       sprite.play(renderAnimationKey, true)
+      if (isSkull) {
+        ensureSkullAnimationBinding(sprite)
+        sprite.setData(SKULL_ANIMATION_COMPLETE_KEY, false)
+      }
     } else {
       sprite.anims?.stop()
       sprite.setFrame(0)
@@ -546,6 +604,8 @@ function updateResourceSprite(scene, resource) {
         ? getRockVariantConfig(resource).key
         : isBush
           ? getBushVariantConfig(resource).key
+          : isSkull
+            ? getResourceTextureKey(resource)
           : textureKey)
   ) {
     const renderTextureKey = isSheep
@@ -554,11 +614,15 @@ function updateResourceSprite(scene, resource) {
         ? getRockVariantConfig(resource).key
         : isBush
           ? getBushVariantConfig(resource).key
+          : isSkull
+            ? getResourceTextureKey(resource)
           : textureKey
     const renderAnimationKey = isSheep
       ? getSheepAnimationKey({ ...resource, state: sheepRenderState }, currentTick)
       : isBush
         ? bushAnimationKey
+        : isSkull
+          ? skullAnimationKey
         : animationKey
 
     sprite.anims?.stop()
@@ -570,6 +634,10 @@ function updateResourceSprite(scene, resource) {
 
     if ((shouldAnimate || bushOccupied) && renderAnimationKey) {
       sprite.play(renderAnimationKey, true)
+      if (isSkull) {
+        ensureSkullAnimationBinding(sprite)
+        sprite.setData(SKULL_ANIMATION_COMPLETE_KEY, false)
+      }
     } else {
       sprite.anims?.stop()
       sprite.setFrame(0)
@@ -585,6 +653,19 @@ function updateResourceSprite(scene, resource) {
     }
 
     sprite.setData(BUSH_WAS_OCCUPIED_KEY, bushOccupied)
+  } else if (isSkull) {
+    ensureSkullAnimationBinding(sprite)
+
+    if (
+      !sprite.getData(SKULL_ANIMATION_COMPLETE_KEY) &&
+      skullAnimationKey &&
+      (!sprite.anims.isPlaying || sprite.anims.currentAnim?.key !== skullAnimationKey)
+    ) {
+      sprite.play(skullAnimationKey, true)
+    } else if (sprite.getData(SKULL_ANIMATION_COMPLETE_KEY)) {
+      sprite.anims?.stop()
+      sprite.setFrame(6)
+    }
   } else if (shouldAnimate) {
     const renderAnimationKey = isSheep
       ? getSheepAnimationKey({ ...resource, state: sheepRenderState }, currentTick)
@@ -601,7 +682,7 @@ function updateResourceSprite(scene, resource) {
     sprite.setFrame(0)
   }
 
-  if (isSheep) {
+  if (isSheep || isSkull) {
     sprite.clearTint()
   }
 

@@ -8,5 +8,6 @@ export { ConstructionWoodDeliverySystem } from './ConstructionWoodDeliverySystem
 export { HousingProposalSystem } from './HousingProposalSystem.js'
 export { DecisionSystem } from './DecisionSystem.js'
 export { MovementSystem } from './MovementSystem.js'
+export { VillagerHealthSystem } from './VillagerHealthSystem.js'
 export { UnitStateSystem } from './UnitStateSystem.js'
 export { VillagerWorkSystem } from './VillagerWorkSystem.js'
