@@ -7,6 +7,7 @@ export const useWorldStore = defineStore('world', () => {
   const seed = ref(1775879107082) 
   const tick = ref(0)
   const terrainVariant = ref('flat_lakes')
+  const simulationSpeed = ref(1)
 
   const kingdom = ref(createKingdomState())
 
@@ -28,6 +29,7 @@ export const useWorldStore = defineStore('world', () => {
     seed,
     tick,
     terrainVariant,
+    simulationSpeed,
     kingdom,
     world,
     units,

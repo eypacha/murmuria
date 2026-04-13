@@ -1,5 +1,5 @@
 <script setup>
-import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { createWorld } from '../game/core/createWorld.js'
 import { createPhaserGame } from '../game/phaser/PhaserGame.js'
 import { SimulationEngine } from '../game/simulation/SimulationEngine.js'
@@ -22,8 +22,17 @@ onMounted(async () => {
   await nextTick()
   phaserGame.value = createPhaserGame(containerId, worldStore)
   simulationEngine.value = new SimulationEngine(worldStore)
+  simulationEngine.value.setSpeedMultiplier(worldStore.simulationSpeed)
   simulationEngine.value.start()
 })
+
+watch(
+  () => worldStore.simulationSpeed,
+  (speed) => {
+    simulationEngine.value?.setSpeedMultiplier(speed)
+  },
+  { immediate: true },
+)
 
 onBeforeUnmount(() => {
   if (simulationEngine.value) {

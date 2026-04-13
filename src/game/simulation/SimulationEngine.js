@@ -22,6 +22,7 @@ export class SimulationEngine {
   constructor(worldStore) {
     this.worldStore = worldStore
     this.interval = null
+    this.speedMultiplier = 1
   }
 
   start() {
@@ -29,7 +30,7 @@ export class SimulationEngine {
 
     this.interval = setInterval(() => {
       this.tick()
-    }, SIMULATION_TICK_MS)
+    }, this.getTickIntervalMs())
   }
 
   stop() {
@@ -37,6 +38,24 @@ export class SimulationEngine {
       clearInterval(this.interval)
       this.interval = null
     }
+  }
+
+  setSpeedMultiplier(multiplier) {
+    const nextMultiplier = Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1
+
+    if (this.speedMultiplier === nextMultiplier) {
+      return
+    }
+
+    this.speedMultiplier = nextMultiplier
+
+    if (this.interval !== null) {
+      this.start()
+    }
+  }
+
+  getTickIntervalMs() {
+    return SIMULATION_TICK_MS / this.speedMultiplier
   }
 
   tick() {
