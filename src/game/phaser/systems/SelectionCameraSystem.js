@@ -35,7 +35,8 @@ export class SelectionCameraSystem {
     }
 
     const camera = this.scene.cameras.main
-    const smoothing = 1 - Math.exp(-delta * 0.01)
+    const visualDelta = this.scene.getVisualDelta?.(delta) ?? delta
+    const smoothing = 1 - Math.exp(-visualDelta * 0.01)
     const desiredScrollX = controller.sprite.x - camera.width / 2 / camera.zoom
     const desiredScrollY = controller.sprite.y - camera.height / 2 / camera.zoom
 

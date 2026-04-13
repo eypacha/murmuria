@@ -182,6 +182,7 @@ export class GameScene extends Phaser.Scene {
     this.speedButtonSprite = null
     this.speedButtonText = null
     this.speedButtonInteractive = null
+    this.visualSpeedMultiplier = 1
     this.resourceHudRows = new Map()
     this.lastPointerPosition = null
     this.uiCamera = null
@@ -341,6 +342,7 @@ export class GameScene extends Phaser.Scene {
     this.setupCursor()
     this.setupResourceHud()
     this.setupSpeedButton()
+    this.syncVisualTimeScale()
     this.syncUiOverlay()
     this.syncUiCameraIgnores()
 
@@ -709,11 +711,46 @@ export class GameScene extends Phaser.Scene {
     const currentIndex = SPEED_STEPS.indexOf(this.worldStore.simulationSpeed)
     const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % SPEED_STEPS.length
     this.worldStore.simulationSpeed = SPEED_STEPS[nextIndex]
+    this.syncVisualTimeScale()
     this.syncSpeedButtonLabel()
   }
 
   getSpeedLabel() {
     return `x${this.worldStore?.simulationSpeed ?? 1}`
+  }
+
+  getVisualSpeedMultiplier() {
+    const multiplier = Number(this.worldStore?.simulationSpeed)
+
+    return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1
+  }
+
+  getVisualDelta(delta = 0) {
+    const baseDelta = Number.isFinite(delta) ? delta : 0
+
+    return baseDelta * this.visualSpeedMultiplier
+  }
+
+  syncVisualTimeScale() {
+    const nextMultiplier = this.getVisualSpeedMultiplier()
+
+    if (this.visualSpeedMultiplier === nextMultiplier) {
+      return
+    }
+
+    this.visualSpeedMultiplier = nextMultiplier
+
+    if (this.time) {
+      this.time.timeScale = nextMultiplier
+    }
+
+    if (this.anims) {
+      this.anims.globalTimeScale = nextMultiplier
+    }
+
+    if (this.tweens) {
+      this.tweens.timeScale = nextMultiplier
+    }
   }
 
   registerUiObject(gameObject) {
@@ -973,6 +1010,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(_time, delta) {
+    this.syncVisualTimeScale()
     this.updateCameraZoom(delta)
     this.syncSkullEffects()
     this.syncResourceHud()

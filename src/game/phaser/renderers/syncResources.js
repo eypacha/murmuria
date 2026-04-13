@@ -471,9 +471,10 @@ function updateInterpolatedResourcePosition(scene, sprite, targetPosition) {
   const startY = sprite.getData(RESOURCE_RENDER_START_Y_KEY) ?? targetPosition.y
   const targetX = sprite.getData(RESOURCE_RENDER_TARGET_X_KEY) ?? targetPosition.x
   const targetY = sprite.getData(RESOURCE_RENDER_TARGET_Y_KEY) ?? targetPosition.y
+  const visualDelta = scene.getVisualDelta?.(scene.game.loop.delta ?? 0) ?? 0
   const elapsed = Math.min(
     SIMULATION_TICK_MS,
-    (sprite.getData(RESOURCE_RENDER_ELAPSED_KEY) ?? 0) + (scene.game.loop.delta ?? 0),
+    (sprite.getData(RESOURCE_RENDER_ELAPSED_KEY) ?? 0) + visualDelta,
   )
 
   sprite.setData(RESOURCE_RENDER_ELAPSED_KEY, elapsed)

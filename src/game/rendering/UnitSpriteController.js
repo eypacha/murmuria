@@ -191,7 +191,7 @@ export class UnitSpriteController {
       this.elapsed = 0
     }
 
-    const delta = this.scene.game.loop.delta ?? 0
+    const delta = this.scene.getVisualDelta?.(this.scene.game.loop.delta ?? 0) ?? 0
     this.elapsed = Math.min(SIMULATION_TICK_MS, this.elapsed + delta)
 
     const progress = SIMULATION_TICK_MS > 0 ? this.elapsed / SIMULATION_TICK_MS : 1
