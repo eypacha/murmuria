@@ -2,6 +2,7 @@ import { CASTLE_FOOTPRINT } from '../domain/factories/createCastle.js'
 import { HOUSE_FOOTPRINT } from '../domain/factories/createHouse.js'
 import { buildNoBuildZoneTileSet } from './getNoBuildZoneTiles.js'
 import { getOccupiedTiles } from './getOccupiedTiles.js'
+import { hasClearPerimeter } from './getPerimeterTiles.js'
 import { isTraversableTile } from './isTraversableTile.js'
 
 function getTile(tiles, x, y) {
@@ -54,7 +55,36 @@ function isValidHouseFootprint(tiles, x, y, width, height, blockedKeys, noBuildZ
   return true
 }
 
+function isValidHousePlacement(worldStore, tiles, x, y, width, height, blockedKeys, noBuildZoneKeys) {
+  if (!worldStore?.world) {
+    return false
+  }
+
+  if (
+    !isValidHouseFootprint(
+      tiles,
+      x,
+      y,
+      width,
+      height,
+      blockedKeys,
+      noBuildZoneKeys,
+    )
+  ) {
+    return false
+  }
+
+  return hasClearPerimeter(
+    {
+      gridPos: { x, y },
+      footprint: { ...HOUSE_FOOTPRINT },
+    },
+    worldStore,
+  )
+}
+
 export function findHousePlacement({
+  worldStore = null,
   tiles,
   castle,
   width,
@@ -82,7 +112,8 @@ export function findHousePlacement({
 
   for (const position of preferredPositions) {
     if (
-      isValidHouseFootprint(
+      isValidHousePlacement(
+        worldStore,
         tiles,
         position.x,
         position.y,
@@ -120,7 +151,8 @@ export function findHousePlacement({
 
   for (const position of fallbackPositions) {
     if (
-      isValidHouseFootprint(
+      isValidHousePlacement(
+        worldStore,
         tiles,
         position.x,
         position.y,

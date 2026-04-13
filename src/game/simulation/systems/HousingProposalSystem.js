@@ -73,6 +73,7 @@ export class HousingProposalSystem {
 
     const worldTiles = worldStore.world?.tiles ?? []
     const placement = findHousePlacement({
+      worldStore,
       tiles: worldTiles,
       castle,
       width: worldStore.world?.width ?? 0,
