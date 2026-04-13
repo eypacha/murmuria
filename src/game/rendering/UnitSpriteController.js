@@ -8,6 +8,7 @@ import {
 import { resolveUnitAnimation } from './resolveUnitAnimation.js'
 
 const VILLAGER_DISPLAY_SIZE = 192
+const CHILD_UNIT_SCALE = 0.6
 const UNIT_INTERACTION_SIZE = 64
 const UNIT_INTERACTION_OFFSET_Y = VILLAGER_DISPLAY_SIZE * 0.4
 const TALK_BUBBLE_TEXTURE_KEY = 'villager-talk-bubble'
@@ -127,6 +128,7 @@ export class UnitSpriteController {
     this.sprite = scene.add.sprite(initialPosition.x, initialPosition.y, initialAnimationKey)
     this.sprite.setOrigin(0.5, 0.9)
     this.sprite.setDisplaySize(VILLAGER_DISPLAY_SIZE, VILLAGER_DISPLAY_SIZE)
+    this.sprite.setScale(this.getUnitScale())
     this.sprite.setDepth(initialPosition.y)
     this.sprite.play(initialAnimationKey, true)
 
@@ -152,6 +154,7 @@ export class UnitSpriteController {
 
   update() {
     this.updateHealthFlash()
+    this.updateScale()
     this.updatePosition()
     this.updateDirection()
     this.updateAnimation()
@@ -196,6 +199,20 @@ export class UnitSpriteController {
     if (this.debugBorder) {
       this.updateDebugBorder()
     }
+  }
+
+  updateScale() {
+    if (!this.sprite) {
+      return
+    }
+
+    const nextScale = this.getUnitScale()
+
+    if (this.sprite.scaleX === nextScale && this.sprite.scaleY === nextScale) {
+      return
+    }
+
+    this.sprite.setScale(nextScale)
   }
 
   updateAnimation() {
@@ -444,6 +461,10 @@ export class UnitSpriteController {
     this.debugBorder.lineStyle(2, DEBUG_UNIT_BORDER_COLOR, 1)
     this.debugBorder.strokeRect(rect.x, rect.y, rect.width, rect.height)
     this.debugBorder.setDepth(this.sprite.depth - 1)
+  }
+
+  getUnitScale() {
+    return this.unit?.isChild ? CHILD_UNIT_SCALE : 1
   }
 
   handlePointerOver() {

@@ -1,6 +1,7 @@
 import { DEBUG_MODE, TILE_SIZE, UNIT_RENDER_OFFSET_Y } from '../../config/constants.js'
 
 const VILLAGER_DISPLAY_SIZE = 192
+const CHILD_UNIT_SCALE = 0.6
 const DEBUG_UNIT_BORDER_COLOR = 0x5ad8ff
 
 function getUnitAnimationKey(unit) {
@@ -48,6 +49,7 @@ export function syncUnits(scene, worldStore) {
     const sprite = scene.add.sprite(x, y, 'villager-idle')
     sprite.setOrigin(0.5, 0.9)
     sprite.setDisplaySize(VILLAGER_DISPLAY_SIZE, VILLAGER_DISPLAY_SIZE)
+    sprite.setScale(unit.isChild ? CHILD_UNIT_SCALE : 1)
     sprite.setFlipX(facingLeft)
     sprite.setDepth(depth)
     sprite.play(animationKey)
