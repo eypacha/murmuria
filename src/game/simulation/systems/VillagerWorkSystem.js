@@ -69,7 +69,8 @@ export class VillagerWorkSystem {
     const resource = this.getResourceById(worldStore, unit.workTargetId ?? unit.targetId)
     const resourceType = this.getWorkTargetType(unit, resource)
     const resourceAmount = Math.max(0, resource?.amount ?? 0)
-    const gatherDurationMs = this.getGatherDuration(resourceType, resourceAmount)
+    const carryCapacity = this.getCarryCapacity(unit, resourceType)
+    const gatherDurationMs = this.getGatherDuration(resourceType, resourceAmount, carryCapacity)
 
     const interactionFacing = this.getFacingTowardResource(unit, resource)
     if (interactionFacing) {
@@ -95,20 +96,21 @@ export class VillagerWorkSystem {
     unit.inventory = unit.inventory ?? { wood: 0, gold: 0, meat: 0 }
     const currentAmount = Math.max(0, unit.inventory[inventoryKey] ?? 0)
     const availableCapacity = Math.max(0, carryCapacity - currentAmount)
-    const transferAmount =
-      resourceType === 'sheep'
-        ? resourceAmount
-        : Math.min(harvestChunk, availableCapacity, resourceAmount)
+    const transferAmount = Math.min(harvestChunk, availableCapacity, resourceAmount)
 
     if (transferAmount > 0) {
       unit.inventory[inventoryKey] = currentAmount + transferAmount
 
       if (resource) {
-        if (resourceType === 'sheep') {
-          resource.state = 'idle'
+        resource.amount = Math.max(0, resourceAmount - transferAmount)
+
+        if (resourceType === 'sheep' && resource.amount > 0) {
+          resource.type = 'meat'
         }
 
-        resource.amount = Math.max(0, resourceAmount - transferAmount)
+        if (resource.type === 'meat') {
+          resource.state = 'idle'
+        }
       }
     }
 
@@ -120,8 +122,8 @@ export class VillagerWorkSystem {
       resource.reservedBy = null
     }
 
-    if (resourceType === 'sheep') {
-      this.removeResourceById(worldStore, resource?.id ?? unit.workTargetId ?? unit.targetId)
+    if (resource && (resource.amount ?? 0) <= 0) {
+      this.removeResourceById(worldStore, resource.id)
     }
 
     if (unit.constructionDelivery && unit.equipment) {
@@ -609,9 +611,10 @@ export class VillagerWorkSystem {
     return VILLAGER_WOOD_HARVEST_CHUNK
   }
 
-  static getGatherDuration(resourceType, resourceAmount) {
-    if (resourceType === 'sheep') {
-      const batches = Math.max(1, Math.ceil(resourceAmount / VILLAGER_MEAT_HARVEST_CHUNK))
+  static getGatherDuration(resourceType, resourceAmount, carryCapacity = 0) {
+    if (resourceType === 'sheep' || resourceType === 'meat') {
+      const carriedAmount = Math.max(0, Math.min(resourceAmount, carryCapacity))
+      const batches = Math.max(1, Math.ceil(carriedAmount / VILLAGER_MEAT_HARVEST_CHUNK))
 
       return VILLAGER_GATHER_DURATION_MS * batches
     }

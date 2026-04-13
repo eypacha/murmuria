@@ -17,6 +17,7 @@ import {
   GOLD_FRAME_COUNT,
   GOLD_VARIANT_CONFIGS,
   BUSH_VARIANT_CONFIGS,
+  MEAT_RESOURCE_CONFIG,
   ROCK_VARIANT_CONFIGS,
   SHEEP_VARIANT_CONFIGS,
   TREE_FRAME_COUNT,
@@ -252,6 +253,8 @@ export class GameScene extends Phaser.Scene {
         frameHeight: sheepVariant.frameHeight,
       })
     }
+
+    this.load.image(MEAT_RESOURCE_CONFIG.key, MEAT_RESOURCE_CONFIG.path)
 
     for (const rockVariant of ROCK_VARIANT_CONFIGS) {
       this.load.image(rockVariant.key, rockVariant.path)

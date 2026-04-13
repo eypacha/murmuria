@@ -7,6 +7,7 @@ import { getOccupiedTiles } from '../../core/getOccupiedTiles.js'
 import {
   BUSH_VARIANT_CONFIGS,
   GOLD_VARIANT_CONFIGS,
+  MEAT_RESOURCE_CONFIG,
   ROCK_VARIANT_CONFIGS,
   SHEEP_VARIANT_CONFIGS,
   TREE_VARIANT_CONFIGS,
@@ -38,7 +39,7 @@ const RESOURCE_DEBUG_LABEL_FONT_SIZE = '16px'
 const RESOURCE_DEBUG_LABEL_OFFSET_Y = 18
 
 function getResourceDebugAmountText(resource) {
-  if (resource.type !== 'tree' && resource.type !== 'gold') {
+  if (resource.type !== 'tree' && resource.type !== 'gold' && resource.type !== 'meat') {
     return null
   }
 
@@ -46,18 +47,17 @@ function getResourceDebugAmountText(resource) {
 }
 
 function getResourceDebugLabelText(resource) {
-  if (resource.type !== 'tree' && resource.type !== 'gold') {
+  if (resource.type !== 'tree' && resource.type !== 'gold' && resource.type !== 'meat') {
     return null
   }
 
   const amountText = getResourceDebugAmountText(resource)
-  const idText = resource?.id ?? ''
 
-  if (resource.type === 'tree') {
-    return amountText ? `${idText}\n${amountText}` : idText
+  if (resource.type === 'tree' || resource.type === 'gold' || resource.type === 'sheep' || resource.type === 'meat') {
+    return amountText
   }
 
-  return amountText ? `${idText}\n${amountText}` : idText
+  return amountText
 }
 
 function ensureResourceDebugLabels(scene) {
@@ -69,12 +69,9 @@ function ensureResourceDebugLabels(scene) {
 }
 
 function getResourceDebugLabelPosition(sprite, resource) {
-  const displayHeight = Number.isFinite(sprite?.displayHeight) ? sprite.displayHeight : TILE_SIZE
-  const extraOffset = resource.type === 'gold' ? 8 : 0
-
   return {
     x: sprite?.x ?? 0,
-    y: (sprite?.y ?? 0) - displayHeight / 2 - RESOURCE_DEBUG_LABEL_OFFSET_Y - extraOffset,
+    y: sprite?.y ?? 0,
   }
 }
 
@@ -118,6 +115,10 @@ function getResourceTextureKey(tree, currentTick = 0) {
     return 'villager-dead'
   }
 
+  if (tree.type === 'meat') {
+    return MEAT_RESOURCE_CONFIG.key
+  }
+
   if (tree.type === 'sheep') {
     return getSheepVariantTextureKey(tree, currentTick)
   }
@@ -142,6 +143,10 @@ function getResourceTextureKey(tree, currentTick = 0) {
 function getResourceAnimationKey(tree, currentTick = 0) {
   if (tree.type === 'skull') {
     return 'villager-dead_anim'
+  }
+
+  if (tree.type === 'meat') {
+    return null
   }
 
   if (tree.type === 'sheep') {
@@ -386,6 +391,13 @@ function getResourceDisplaySize(resource) {
     }
   }
 
+  if (resource.type === 'meat') {
+    return {
+      width: MEAT_RESOURCE_CONFIG.displayWidth ?? 128,
+      height: MEAT_RESOURCE_CONFIG.displayHeight ?? 128,
+    }
+  }
+
   if (resource.type === 'sheep') {
     const variantConfig = getSheepVariantConfig(resource)
 
@@ -430,6 +442,7 @@ function getResourceWorldPosition(resource) {
   if (
     resource.type === 'gold' ||
     resource.type === 'sheep' ||
+    resource.type === 'meat' ||
     resource.type === 'rock' ||
     resource.type === 'bush' ||
     resource.type === 'skull'
@@ -502,7 +515,7 @@ function isResourceBeingHarvested(resource, worldStore) {
 
 function updateResourceSprite(scene, resource) {
   if (
-    (resource.type === 'gold' || resource.type === 'sheep') &&
+    (resource.type === 'gold' || resource.type === 'sheep' || resource.type === 'meat') &&
     (resource.amount ?? 0) <= 0
   ) {
     const existingSprite = scene.resourceSprites.get(resource.id)
@@ -538,20 +551,21 @@ function updateResourceSprite(scene, resource) {
   const isTreeTexture = resource.type === 'tree' && (resource.amount ?? 0) > 0
   const isHarvested = (resource.amount ?? 0) > 0 && isResourceBeingHarvested(resource, scene.worldStore)
   const isSheep = resource.type === 'sheep'
+  const isMeat = resource.type === 'meat'
   const isSkull = resource.type === 'skull'
   const isRock = resource.type === 'rock'
   const isBush = resource.type === 'bush'
   const bushOccupied = isBush ? isBushOccupied(scene.worldStore, resource) : false
   let sprite = scene.resourceSprites.get(resource.id)
   const displaySize = getResourceDisplaySize(resource)
-  const displayWidth = resource.type === 'gold' || isSheep || isRock || isBush || isSkull
+  const displayWidth = resource.type === 'gold' || isSheep || isMeat || isRock || isBush || isSkull
     ? displaySize.width
     : (isTreeTexture ? TREE_DISPLAY_WIDTH : STUMP_DISPLAY_WIDTH)
-  const displayHeight = resource.type === 'gold' || isSheep || isRock || isBush || isSkull
+  const displayHeight = resource.type === 'gold' || isSheep || isMeat || isRock || isBush || isSkull
     ? displaySize.height
     : (isTreeTexture ? getTreeVariantConfig(resource).displayHeight : STUMP_DISPLAY_HEIGHT)
   const originX = 0.5
-  const originY = resource.type === 'gold' || isSheep || isRock || isBush || isSkull ? 0.5 : 1
+  const originY = resource.type === 'gold' || isSheep || isMeat || isRock || isBush || isSkull ? 0.5 : 1
   const shouldAnimate = isSheep || isSkull || ((resource.type === 'gold' || isTreeTexture) && isHarvested)
   const bushAnimationKey = isBush ? getBushAnimationKey(resource) : null
   const skullAnimationKey = isSkull ? getResourceAnimationKey(resource) : null
@@ -562,6 +576,8 @@ function updateResourceSprite(scene, resource) {
   if (!sprite) {
     const renderTextureKey = isSheep
       ? getSheepVariantTextureKey({ ...resource, state: sheepRenderState }, currentTick)
+      : isMeat
+        ? getResourceTextureKey(resource)
       : isRock
         ? getRockVariantConfig(resource).key
         : isBush
@@ -571,6 +587,8 @@ function updateResourceSprite(scene, resource) {
           : textureKey
     const renderAnimationKey = isSheep
       ? getSheepAnimationKey({ ...resource, state: sheepRenderState }, currentTick)
+      : isMeat
+        ? null
       : isBush
         ? bushAnimationKey
         : isSkull
@@ -601,6 +619,8 @@ function updateResourceSprite(scene, resource) {
     sprite.getData('resourceTextureKey') !==
     (isSheep
       ? getSheepVariantTextureKey({ ...resource, state: sheepRenderState }, currentTick)
+      : isMeat
+        ? getResourceTextureKey(resource)
       : isRock
         ? getRockVariantConfig(resource).key
         : isBush
@@ -611,6 +631,8 @@ function updateResourceSprite(scene, resource) {
   ) {
     const renderTextureKey = isSheep
       ? getSheepVariantTextureKey({ ...resource, state: sheepRenderState }, currentTick)
+      : isMeat
+        ? getResourceTextureKey(resource)
       : isRock
         ? getRockVariantConfig(resource).key
         : isBush
@@ -620,6 +642,8 @@ function updateResourceSprite(scene, resource) {
           : textureKey
     const renderAnimationKey = isSheep
       ? getSheepAnimationKey({ ...resource, state: sheepRenderState }, currentTick)
+      : isMeat
+        ? null
       : isBush
         ? bushAnimationKey
         : isSkull
@@ -683,7 +707,7 @@ function updateResourceSprite(scene, resource) {
     sprite.setFrame(0)
   }
 
-  if (isSheep || isSkull) {
+  if (isSheep || isMeat || isSkull) {
     sprite.clearTint()
   }
 

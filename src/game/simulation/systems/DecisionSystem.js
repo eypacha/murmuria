@@ -28,6 +28,10 @@ function getIntentContract(type, targetId = null, targetPos = null, createdTick 
   }
 }
 
+function getFoodResourceTypes(resourceType) {
+  return resourceType === 'sheep' ? ['sheep', 'meat'] : [resourceType]
+}
+
 export const IdleAction = {
   name: 'idle',
   isValid() {
@@ -369,8 +373,10 @@ export class DecisionSystem {
   }
 
   static hasAvailableResourceType(worldStore, resourceType) {
+    const resourceTypes = getFoodResourceTypes(resourceType)
+
     return (worldStore?.resources ?? []).some((resource) => {
-      if (resource.type !== resourceType) {
+      if (!resourceTypes.includes(resource.type)) {
         return false
       }
 
@@ -545,13 +551,14 @@ export class DecisionSystem {
     const occupiedTiles = this.buildOccupiedTileSet(worldStore)
     const blockedTiles = this.buildOccupiedTileSet(worldStore, { includeUnits: false })
     const unitPosition = this.getGridPosition(unit)
+    const resourceTypes = getFoodResourceTypes(resourceType)
 
     if (!unitPosition) {
       return null
     }
 
     const reachableTiles = this.buildReachabilityMap(unitPosition, worldStore, blockedTiles)
-    const resources = (worldStore.resources ?? []).filter((resource) => resource.type === resourceType)
+    const resources = (worldStore.resources ?? []).filter((resource) => resourceTypes.includes(resource.type))
 
     return this.findNearestAvailableResource(
       unit,
@@ -774,6 +781,10 @@ export class DecisionSystem {
       return 'knife'
     }
 
+    if (resourceType === 'meat') {
+      return null
+    }
+
     return 'axe'
   }
 
@@ -782,7 +793,7 @@ export class DecisionSystem {
       return 'preparing_to_gold'
     }
 
-    if (resourceType === 'sheep') {
+    if (resourceType === 'sheep' || resourceType === 'meat') {
       return 'preparing_to_meat'
     }
 
@@ -794,7 +805,7 @@ export class DecisionSystem {
       return 'moving_to_gold'
     }
 
-    if (resourceType === 'sheep') {
+    if (resourceType === 'sheep' || resourceType === 'meat') {
       return 'moving_to_meat'
     }
 

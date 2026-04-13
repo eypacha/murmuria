@@ -183,6 +183,8 @@ export class MovementSystem {
     unit.path = []
     unit.pathGoalKey = null
 
+    const targetResource = (worldStore.resources ?? []).find((entity) => entity.id === unit.targetId) ?? null
+
     if (unit.idleAction === 'wander') {
       unit.state = 'idle'
       unit.idleAction = null
@@ -260,6 +262,11 @@ export class MovementSystem {
       unit.targetId = null
       unit.state = 'idle'
       unit.idleSince = worldStore.tick ?? 0
+      return
+    }
+
+    if (targetResource?.type === 'meat') {
+      unit.state = 'gathering_complete'
       return
     }
 

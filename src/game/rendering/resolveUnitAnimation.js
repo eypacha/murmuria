@@ -148,7 +148,7 @@ function resolveMovingAnimation(unit) {
   const isConstructionBuilder = Boolean(unit?.constructionBuild)
 
   if (targetType === 'castle') {
-    if (hasCarriedMeat(unit) || workTargetType === 'sheep') {
+    if (hasCarriedMeat(unit) || workTargetType === 'sheep' || workTargetType === 'meat') {
       return 'villager-run-meat'
     }
 
@@ -169,7 +169,7 @@ function resolveMovingAnimation(unit) {
     return 'villager-run-pickaxe'
   }
 
-  if (targetType === 'sheep' || workTargetType === 'sheep') {
+  if (targetType === 'sheep' || targetType === 'meat' || workTargetType === 'sheep' || workTargetType === 'meat') {
     return 'villager-run-knife'
   }
 
@@ -202,6 +202,7 @@ function resolveMovingAnimation(unit) {
 
 export function resolveUnitAnimation(unit) {
   const state = typeof unit?.state === 'string' ? unit.state : 'idle'
+  const targetType = unit?.target?.type
   const workTargetType = unit?.workTargetType
 
   if (state === 'preparing_to_gold') {
@@ -213,6 +214,10 @@ export function resolveUnitAnimation(unit) {
   }
 
   if (state === 'preparing_to_meat') {
+    if (workTargetType === 'meat') {
+      return 'villager-run'
+    }
+
     return 'villager-idle-knife'
   }
 
@@ -225,7 +230,7 @@ export function resolveUnitAnimation(unit) {
   }
 
   if (state === 'moving_to_meat') {
-    return 'villager-run-knife'
+    return workTargetType === 'meat' ? 'villager-run' : 'villager-run-knife'
   }
 
   if (state === 'moving_to_gold') {
@@ -241,7 +246,7 @@ export function resolveUnitAnimation(unit) {
   }
 
   if (state === 'preparing_to_gather') {
-    if (workTargetType === 'sheep') {
+    if (workTargetType === 'sheep' || workTargetType === 'meat') {
       return 'villager-idle-knife'
     }
 
@@ -253,6 +258,10 @@ export function resolveUnitAnimation(unit) {
   }
 
   if (state === 'gathering') {
+    if (workTargetType === 'meat') {
+      return 'villager-idle-meat'
+    }
+
     if (workTargetType === 'sheep') {
       return 'villager-interact-knife'
     }
@@ -275,7 +284,7 @@ export function resolveUnitAnimation(unit) {
     state === 'delivering_wood' ||
     state === 'delivering_gold'
   ) {
-    if (hasCarriedMeat(unit) || workTargetType === 'sheep' || state === 'delivering_meat') {
+    if (hasCarriedMeat(unit) || workTargetType === 'sheep' || workTargetType === 'meat' || state === 'delivering_meat') {
       return 'villager-idle-meat'
     }
 
@@ -287,7 +296,7 @@ export function resolveUnitAnimation(unit) {
   }
 
   if (state === 'returning_to_castle') {
-    if (hasCarriedMeat(unit) || workTargetType === 'sheep') {
+    if (hasCarriedMeat(unit) || workTargetType === 'sheep' || workTargetType === 'meat') {
       return 'villager-run-meat'
     }
 
@@ -299,6 +308,10 @@ export function resolveUnitAnimation(unit) {
   }
 
   if (state === 'moving') {
+    if (workTargetType === 'meat' || targetType === 'meat') {
+      return 'villager-run'
+    }
+
     return resolveMovingAnimation(unit)
   }
 

@@ -12,6 +12,7 @@ const ROCK_VARIANT_INDICES = [0, 1, 2, 3]
 const ROCK_DISPLAY_SIZE = 64
 const BUSH_VARIANT_INDICES = [0, 1, 2, 3]
 const BUSH_DISPLAY_SIZE = 128
+const MEAT_RESOURCE_DISPLAY_SIZE = 64
 
 export const TREE_VARIANT_CONFIGS = TREE_VARIANT_INDICES.map((index) => ({
   key: `tree_${index}`,
@@ -56,6 +57,13 @@ export const SHEEP_VARIANT_CONFIGS = [
     displayHeight: SHEEP_DISPLAY_SIZE,
   },
 ]
+
+export const MEAT_RESOURCE_CONFIG = {
+  key: 'meat_resource',
+  path: '/assets/terrain/resources/meat/resource.png',
+  displayWidth: MEAT_RESOURCE_DISPLAY_SIZE,
+  displayHeight: MEAT_RESOURCE_DISPLAY_SIZE,
+}
 
 export const ROCK_VARIANT_CONFIGS = ROCK_VARIANT_INDICES.map((index) => ({
   key: `rock_${index}`,
