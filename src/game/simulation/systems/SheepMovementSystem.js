@@ -2,7 +2,6 @@ import { SIMULATION_TICK_MS, TILE_SIZE } from '../../config/constants.js'
 import { getOccupiedTiles } from '../../core/getOccupiedTiles.js'
 import { getBlockingEntities } from '../../core/getBlockingEntities.js'
 import { isTraversableWorldTile } from '../../core/isTraversableTile.js'
-import { seededRandom } from '../../core/seededRandom.js'
 
 const SHEEP_MOVE_SPEED = 40
 const SHEEP_TURN_INTERVAL_MIN_TICKS = 4
@@ -150,17 +149,13 @@ export class SheepMovementSystem {
       return sheep.motion
     }
 
-    const motionSeed = `${worldStore.seed ?? 1}:sheep-motion:${sheep.id}`
-    const motionRng = seededRandom(motionSeed)
-    const turnIntervalTicks = SHEEP_TURN_INTERVAL_MIN_TICKS + motionRng.nextInt(
-      SHEEP_TURN_INTERVAL_VARIATION_TICKS,
-    )
+    const turnIntervalTicks =
+      SHEEP_TURN_INTERVAL_MIN_TICKS + Math.floor(Math.random() * SHEEP_TURN_INTERVAL_VARIATION_TICKS)
 
     sheep.motion = {
-      seed: motionSeed,
       cycle: 0,
       direction: getRandomFacing(),
-      speed: SHEEP_MOVE_SPEED + motionRng.nextInt(9),
+      speed: SHEEP_MOVE_SPEED + Math.floor(Math.random() * 9),
       turnIntervalTicks,
       nextTurnTick: (worldStore.tick ?? 0) + turnIntervalTicks,
     }
@@ -171,11 +166,7 @@ export class SheepMovementSystem {
   }
 
   static getNextTurnIntervalTicks(sheep) {
-    const motionSeed = sheep.motion?.seed ?? `${sheep.id}:sheep-motion`
-    const cycle = Number.isInteger(sheep.motion?.cycle) ? sheep.motion.cycle : 0
-    const motionRng = seededRandom(`${motionSeed}:${cycle}`)
-
-    return SHEEP_TURN_INTERVAL_MIN_TICKS + motionRng.nextInt(SHEEP_TURN_INTERVAL_VARIATION_TICKS)
+    return SHEEP_TURN_INTERVAL_MIN_TICKS + Math.floor(Math.random() * SHEEP_TURN_INTERVAL_VARIATION_TICKS)
   }
 
   static updateSheepMotion(sheep, worldStore, motion, currentTick) {

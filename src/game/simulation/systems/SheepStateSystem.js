@@ -1,5 +1,4 @@
 import { SIMULATION_TICK_MS, TILE_SIZE } from '../../config/constants.js'
-import { seededRandom } from '../../core/seededRandom.js'
 
 const SHEEP_STATE_CHANGE_INTERVAL_MS = 10000
 const SHEEP_STATE_CHANGE_INTERVAL_TICKS = Math.max(
@@ -12,14 +11,14 @@ function isValidSheepState(state) {
   return SHEEP_STATES.includes(state)
 }
 
-function pickNextState(currentState, rng) {
+function pickNextState(currentState) {
   const options = SHEEP_STATES.filter((state) => state !== currentState)
 
   if (options.length === 0) {
     return 'idle'
   }
 
-  return options[rng.nextInt(options.length)] ?? 'idle'
+  return options[Math.floor(Math.random() * options.length)] ?? 'idle'
 }
 
 export class SheepStateSystem {
@@ -110,9 +109,7 @@ export class SheepStateSystem {
     }
 
     const stateCycle = Number.isInteger(sheep.stateCycle) ? sheep.stateCycle : 0
-    const stateSeed = `${worldStore.seed ?? 1}:sheep-state:${sheep.id}:${stateCycle}`
-    const rng = seededRandom(stateSeed)
-    const nextState = pickNextState(sheep.state, rng)
+    const nextState = pickNextState(sheep.state)
 
     if (sheep.state === 'moving' && nextState !== 'moving') {
       this.stopSheepMovementAtTileCenter(sheep, nextState, currentTick)
