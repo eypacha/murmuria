@@ -31,10 +31,17 @@ const PLATEAU_TERRAIN_TEXTURE_KEY = 'terrain_tileset_plateau'
 const WOOD_RESOURCE_TEXTURE_KEY = 'construction-site-wood-resource'
 const CURSOR_TEXTURE_KEY = 'ui-cursor-default'
 const POINTER_TEXTURE_KEY = 'ui-cursor-pointer'
+const SPEED_BUTTON_TEXTURE_KEY = 'ui-button-tiny-round-blue'
 const CURSOR_HOTSPOT_X = 22
 const CURSOR_HOTSPOT_Y = 17
+const CURSOR_DEPTH = 100000
 const SKULL_HOLD_FRAME_INDEX = 6
 const SKULL_HOLD_DURATION_MS = 5000
+const SPEED_STEPS = [1, 2, 4, 8]
+const SPEED_BUTTON_MARGIN_X = 16
+const SPEED_BUTTON_MARGIN_Y = 16
+const SPEED_BUTTON_DISPLAY_WIDTH = 48
+const SPEED_BUTTON_DISPLAY_HEIGHT = 48
 
 const VILLAGER_ASSETS = [
   {
@@ -161,6 +168,9 @@ export class GameScene extends Phaser.Scene {
     this.isCameraDragging = false
     this.cursorSprite = null
     this.cursorMode = 'default'
+    this.speedButtonSprite = null
+    this.speedButtonText = null
+    this.speedButtonInteractive = null
     this.selectionCameraSystem = new SelectionCameraSystem(this)
     this.lastDragPointerX = 0
     this.lastDragPointerY = 0
@@ -176,6 +186,7 @@ export class GameScene extends Phaser.Scene {
   preload() {
     this.load.image(CURSOR_TEXTURE_KEY, '/assets/ui/elements/cursors/cursor.png')
     this.load.image(POINTER_TEXTURE_KEY, '/assets/ui/elements/cursors/pointer.png')
+    this.load.image(SPEED_BUTTON_TEXTURE_KEY, '/assets/ui/elements/buttons/tiny-round-blue.png')
 
     for (const asset of VILLAGER_ASSETS) {
       this.load.spritesheet(asset.key, asset.path, {
@@ -304,6 +315,7 @@ export class GameScene extends Phaser.Scene {
     this.scale.on(Phaser.Scale.Events.RESIZE, this.handleResize, this)
     this.centerCameraOnCastle()
     this.setupCursor()
+    this.setupSpeedButton()
 
     renderGrid(this, this.worldStore)
     syncBuildings(this, this.worldStore)
@@ -344,7 +356,7 @@ export class GameScene extends Phaser.Scene {
 
     this.cursorSprite = this.add.image(0, 0, CURSOR_TEXTURE_KEY)
     this.cursorSprite.setScrollFactor(0)
-    this.cursorSprite.setDepth(10000)
+    this.cursorSprite.setDepth(CURSOR_DEPTH)
     this.cursorSprite.setOrigin(0, 0)
     this.cursorSprite.setVisible(false)
 
@@ -381,6 +393,19 @@ export class GameScene extends Phaser.Scene {
     if (this.cursorSprite) {
       this.cursorSprite.destroy()
       this.cursorSprite = null
+    }
+
+    if (this.speedButtonText) {
+      this.speedButtonText.destroy()
+      this.speedButtonText = null
+    }
+
+    if (this.speedButtonSprite) {
+      this.speedButtonSprite.off('pointerdown', this.handleSpeedButtonClick, this)
+      this.speedButtonSprite.off('pointerover', this.handleSpeedButtonOver, this)
+      this.speedButtonSprite.off('pointerout', this.handleSpeedButtonOut, this)
+      this.speedButtonSprite.destroy()
+      this.speedButtonSprite = null
     }
 
     if (this.game?.canvas) {
@@ -519,6 +544,83 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.selectUnit(unitId)
+  }
+
+  setupSpeedButton() {
+    if (this.speedButtonSprite) {
+      this.speedButtonSprite.destroy()
+      this.speedButtonSprite = null
+    }
+
+    if (this.speedButtonText) {
+      this.speedButtonText.destroy()
+      this.speedButtonText = null
+    }
+
+    const buttonX = this.scale.width - SPEED_BUTTON_MARGIN_X - SPEED_BUTTON_DISPLAY_WIDTH / 2
+    const buttonY = SPEED_BUTTON_MARGIN_Y + SPEED_BUTTON_DISPLAY_HEIGHT / 2
+
+    this.speedButtonSprite = this.add.image(buttonX, buttonY, SPEED_BUTTON_TEXTURE_KEY)
+    this.speedButtonSprite.setScrollFactor(0)
+    this.speedButtonSprite.setDepth(10001)
+    this.speedButtonSprite.setDisplaySize(SPEED_BUTTON_DISPLAY_WIDTH, SPEED_BUTTON_DISPLAY_HEIGHT)
+    this.speedButtonSprite.setInteractive({ useHandCursor: false })
+    this.speedButtonSprite.on('pointerdown', this.handleSpeedButtonClick, this)
+    this.speedButtonSprite.on('pointerover', this.handleSpeedButtonOver, this)
+    this.speedButtonSprite.on('pointerout', this.handleSpeedButtonOut, this)
+
+    this.speedButtonText = this.add.text(buttonX, buttonY, this.getSpeedLabel(), {
+      fontFamily: 'Arial, sans-serif',
+      fontSize: '14px',
+      fontStyle: '700',
+      color: '#ffffff',
+      stroke: '#16304f',
+      strokeThickness: 3,
+    })
+    this.speedButtonText.setOrigin(0.5, 0.5)
+    this.speedButtonText.setScrollFactor(0)
+    this.speedButtonText.setDepth(10002)
+  }
+
+  handleSpeedButtonClick(pointer, _localX, _localY, event) {
+    if (event?.stopPropagation) {
+      event.stopPropagation()
+    }
+
+    this.cycleSimulationSpeed()
+  }
+
+  handleSpeedButtonOver() {
+    if (this.speedButtonSprite) {
+      this.speedButtonSprite.setTint(0xd7ecff)
+    }
+  }
+
+  handleSpeedButtonOut() {
+    if (this.speedButtonSprite) {
+      this.speedButtonSprite.clearTint()
+    }
+  }
+
+  cycleSimulationSpeed() {
+    if (!this.worldStore) {
+      return
+    }
+
+    const currentIndex = SPEED_STEPS.indexOf(this.worldStore.simulationSpeed)
+    const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % SPEED_STEPS.length
+    this.worldStore.simulationSpeed = SPEED_STEPS[nextIndex]
+    this.syncSpeedButtonLabel()
+  }
+
+  getSpeedLabel() {
+    return `x${this.worldStore?.simulationSpeed ?? 1}`
+  }
+
+  syncSpeedButtonLabel() {
+    if (this.speedButtonText) {
+      this.speedButtonText.setText(this.getSpeedLabel())
+    }
   }
 
   selectUnit(unitId) {
@@ -678,6 +780,8 @@ export class GameScene extends Phaser.Scene {
   update(_time, delta) {
     this.updateCameraZoom(delta)
     this.syncSkullEffects()
+    this.syncSpeedButtonLayout()
+    this.syncSpeedButtonLabel()
     syncConstructionSites(this, this.worldStore)
     syncHouses(this, this.worldStore)
     syncResources(this, this.worldStore)
@@ -832,5 +936,17 @@ export class GameScene extends Phaser.Scene {
       controller.destroy()
       this.unitControllers.delete(unitId)
     }
+  }
+
+  syncSpeedButtonLayout() {
+    if (!this.speedButtonSprite || !this.speedButtonText) {
+      return
+    }
+
+    const buttonX = this.scale.width - SPEED_BUTTON_MARGIN_X - SPEED_BUTTON_DISPLAY_WIDTH / 2
+    const buttonY = SPEED_BUTTON_MARGIN_Y + SPEED_BUTTON_DISPLAY_HEIGHT / 2
+
+    this.speedButtonSprite.setPosition(buttonX, buttonY)
+    this.speedButtonText.setPosition(buttonX, buttonY)
   }
 }

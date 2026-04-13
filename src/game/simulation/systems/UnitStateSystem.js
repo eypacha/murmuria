@@ -8,7 +8,7 @@ const IDLE_DECISION_DELAY_MS = 1000
 const TALK_DURATION_MS = 3000
 const TALK_BUBBLE_SWITCH_MS = 1000
 const TALK_DISTANCE_LIMIT_TILES = 10
-const TALK_MEETING_SEARCH_RADIUS = 4
+const WANDER_CASTLE_DISTANCE_LIMIT_TILES = 10
 const TALK_BUBBLE_TEXTS = ['🙂', '😐', '🤔', '🍖', '👑', '🔥', '😭', '🍎', '🍕', '🍷', '🌎', '🏰']
 const MAX_IDLE_DECISIONS_PER_TICK = 8
 const IDLE_BEHAVIOR_WEIGHTS = {
@@ -60,6 +60,14 @@ function getUnitGridTile(unit) {
     x: Math.floor(unit.pos.x / TILE_SIZE),
     y: Math.floor(unit.pos.y / TILE_SIZE),
   }
+}
+
+function getTileDistance(a, b) {
+  if (!a || !b) {
+    return Number.POSITIVE_INFINITY
+  }
+
+  return Math.abs(a.x - b.x) + Math.abs(a.y - b.y)
 }
 
 export class UnitStateSystem {
@@ -704,6 +712,7 @@ export class UnitStateSystem {
 
   static findWanderTarget(unit, worldStore) {
     const unitTile = getUnitGridTile(unit)
+    const castleTile = this.getCastleGridTile(worldStore)
 
     if (!unitTile) {
       return null
@@ -727,6 +736,8 @@ export class UnitStateSystem {
       candidates[swapIndex] = temp
     }
 
+    const validCandidates = []
+
     for (const offset of candidates) {
       const candidate = {
         x: unitTile.x + offset.dx,
@@ -745,10 +756,80 @@ export class UnitStateSystem {
         continue
       }
 
-      return candidate
+      validCandidates.push(candidate)
     }
 
-    return null
+    if (validCandidates.length === 0) {
+      return null
+    }
+
+    if (!castleTile) {
+      return validCandidates[0]
+    }
+
+    const currentDistance = getTileDistance(unitTile, castleTile)
+    const withinLeash = validCandidates.filter((candidate) => {
+      return getTileDistance(candidate, castleTile) <= WANDER_CASTLE_DISTANCE_LIMIT_TILES
+    })
+
+    if (currentDistance > WANDER_CASTLE_DISTANCE_LIMIT_TILES) {
+      const closerCandidates = validCandidates.filter((candidate) => {
+        return getTileDistance(candidate, castleTile) < currentDistance
+      })
+
+      if (closerCandidates.length > 0) {
+        return closerCandidates[0]
+      }
+
+      return validCandidates.reduce((best, candidate) => {
+        if (!best) {
+          return candidate
+        }
+
+        const bestDistance = getTileDistance(best, castleTile)
+        const candidateDistance = getTileDistance(candidate, castleTile)
+
+        if (candidateDistance < bestDistance) {
+          return candidate
+        }
+
+        return best
+      }, null)
+    }
+
+    if (withinLeash.length > 0) {
+      return withinLeash[0]
+    }
+
+    return validCandidates.reduce((best, candidate) => {
+      if (!best) {
+        return candidate
+      }
+
+      const bestDistance = getTileDistance(best, castleTile)
+      const candidateDistance = getTileDistance(candidate, castleTile)
+
+      if (candidateDistance < bestDistance) {
+        return candidate
+      }
+
+      return best
+    }, null)
+  }
+
+  static getCastleGridTile(worldStore) {
+    const castle = (worldStore?.buildings ?? []).find((building) => building?.type === 'castle') ?? null
+
+    if (!castle?.gridPos) {
+      return null
+    }
+
+    const footprint = castle.footprint ?? { w: 1, h: 1 }
+
+    return {
+      x: castle.gridPos.x + Math.floor(footprint.w / 2),
+      y: castle.gridPos.y + Math.floor(footprint.h / 2),
+    }
   }
 
   static prepareTalkUnit(unit, partner, targetTile, worldStore) {
