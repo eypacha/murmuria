@@ -53,7 +53,7 @@ export const REPRODUCTION_FOOD_THRESHOLD_PER_UNIT = 6
 export const HOUSE_WOOD_COST = 20
 export const HOUSE_BUILD_TIME_MS = 20000
 export const TREE_WOOD_AMOUNT = 50
-export const SHEEP_MEAT_AMOUNT = 10
+export const SHEEP_MEAT_AMOUNT = 25
 export const INITIAL_GOLD_COUNT = 128
 
 // Initial world population
