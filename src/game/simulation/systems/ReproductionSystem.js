@@ -6,6 +6,7 @@ import {
   REPRODUCTION_SEARCH_RADIUS_TILES,
   TILE_SIZE,
 } from '../../config/constants.js'
+import { getOccupiedTiles } from '../../core/getOccupiedTiles.js'
 import { findPath } from '../../core/findPath.js'
 import { createVillager } from '../../domain/factories/createVillager.js'
 
@@ -17,14 +18,33 @@ function getTileKey(tile) {
   return `${tile.x}:${tile.y}`
 }
 
-function getHouseTargetTile(house) {
+function getHouseReproductionTiles(house) {
   if (!house?.gridPos) {
     return null
   }
 
   return {
-    x: house.gridPos.x,
-    y: house.gridPos.y - 1,
+    left: {
+      x: house.gridPos.x,
+      y: house.gridPos.y - 1,
+    },
+    right: {
+      x: house.gridPos.x + 1,
+      y: house.gridPos.y - 1,
+    },
+  }
+}
+
+function getHouseReproductionVisualPosition(house) {
+  const tiles = getHouseReproductionTiles(house)
+
+  if (!tiles?.left || !tiles?.right) {
+    return null
+  }
+
+  return {
+    x: house.gridPos.x * TILE_SIZE + TILE_SIZE,
+    y: house.gridPos.y * TILE_SIZE + TILE_SIZE,
   }
 }
 
@@ -124,9 +144,9 @@ function getIdleUnitCount(worldStore) {
 function getHouseDistanceScore(unit, partner, house) {
   const unitTile = getUnitGridTile(unit)
   const partnerTile = getUnitGridTile(partner)
-  const houseTile = house?.gridPos
+  const targets = getHouseReproductionTiles(house)
 
-  if (!unitTile || !partnerTile || !houseTile) {
+  if (!unitTile || !partnerTile || !targets) {
     return Number.POSITIVE_INFINITY
   }
 
@@ -135,7 +155,90 @@ function getHouseDistanceScore(unit, partner, house) {
     y: (unitTile.y + partnerTile.y) / 2,
   }
 
-  return Math.hypot(midpoint.x - houseTile.x, midpoint.y - houseTile.y)
+  const leftScore = Math.hypot(midpoint.x - targets.left.x, midpoint.y - targets.left.y)
+  const rightScore = Math.hypot(midpoint.x - targets.right.x, midpoint.y - targets.right.y)
+
+  return Math.min(leftScore, rightScore)
+}
+
+function getBestReproductionAssignment(worldStore, unit, partner, house) {
+  const unitTile = getUnitGridTile(unit)
+  const partnerTile = getUnitGridTile(partner)
+  const targets = getHouseReproductionTiles(house)
+
+  if (!unitTile || !partnerTile || !targets?.left || !targets?.right) {
+    return null
+  }
+
+  const occupiedTiles = new Set()
+
+  for (const entity of [
+    ...(worldStore?.buildings ?? []),
+    ...(worldStore?.constructionSites ?? []),
+    ...(worldStore?.houses ?? []),
+    ...(worldStore?.resources ?? []),
+    ...(worldStore?.decorations ?? []),
+  ]) {
+    if (!entity?.gridPos) {
+      continue
+    }
+
+    for (const tile of getOccupiedTiles(entity)) {
+      occupiedTiles.add(getTileKey(tile))
+    }
+  }
+
+  const leftTile = targets.left
+  const rightTile = targets.right
+  const directUnitPath = findPath(worldStore, unitTile, leftTile)
+  const directPartnerPath = findPath(worldStore, partnerTile, rightTile)
+  const swappedUnitPath = findPath(worldStore, unitTile, rightTile)
+  const swappedPartnerPath = findPath(worldStore, partnerTile, leftTile)
+
+  const directValid =
+    (unitTile.x === leftTile.x && unitTile.y === leftTile.y || directUnitPath.length > 0) &&
+    (partnerTile.x === rightTile.x && partnerTile.y === rightTile.y || directPartnerPath.length > 0) &&
+    !occupiedTiles.has(getTileKey(leftTile)) &&
+    !occupiedTiles.has(getTileKey(rightTile))
+
+  const swappedValid =
+    (unitTile.x === rightTile.x && unitTile.y === rightTile.y || swappedUnitPath.length > 0) &&
+    (partnerTile.x === leftTile.x && partnerTile.y === leftTile.y || swappedPartnerPath.length > 0) &&
+    !occupiedTiles.has(getTileKey(leftTile)) &&
+    !occupiedTiles.has(getTileKey(rightTile))
+
+  if (!directValid && !swappedValid) {
+    return null
+  }
+
+  if (directValid && !swappedValid) {
+    return {
+      unitTargetTile: leftTile,
+      partnerTargetTile: rightTile,
+    }
+  }
+
+  if (!directValid && swappedValid) {
+    return {
+      unitTargetTile: rightTile,
+      partnerTargetTile: leftTile,
+    }
+  }
+
+  const directScore = (directUnitPath.length ?? 0) + (directPartnerPath.length ?? 0)
+  const swappedScore = (swappedUnitPath.length ?? 0) + (swappedPartnerPath.length ?? 0)
+
+  if (directScore <= swappedScore) {
+    return {
+      unitTargetTile: leftTile,
+      partnerTargetTile: rightTile,
+    }
+  }
+
+  return {
+    unitTargetTile: rightTile,
+    partnerTargetTile: leftTile,
+  }
 }
 
 export class ReproductionSystem {
@@ -173,26 +276,28 @@ export class ReproductionSystem {
       return
     }
 
-    const targetTile = getHouseTargetTile(house)
+    const targetAssignment = getBestReproductionAssignment(worldStore, unitA, unitB, house)
 
-    if (!targetTile) {
+    if (!targetAssignment) {
       this.cancelTask(worldStore, task, currentTick)
       return
     }
 
     const unitATile = getUnitGridTile(unitA)
     const unitBTile = getUnitGridTile(unitB)
+    const unitATargetTile = task.unitTargetTiles?.[0] ?? targetAssignment.unitTargetTile
+    const unitBTargetTile = task.unitTargetTiles?.[1] ?? targetAssignment.partnerTargetTile
 
-    if (!unitATile || !unitBTile) {
+    if (!unitATile || !unitBTile || !unitATargetTile || !unitBTargetTile) {
       this.cancelTask(worldStore, task, currentTick)
       return
     }
 
     const atTarget =
-      unitATile.x === targetTile.x &&
-      unitATile.y === targetTile.y &&
-      unitBTile.x === targetTile.x &&
-      unitBTile.y === targetTile.y
+      unitATile.x === unitATargetTile.x &&
+      unitATile.y === unitATargetTile.y &&
+      unitBTile.x === unitBTargetTile.x &&
+      unitBTile.y === unitBTargetTile.y
 
     if (!atTarget) {
       return
@@ -201,12 +306,19 @@ export class ReproductionSystem {
     if (task.startedTick == null) {
       task.startedTick = currentTick
       task.finishTick = currentTick + REPRODUCTION_DURATION_TICKS
+      const visualPosition = getHouseReproductionVisualPosition(house)
+      unitA.reproductionOriginPos = unitA.pos ? { ...unitA.pos } : null
+      unitB.reproductionOriginPos = unitB.pos ? { ...unitB.pos } : null
       unitA.state = 'reproducing'
       unitB.state = 'reproducing'
       unitA.reproductionReadyTick = currentTick
       unitB.reproductionReadyTick = currentTick
       unitA.reproductionUntilTick = task.finishTick
       unitB.reproductionUntilTick = task.finishTick
+      if (visualPosition) {
+        unitA.pos = { ...visualPosition }
+        unitB.pos = { ...visualPosition }
+      }
       return
     }
 
@@ -230,10 +342,15 @@ export class ReproductionSystem {
     }
 
     const spawnTile = getUnitGridTile(parent) ?? house.gridPos
+    const visualPosition = getHouseReproductionVisualPosition(house) ?? {
+      x: spawnTile.x * TILE_SIZE + TILE_SIZE / 2,
+      y: spawnTile.y * TILE_SIZE + TILE_SIZE / 2,
+    }
     const child = createVillager(spawnTile.x, spawnTile.y, parent.facing ?? 'right', {
       isChild: true,
       growAtTick: currentTick + CHILD_GROW_DURATION_TICKS,
-      state: 'idle',
+      state: 'spawning',
+      visualPos: { ...visualPosition },
       reproductionTaskId: null,
       reproductionHouseId: null,
       reproductionPartnerId: null,
@@ -243,10 +360,9 @@ export class ReproductionSystem {
     })
 
     child.gridPos = { x: spawnTile.x, y: spawnTile.y }
-    child.pos = {
-      x: spawnTile.x * TILE_SIZE + TILE_SIZE / 2,
-      y: spawnTile.y * TILE_SIZE + TILE_SIZE / 2,
-    }
+    child.pos = { ...visualPosition }
+    child.stateUntilTick = currentTick + 1
+    child.nextState = 'idle'
 
     worldStore.units = worldStore.units ?? []
     worldStore.units.push(child)
@@ -283,6 +399,8 @@ export class ReproductionSystem {
     unit.reproductionPartnerId = null
     unit.reproductionReadyTick = null
     unit.reproductionUntilTick = null
+    unit.reproductionOriginPos = null
+    unit.visualPos = null
     unit.lastReproduceTick = currentTick
     unit.decisionLockUntilTick = currentTick + 1
   }
@@ -317,6 +435,11 @@ export class ReproductionSystem {
       unit.reproductionPartnerId = null
       unit.reproductionReadyTick = null
       unit.reproductionUntilTick = null
+      if (unit.reproductionOriginPos) {
+        unit.pos = { ...unit.reproductionOriginPos }
+      }
+      unit.reproductionOriginPos = null
+      unit.visualPos = null
       unit.decisionLockUntilTick = currentTick + 1
     }
 
@@ -352,6 +475,11 @@ export class ReproductionSystem {
       unit.reproductionPartnerId = null
       unit.reproductionReadyTick = null
       unit.reproductionUntilTick = null
+      if (unit.reproductionOriginPos) {
+        unit.pos = { ...unit.reproductionOriginPos }
+      }
+      unit.reproductionOriginPos = null
+      unit.visualPos = null
       return
     }
 
@@ -380,6 +508,8 @@ export class ReproductionSystem {
     unit.reproductionPartnerId = null
     unit.reproductionReadyTick = null
     unit.reproductionUntilTick = null
+    unit.reproductionOriginPos = null
+    unit.visualPos = null
     unit.decisionLockUntilTick = currentTick + 1
   }
 
@@ -519,30 +649,15 @@ export class ReproductionSystem {
         continue
       }
 
-      const score = getHouseDistanceScore(unit, partner, house)
+      const targetAssignment = getBestReproductionAssignment(worldStore, unit, partner, house)
 
-      const targetTile = getHouseTargetTile(house)
-
-      if (!targetTile) {
+      if (!targetAssignment) {
         continue
       }
 
-      const unitPath = findPath(worldStore, unitTile, targetTile)
-      const partnerPath = findPath(worldStore, partnerTile, targetTile)
-
-      if (
-        (unitTile.x !== targetTile.x || unitTile.y !== targetTile.y) &&
-        unitPath.length === 0
-      ) {
-        continue
-      }
-
-      if (
-        (partnerTile.x !== targetTile.x || partnerTile.y !== targetTile.y) &&
-        partnerPath.length === 0
-      ) {
-        continue
-      }
+      const unitPath = findPath(worldStore, unitTile, targetAssignment.unitTargetTile)
+      const partnerPath = findPath(worldStore, partnerTile, targetAssignment.partnerTargetTile)
+      const score = (unitPath.length ?? 0) + (partnerPath.length ?? 0)
 
       if (score < bestScore) {
         bestScore = score
@@ -574,18 +689,20 @@ export class ReproductionSystem {
       return null
     }
 
-    const targetTile = getHouseTargetTile(house)
+    const targetAssignment = getBestReproductionAssignment(worldStore, unit, partner, house)
 
-    if (!targetTile) {
+    if (!targetAssignment) {
       return null
     }
 
     return {
       type: 'reproduce',
       targetId: house.id,
-      targetPos: targetTile,
+      targetPos: targetAssignment.unitTargetTile,
       partnerId: partner.id,
       houseId: house.id,
+      unitTargetTile: targetAssignment.unitTargetTile,
+      partnerTargetTile: targetAssignment.partnerTargetTile,
       createdTick: getTick(worldStore),
     }
   }
@@ -618,9 +735,15 @@ export class ReproductionSystem {
       return false
     }
 
-    const targetTile = getHouseTargetTile(house)
+    const targetAssignment =
+      intent.unitTargetTile && intent.partnerTargetTile
+        ? {
+            unitTargetTile: intent.unitTargetTile,
+            partnerTargetTile: intent.partnerTargetTile,
+          }
+        : getBestReproductionAssignment(worldStore, unit, partner, house)
 
-    if (!targetTile) {
+    if (!targetAssignment) {
       return false
     }
 
@@ -631,18 +754,18 @@ export class ReproductionSystem {
       return false
     }
 
-    const unitPath = findPath(worldStore, unitTile, targetTile)
-    const partnerPath = findPath(worldStore, partnerTile, targetTile)
+    const unitPath = findPath(worldStore, unitTile, targetAssignment.unitTargetTile)
+    const partnerPath = findPath(worldStore, partnerTile, targetAssignment.partnerTargetTile)
 
     if (
-      (unitTile.x !== targetTile.x || unitTile.y !== targetTile.y) &&
+      (unitTile.x !== targetAssignment.unitTargetTile.x || unitTile.y !== targetAssignment.unitTargetTile.y) &&
       unitPath.length === 0
     ) {
       return false
     }
 
     if (
-      (partnerTile.x !== targetTile.x || partnerTile.y !== targetTile.y) &&
+      (partnerTile.x !== targetAssignment.partnerTargetTile.x || partnerTile.y !== targetAssignment.partnerTargetTile.y) &&
       partnerPath.length === 0
     ) {
       return false
@@ -653,6 +776,7 @@ export class ReproductionSystem {
       id: reproductionTaskId,
       houseId: house.id,
       unitIds: [unit.id, partner.id],
+      unitTargetTiles: [targetAssignment.unitTargetTile, targetAssignment.partnerTargetTile],
       startedTick: null,
       finishTick: null,
     }
@@ -676,7 +800,9 @@ export class ReproductionSystem {
       subject.target = {
         type: 'house',
         id: house.id,
-        tile: { ...targetTile },
+        tile: {
+          ...(subject.id === unit.id ? targetAssignment.unitTargetTile : targetAssignment.partnerTargetTile),
+        },
       }
       subject.path = []
       subject.pathGoalKey = null

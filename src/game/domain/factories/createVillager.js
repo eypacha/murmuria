@@ -31,6 +31,8 @@ export function createVillager(x = 0, y = 0, facing = 'right', overrides = {}) {
     reproductionPartnerId: overrides.reproductionPartnerId ?? null,
     reproductionReadyTick: overrides.reproductionReadyTick ?? null,
     reproductionUntilTick: overrides.reproductionUntilTick ?? null,
+    reproductionOriginPos: overrides.reproductionOriginPos ?? null,
+    visualPos: overrides.visualPos ?? null,
     idleSince: overrides.idleSince ?? null,
     idleAction: overrides.idleAction ?? null,
     talkPartner: overrides.talkPartner ?? null,

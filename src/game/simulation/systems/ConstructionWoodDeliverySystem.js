@@ -29,6 +29,7 @@ function getIdleVillagers(worldStore) {
   return (worldStore.units ?? []).filter((unit) => {
     return (
       unit?.role === 'villager' &&
+      unit.isChild !== true &&
       unit.state === 'idle' &&
       !unit.constructionDelivery &&
       (unit.inventory?.wood ?? 0) <= 0 &&

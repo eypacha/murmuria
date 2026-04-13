@@ -31,6 +31,15 @@ const TALK_EMOJI_STYLE = {
 }
 
 function getUnitWorldPosition(unit) {
+  if (
+    (unit?.state === 'reproducing' || unit?.state === 'spawning') &&
+    unit?.visualPos &&
+    Number.isFinite(unit.visualPos.x) &&
+    Number.isFinite(unit.visualPos.y)
+  ) {
+    return unit.visualPos
+  }
+
   if (unit?.pos) {
     return unit.pos
   }

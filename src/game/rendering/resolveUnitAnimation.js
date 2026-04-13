@@ -236,6 +236,10 @@ export function resolveUnitAnimation(unit) {
     return 'villager-run-hammer'
   }
 
+  if (state === 'reproducing' || state === 'spawning') {
+    return resolveMovingAnimation(unit)
+  }
+
   if (state === 'preparing_to_gather') {
     if (workTargetType === 'sheep') {
       return 'villager-idle-knife'

@@ -227,6 +227,10 @@ export class UnitStateSystem {
       unit.idleSince = currentTick
     }
 
+    if (unit.state === 'idle' && unit.visualPos) {
+      unit.visualPos = null
+    }
+
     if (unit.idleAction !== 'wander' && unit.idleAction !== 'talk') {
       unit.idleAction = null
     }
