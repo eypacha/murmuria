@@ -32,6 +32,11 @@ const WOOD_RESOURCE_TEXTURE_KEY = 'construction-site-wood-resource'
 const CURSOR_TEXTURE_KEY = 'ui-cursor-default'
 const POINTER_TEXTURE_KEY = 'ui-cursor-pointer'
 const SPEED_BUTTON_TEXTURE_KEY = 'ui-button-tiny-round-blue'
+const RESOURCE_ICON_KEYS = {
+  wood: 'ui-resource-wood',
+  gold: 'ui-resource-gold',
+  meat: 'ui-resource-meat',
+}
 const CURSOR_HOTSPOT_X = 22
 const CURSOR_HOTSPOT_Y = 17
 const CURSOR_DEPTH = 100000
@@ -42,6 +47,12 @@ const SPEED_BUTTON_MARGIN_X = 16
 const SPEED_BUTTON_MARGIN_Y = 16
 const SPEED_BUTTON_DISPLAY_WIDTH = 48
 const SPEED_BUTTON_DISPLAY_HEIGHT = 48
+const RESOURCE_HUD_MARGIN_X = 16
+const RESOURCE_HUD_MARGIN_Y = 16
+const RESOURCE_HUD_ROW_GAP = 12
+const RESOURCE_HUD_ICON_SIZE = 32
+const RESOURCE_HUD_TEXT_OFFSET_X = 32
+const RESOURCE_HUD_DEPTH = 99999
 
 const VILLAGER_ASSETS = [
   {
@@ -171,6 +182,10 @@ export class GameScene extends Phaser.Scene {
     this.speedButtonSprite = null
     this.speedButtonText = null
     this.speedButtonInteractive = null
+    this.resourceHudRows = new Map()
+    this.lastPointerPosition = null
+    this.uiCamera = null
+    this.uiObjects = new Set()
     this.selectionCameraSystem = new SelectionCameraSystem(this)
     this.lastDragPointerX = 0
     this.lastDragPointerY = 0
@@ -187,6 +202,9 @@ export class GameScene extends Phaser.Scene {
     this.load.image(CURSOR_TEXTURE_KEY, '/assets/ui/elements/cursors/cursor.png')
     this.load.image(POINTER_TEXTURE_KEY, '/assets/ui/elements/cursors/pointer.png')
     this.load.image(SPEED_BUTTON_TEXTURE_KEY, '/assets/ui/elements/buttons/tiny-round-blue.png')
+    this.load.image(RESOURCE_ICON_KEYS.wood, '/assets/ui/elements/icons/wood.png')
+    this.load.image(RESOURCE_ICON_KEYS.gold, '/assets/ui/elements/icons/coin.png')
+    this.load.image(RESOURCE_ICON_KEYS.meat, '/assets/ui/elements/icons/meat.png')
 
     for (const asset of VILLAGER_ASSETS) {
       this.load.spritesheet(asset.key, asset.path, {
@@ -310,12 +328,21 @@ export class GameScene extends Phaser.Scene {
     this.targetZoom = CAMERA_DEFAULT_ZOOM
     this.zoomAnchor = null
     this.isCameraDragging = false
+    if (this.uiCamera) {
+      this.uiCamera.destroy()
+      this.uiCamera = null
+    }
+    this.uiObjects.clear()
     this.ensureAnimations()
     this.setupCameraControls()
     this.scale.on(Phaser.Scale.Events.RESIZE, this.handleResize, this)
     this.centerCameraOnCastle()
+    this.setupUiCamera(width, height)
     this.setupCursor()
+    this.setupResourceHud()
     this.setupSpeedButton()
+    this.syncUiOverlay()
+    this.syncUiCameraIgnores()
 
     renderGrid(this, this.worldStore)
     syncBuildings(this, this.worldStore)
@@ -323,6 +350,7 @@ export class GameScene extends Phaser.Scene {
     syncHouses(this, this.worldStore)
     syncResources(this, this.worldStore)
     this.syncUnitControllers()
+    this.syncUiCameraIgnores()
     this.selectionCameraSystem.update()
   }
 
@@ -359,6 +387,7 @@ export class GameScene extends Phaser.Scene {
     this.cursorSprite.setDepth(CURSOR_DEPTH)
     this.cursorSprite.setOrigin(0, 0)
     this.cursorSprite.setVisible(false)
+    this.registerUiObject(this.cursorSprite)
 
     if (this.game?.canvas) {
       this.game.canvas.style.cursor = 'none'
@@ -370,6 +399,19 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.setCursorMode('default')
+  }
+
+  setupUiCamera(width, height) {
+    if (this.uiCamera) {
+      this.uiCamera.destroy()
+    }
+
+    this.uiCamera = this.cameras.add(0, 0, width, height)
+    this.uiCamera.setScroll(0, 0)
+    this.uiCamera.setZoom(1)
+    this.uiCamera.ignore(
+      this.children.list.filter((child) => !this.uiObjects.has(child)),
+    )
   }
 
   cleanupCameraControls() {
@@ -408,6 +450,13 @@ export class GameScene extends Phaser.Scene {
       this.speedButtonSprite = null
     }
 
+    this.destroyResourceHud()
+
+    if (this.uiCamera) {
+      this.uiCamera.destroy()
+      this.uiCamera = null
+    }
+
     if (this.game?.canvas) {
       this.game.canvas.style.cursor = ''
     }
@@ -438,15 +487,6 @@ export class GameScene extends Phaser.Scene {
 
     camera.scrollX = Phaser.Math.Clamp(camera.scrollX, 0, maxScrollX)
     camera.scrollY = Phaser.Math.Clamp(camera.scrollY, 0, maxScrollY)
-  }
-
-  handleResize(gameSize) {
-    const camera = this.cameras.main
-    const width = gameSize?.width ?? camera.width
-    const height = gameSize?.height ?? camera.height
-
-    camera.setViewport(0, 0, width, height)
-    this.clampCameraToWorld()
   }
 
   handleCameraWheel(pointer, _currentlyOver, _deltaX, deltaY, _deltaZ, event) {
@@ -568,6 +608,7 @@ export class GameScene extends Phaser.Scene {
     this.speedButtonSprite.on('pointerdown', this.handleSpeedButtonClick, this)
     this.speedButtonSprite.on('pointerover', this.handleSpeedButtonOver, this)
     this.speedButtonSprite.on('pointerout', this.handleSpeedButtonOut, this)
+    this.registerUiObject(this.speedButtonSprite)
 
     this.speedButtonText = this.add.text(buttonX, buttonY, this.getSpeedLabel(), {
       fontFamily: 'Arial, sans-serif',
@@ -580,6 +621,60 @@ export class GameScene extends Phaser.Scene {
     this.speedButtonText.setOrigin(0.5, 0.5)
     this.speedButtonText.setScrollFactor(0)
     this.speedButtonText.setDepth(10002)
+    this.registerUiObject(this.speedButtonText)
+  }
+
+  setupResourceHud() {
+    this.destroyResourceHud()
+
+    const resourceEntries = [
+      { key: 'wood', iconKey: RESOURCE_ICON_KEYS.wood },
+      { key: 'gold', iconKey: RESOURCE_ICON_KEYS.gold },
+      { key: 'meat', iconKey: RESOURCE_ICON_KEYS.meat },
+    ]
+
+    resourceEntries.forEach((entry, index) => {
+      const rowY = RESOURCE_HUD_MARGIN_Y + index * (RESOURCE_HUD_ICON_SIZE + RESOURCE_HUD_ROW_GAP)
+      const icon = this.add.image(RESOURCE_HUD_MARGIN_X + RESOURCE_HUD_ICON_SIZE / 2, rowY + RESOURCE_HUD_ICON_SIZE / 2, entry.iconKey)
+      const valueText = this.add.text(
+        RESOURCE_HUD_MARGIN_X + RESOURCE_HUD_TEXT_OFFSET_X,
+        rowY + RESOURCE_HUD_ICON_SIZE / 2,
+        '0',
+        {
+          fontFamily: 'Arial, sans-serif',
+          fontSize: '24px',
+          fontStyle: '700',
+          color: '#f8fafc',
+          stroke: '#0f172a',
+          strokeThickness: 4,
+          align: 'left',
+        },
+      )
+
+      icon.setScrollFactor(0)
+      icon.setDepth(RESOURCE_HUD_DEPTH)
+      icon.setDisplaySize(RESOURCE_HUD_ICON_SIZE, RESOURCE_HUD_ICON_SIZE)
+      this.registerUiObject(icon)
+
+      valueText.setOrigin(0, 0.5)
+      valueText.setScrollFactor(0)
+      valueText.setDepth(RESOURCE_HUD_DEPTH + 1)
+      this.registerUiObject(valueText)
+
+      this.resourceHudRows.set(entry.key, {
+        icon,
+        valueText,
+      })
+    })
+  }
+
+  destroyResourceHud() {
+    for (const row of this.resourceHudRows.values()) {
+      row.icon?.destroy()
+      row.valueText?.destroy()
+    }
+
+    this.resourceHudRows.clear()
   }
 
   handleSpeedButtonClick(pointer, _localX, _localY, event) {
@@ -594,12 +689,16 @@ export class GameScene extends Phaser.Scene {
     if (this.speedButtonSprite) {
       this.speedButtonSprite.setTint(0xd7ecff)
     }
+
+    this.setCursorMode('pointer')
   }
 
   handleSpeedButtonOut() {
     if (this.speedButtonSprite) {
       this.speedButtonSprite.clearTint()
     }
+
+    this.setCursorMode('default')
   }
 
   cycleSimulationSpeed() {
@@ -617,9 +716,100 @@ export class GameScene extends Phaser.Scene {
     return `x${this.worldStore?.simulationSpeed ?? 1}`
   }
 
+  registerUiObject(gameObject) {
+    if (!gameObject) {
+      return
+    }
+
+    this.uiObjects.add(gameObject)
+
+    if (this.cameras?.main) {
+      this.cameras.main.ignore(gameObject)
+    }
+  }
+
+  syncUiCameraIgnores() {
+    if (!this.uiCamera) {
+      return
+    }
+
+    this.uiCamera.ignore(
+      this.children.list.filter((child) => !this.uiObjects.has(child)),
+    )
+  }
+
   syncSpeedButtonLabel() {
     if (this.speedButtonText) {
       this.speedButtonText.setText(this.getSpeedLabel())
+    }
+  }
+
+  applyUiTransform(gameObject, screenX, screenY) {
+    if (!gameObject) {
+      return
+    }
+
+    gameObject.setScrollFactor(0)
+    gameObject.setPosition(screenX, screenY)
+  }
+
+  syncCursorOverlay() {
+    if (!this.cursorSprite || !this.lastPointerPosition) {
+      return
+    }
+
+    this.applyUiTransform(
+      this.cursorSprite,
+      this.lastPointerPosition.x - CURSOR_HOTSPOT_X,
+      this.lastPointerPosition.y - CURSOR_HOTSPOT_Y,
+    )
+  }
+
+  syncSpeedButtonOverlay() {
+    if (!this.speedButtonSprite || !this.speedButtonText) {
+      return
+    }
+
+    const buttonX = this.scale.width - SPEED_BUTTON_MARGIN_X - SPEED_BUTTON_DISPLAY_WIDTH / 2
+    const buttonY = SPEED_BUTTON_MARGIN_Y + SPEED_BUTTON_DISPLAY_HEIGHT / 2
+
+    this.applyUiTransform(this.speedButtonSprite, buttonX, buttonY)
+    this.applyUiTransform(this.speedButtonText, buttonX, buttonY)
+  }
+
+  syncResourceHudOverlay() {
+    for (const [index, row] of Array.from(this.resourceHudRows.values()).entries()) {
+      const rowY = RESOURCE_HUD_MARGIN_Y + index * (RESOURCE_HUD_ICON_SIZE + RESOURCE_HUD_ROW_GAP)
+      this.applyUiTransform(
+        row.icon,
+        RESOURCE_HUD_MARGIN_X + RESOURCE_HUD_ICON_SIZE / 2,
+        rowY + RESOURCE_HUD_ICON_SIZE / 2,
+      )
+      this.applyUiTransform(
+        row.valueText,
+        RESOURCE_HUD_MARGIN_X + RESOURCE_HUD_TEXT_OFFSET_X,
+        rowY + RESOURCE_HUD_ICON_SIZE / 2,
+      )
+    }
+  }
+
+  syncUiOverlay() {
+    this.syncCursorOverlay()
+    this.syncSpeedButtonOverlay()
+    this.syncResourceHudOverlay()
+    this.syncSpeedButtonLabel()
+  }
+
+  syncResourceHud() {
+    if (!this.worldStore?.kingdom?.resources) {
+      return
+    }
+
+    const values = this.worldStore.kingdom.resources
+
+    for (const [key, row] of this.resourceHudRows.entries()) {
+      const value = Math.round(Number(values?.[key] ?? 0))
+      row.valueText?.setText(String(value))
     }
   }
 
@@ -640,8 +830,13 @@ export class GameScene extends Phaser.Scene {
       return
     }
 
-    this.cursorSprite.setPosition(pointer.x - CURSOR_HOTSPOT_X, pointer.y - CURSOR_HOTSPOT_Y)
+    this.lastPointerPosition = {
+      x: pointer.x,
+      y: pointer.y,
+    }
+
     this.cursorSprite.setVisible(true)
+    this.syncCursorOverlay()
   }
 
   setCursorMode(mode) {
@@ -780,12 +975,13 @@ export class GameScene extends Phaser.Scene {
   update(_time, delta) {
     this.updateCameraZoom(delta)
     this.syncSkullEffects()
-    this.syncSpeedButtonLayout()
-    this.syncSpeedButtonLabel()
+    this.syncResourceHud()
+    this.syncUiOverlay()
     syncConstructionSites(this, this.worldStore)
     syncHouses(this, this.worldStore)
     syncResources(this, this.worldStore)
     this.syncUnitControllers()
+    this.syncUiCameraIgnores()
     this.selectionCameraSystem.update(delta)
   }
 
@@ -938,15 +1134,19 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  syncSpeedButtonLayout() {
-    if (!this.speedButtonSprite || !this.speedButtonText) {
-      return
+  handleResize(gameSize) {
+    const camera = this.cameras.main
+    const width = gameSize?.width ?? camera.width
+    const height = gameSize?.height ?? camera.height
+
+    camera.setViewport(0, 0, width, height)
+    this.clampCameraToWorld()
+    if (this.uiCamera) {
+      this.uiCamera.setViewport(0, 0, width, height)
+      this.uiCamera.setScroll(0, 0)
+      this.uiCamera.setZoom(1)
     }
-
-    const buttonX = this.scale.width - SPEED_BUTTON_MARGIN_X - SPEED_BUTTON_DISPLAY_WIDTH / 2
-    const buttonY = SPEED_BUTTON_MARGIN_Y + SPEED_BUTTON_DISPLAY_HEIGHT / 2
-
-    this.speedButtonSprite.setPosition(buttonX, buttonY)
-    this.speedButtonText.setPosition(buttonX, buttonY)
+    this.syncUiOverlay()
+    this.syncUiCameraIgnores()
   }
 }
