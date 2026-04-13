@@ -195,6 +195,12 @@ export class MovementSystem {
       return
     }
 
+    if (unit.target?.type === 'house' || unit.reproductionTaskId) {
+      unit.state = 'waiting_for_reproduction'
+      unit.idleSince = null
+      return
+    }
+
     if (unit.idleAction === 'talk') {
       if (unit.interactionFacing === 'left' || unit.interactionFacing === 'right') {
         unit.facing = unit.interactionFacing

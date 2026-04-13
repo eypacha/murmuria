@@ -3,6 +3,7 @@ import { KingdomSystem } from './systems/KingdomSystem.js'
 import { VillagerHealthSystem } from './systems/VillagerHealthSystem.js'
 import { HousingNeedSystem } from './systems/HousingNeedSystem.js'
 import { HousingProposalSystem } from './systems/HousingProposalSystem.js'
+import { GrowthSystem } from './systems/GrowthSystem.js'
 import { ConstructionSiteSystem } from './systems/ConstructionSiteSystem.js'
 import { ConstructionWoodDeliverySystem } from './systems/ConstructionWoodDeliverySystem.js'
 import {
@@ -12,6 +13,7 @@ import {
 import { DecisionSystem } from './systems/DecisionSystem.js'
 import { BubbleSystem } from './systems/BubbleSystem.js'
 import { MovementSystem } from './systems/MovementSystem.js'
+import { ReproductionSystem } from './systems/ReproductionSystem.js'
 import { UnitStateSystem } from './systems/UnitStateSystem.js'
 import { VillagerWorkSystem } from './systems/VillagerWorkSystem.js'
 import { SheepStateSystem } from './systems/SheepStateSystem.js'
@@ -68,6 +70,7 @@ export class SimulationEngine {
 
     KingdomSystem.update(this.worldStore)
     HousingNeedSystem.update(this.worldStore)
+    GrowthSystem.update(this.worldStore)
     HousingProposalSystem.update(this.worldStore)
     ConstructionWoodDeliverySystem.update(this.worldStore)
     ConstructionSiteSystem.update(this.worldStore)
@@ -77,6 +80,7 @@ export class SimulationEngine {
     BubbleSystem.update(this.worldStore)
     UnitStateSystem.update(this.worldStore)
     MovementSystem.update(this.worldStore)
+    ReproductionSystem.update(this.worldStore)
     ConstructionBuildProgressSystem.update(this.worldStore)
     VillagerWorkSystem.update(this.worldStore)
     SheepStateSystem.update(this.worldStore)

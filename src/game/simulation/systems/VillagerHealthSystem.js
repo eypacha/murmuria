@@ -1,5 +1,6 @@
 import { DecisionSystem } from './DecisionSystem.js'
 import { UnitStateSystem } from './UnitStateSystem.js'
+import { ReproductionSystem } from './ReproductionSystem.js'
 
 function getVillagerHealth(unit) {
   unit.status = unit.status ?? {}
@@ -162,6 +163,11 @@ function clearUnitState(unit) {
   unit.interactionFacing = null
   unit.path = []
   unit.pathGoalKey = null
+  unit.reproductionTaskId = null
+  unit.reproductionHouseId = null
+  unit.reproductionPartnerId = null
+  unit.reproductionReadyTick = null
+  unit.reproductionUntilTick = null
   unit.state = 'dead'
 }
 
@@ -216,6 +222,7 @@ export class VillagerHealthSystem {
     const currentTick = worldStore.tick ?? 0
 
     UnitStateSystem.cancelIdleBehavior(unit, worldStore, currentTick)
+    ReproductionSystem.cancelUnitParticipation(worldStore, unit, currentTick)
 
     if (unit.constructionBuild?.siteId && unit.id) {
       clearConstructionSlot(worldStore, unit.constructionBuild.siteId, unit.id)

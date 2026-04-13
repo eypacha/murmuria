@@ -27,6 +27,10 @@ export class VillagerWorkSystem {
         continue
       }
 
+      if (unit.isChild) {
+        continue
+      }
+
       if (unit.state === 'gathering') {
         this.ensureGatherTimer(unit, worldStore)
         continue

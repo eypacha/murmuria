@@ -28,5 +28,6 @@ export function createHouse(
     footprint: { ...HOUSE_FOOTPRINT },
     capacity,
     variant,
+    reproductionTaskId: null,
   }
 }

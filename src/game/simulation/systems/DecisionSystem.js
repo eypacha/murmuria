@@ -6,6 +6,7 @@ import { VILLAGER_INTENT_ACTION_DELAY_TICKS } from '../../config/constants.js'
 import { VILLAGER_INTENT_BUBBLE_DURATION_TICKS } from '../../config/constants.js'
 import { UnitStateSystem } from './UnitStateSystem.js'
 import { SheepStateSystem } from './SheepStateSystem.js'
+import { ReproductionSystem } from './ReproductionSystem.js'
 import { getIntentBubbleText } from './getIntentBubbleText.js'
 
 export const MIN_INTENT_THRESHOLD = 0.01
@@ -37,6 +38,40 @@ export const IdleAction = {
   },
   buildIntent(_unit, _worldStore, currentTick) {
     return getIntentContract('idle', null, null, currentTick)
+  },
+}
+
+export const ReproduceAction = {
+  name: 'reproduce',
+  isValid(unit, worldStore) {
+    return ReproductionSystem.isEligibleReproductionCandidate(unit, worldStore)
+  },
+  score(unit, worldStore) {
+    const context = ReproductionSystem.getReproductionContext(worldStore)
+
+    if (!context.canReproduce) {
+      return 0
+    }
+
+    const population = Math.max(1, context.population)
+    const idleFactor = Math.max(0, Math.min(1, context.idleUnits / population))
+    const houseRatio = context.houseCount > 0 ? context.availableHouses / context.houseCount : 0
+    const baseScore = 0.05
+
+    return Math.max(0, baseScore * idleFactor * houseRatio)
+  },
+  buildIntent(unit, worldStore, currentTick) {
+    const intent = ReproductionSystem.buildIntent(unit, worldStore)
+
+    if (!intent) {
+      return null
+    }
+
+    return {
+      ...getIntentContract('reproduce', intent.houseId, intent.targetPos, currentTick),
+      partnerId: intent.partnerId,
+      houseId: intent.houseId,
+    }
   },
 }
 
@@ -91,12 +126,13 @@ export const ACTION_REGISTRY = [
   createGatherAction('tree', 'gather_wood'),
   createGatherAction('gold', 'gather_gold'),
   createGatherAction('sheep', 'gather_food'),
+  ReproduceAction,
   IdleAction,
 ]
 
 export const ROLE_PROFILES = {
   villager: {
-    actions: ['gather_wood', 'gather_gold', 'gather_food', 'idle'],
+    actions: ['gather_wood', 'gather_gold', 'gather_food', 'reproduce', 'idle'],
   },
   default: {
     actions: ['idle'],
@@ -207,11 +243,35 @@ export class DecisionSystem {
   static resolveIntents(worldStore) {
     const currentTick = getCurrentTick(worldStore)
     const units = worldStore.units ?? []
+    const claimedUnitIds = new Set()
+    const claimedHouseIds = new Set()
 
     for (const unit of units) {
       const intent = unit.intent
 
-      if (!intent || intent.type === 'idle') {
+      if (intent?.type !== 'reproduce') {
+        continue
+      }
+
+      const started = ReproductionSystem.tryStartReproduction(
+        unit,
+        worldStore,
+        intent,
+        currentTick,
+        claimedUnitIds,
+        claimedHouseIds,
+      )
+
+      if (!started) {
+        unit.intent = null
+        unit.decisionLockUntilTick = currentTick + 1
+      }
+    }
+
+    for (const unit of units) {
+      const intent = unit.intent
+
+      if (!intent || intent.type === 'idle' || intent.type === 'reproduce') {
         continue
       }
 
@@ -305,7 +365,7 @@ export class DecisionSystem {
   }
 
   static canUnitDecide(unit) {
-    return Boolean(unit) && unit.kind === 'unit'
+    return Boolean(unit) && unit.kind === 'unit' && unit.isChild !== true
   }
 
   static hasAvailableResourceType(worldStore, resourceType) {

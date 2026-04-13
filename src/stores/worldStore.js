@@ -22,6 +22,7 @@ export const useWorldStore = defineStore('world', () => {
   const buildings = ref([])
   const houses = ref([])
   const constructionSites = ref([])
+  const ongoingReproductions = ref([])
   const pendingSkullEffects = ref([])
   const housingCapacity = computed(() => getHousingCapacity(houses.value))
 
@@ -37,6 +38,7 @@ export const useWorldStore = defineStore('world', () => {
     buildings,
     houses,
     constructionSites,
+    ongoingReproductions,
     pendingSkullEffects,
     housingCapacity,
   }

@@ -10,46 +10,63 @@ function getWorldPosition(x, y) {
   }
 }
 
-export function createVillager(x = 0, y = 0, facing = 'right') {
+function createCryptoUUID() {
+  return globalThis.crypto?.randomUUID?.() ?? `villager-${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
+export function createVillager(x = 0, y = 0, facing = 'right', overrides = {}) {
+  const gridPos = overrides.gridPos ?? { x, y }
+  const pos = overrides.pos ?? getWorldPosition(gridPos.x, gridPos.y)
+
   return {
-    id: `villager-${x}-${y}`,
+    id: overrides.id ?? createCryptoUUID(),
     kind: 'unit',
     role: 'villager',
-    state: 'idle',
-    idleSince: null,
-    idleAction: null,
-    talkPartner: null,
-    talkTargetTile: null,
-    bubble: null,
+    state: overrides.state ?? 'idle',
+    isChild: overrides.isChild ?? false,
+    growAtTick: overrides.growAtTick ?? null,
+    lastReproduceTick: overrides.lastReproduceTick ?? null,
+    reproductionTaskId: overrides.reproductionTaskId ?? null,
+    reproductionHouseId: overrides.reproductionHouseId ?? null,
+    reproductionPartnerId: overrides.reproductionPartnerId ?? null,
+    reproductionReadyTick: overrides.reproductionReadyTick ?? null,
+    reproductionUntilTick: overrides.reproductionUntilTick ?? null,
+    idleSince: overrides.idleSince ?? null,
+    idleAction: overrides.idleAction ?? null,
+    talkPartner: overrides.talkPartner ?? null,
+    talkTargetTile: overrides.talkTargetTile ?? null,
+    bubble: overrides.bubble ?? null,
     status: {
       health: UNIT_INITIAL_HEALTH,
+      ...(overrides.status ?? {}),
     },
     facing,
-    gridPos: {
-      x,
-      y,
-    },
-    pos: getWorldPosition(x, y),
-    targetId: null,
-    target: null,
-    intent: null,
-    decisionLockUntilTick: 0,
-    lastDecision: null,
-    workTargetType: null,
-    constructionDelivery: null,
-    constructionBuild: null,
-    interactionFacing: null,
-    stateUntilTick: null,
-    nextState: null,
-    path: [],
-    pathGoalKey: null,
+    gridPos,
+    pos,
+    targetId: overrides.targetId ?? null,
+    target: overrides.target ?? null,
+    intent: overrides.intent ?? null,
+    decisionLockUntilTick: overrides.decisionLockUntilTick ?? 0,
+    lastDecision: overrides.lastDecision ?? null,
+    workTargetType: overrides.workTargetType ?? null,
+    workTargetId: overrides.workTargetId ?? null,
+    workTargetTile: overrides.workTargetTile ?? null,
+    constructionDelivery: overrides.constructionDelivery ?? null,
+    constructionBuild: overrides.constructionBuild ?? null,
+    interactionFacing: overrides.interactionFacing ?? null,
+    stateUntilTick: overrides.stateUntilTick ?? null,
+    nextState: overrides.nextState ?? null,
+    path: Array.isArray(overrides.path) ? [...overrides.path] : [],
+    pathGoalKey: overrides.pathGoalKey ?? null,
     inventory: {
       wood: 0,
       gold: 0,
       meat: 0,
+      ...(overrides.inventory ?? {}),
     },
     equipment: {
       tool: null,
+      ...(overrides.equipment ?? {}),
     },
   }
 }
