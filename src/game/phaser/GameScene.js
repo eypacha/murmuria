@@ -54,6 +54,7 @@ const RESOURCE_HUD_ROW_GAP = 12
 const RESOURCE_HUD_ICON_SIZE = 32
 const RESOURCE_HUD_TEXT_OFFSET_X = 32
 const RESOURCE_HUD_DEPTH = 99999
+const RESOURCE_HUD_EMOJI_FONT_FAMILY = 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, Arial, sans-serif'
 
 const VILLAGER_ASSETS = [
   {
@@ -636,11 +637,27 @@ export class GameScene extends Phaser.Scene {
       { key: 'wood', iconKey: RESOURCE_ICON_KEYS.wood },
       { key: 'gold', iconKey: RESOURCE_ICON_KEYS.gold },
       { key: 'meat', iconKey: RESOURCE_ICON_KEYS.meat },
+      { key: 'population', iconText: '👤' },
     ]
 
     resourceEntries.forEach((entry, index) => {
       const rowY = RESOURCE_HUD_MARGIN_Y + index * (RESOURCE_HUD_ICON_SIZE + RESOURCE_HUD_ROW_GAP)
-      const icon = this.add.image(RESOURCE_HUD_MARGIN_X + RESOURCE_HUD_ICON_SIZE / 2, rowY + RESOURCE_HUD_ICON_SIZE / 2, entry.iconKey)
+      const icon = entry.iconKey
+        ? this.add.image(
+            RESOURCE_HUD_MARGIN_X + RESOURCE_HUD_ICON_SIZE / 2,
+            rowY + RESOURCE_HUD_ICON_SIZE / 2,
+            entry.iconKey,
+          )
+        : this.add.text(
+            RESOURCE_HUD_MARGIN_X + RESOURCE_HUD_ICON_SIZE / 2,
+            rowY + RESOURCE_HUD_ICON_SIZE / 2,
+            entry.iconText ?? '',
+            {
+              fontFamily: RESOURCE_HUD_EMOJI_FONT_FAMILY,
+              fontSize: '24px',
+              color: '#f8fafc',
+            },
+          )
       const valueText = this.add.text(
         RESOURCE_HUD_MARGIN_X + RESOURCE_HUD_TEXT_OFFSET_X,
         rowY + RESOURCE_HUD_ICON_SIZE / 2,
@@ -658,7 +675,11 @@ export class GameScene extends Phaser.Scene {
 
       icon.setScrollFactor(0)
       icon.setDepth(RESOURCE_HUD_DEPTH)
-      icon.setDisplaySize(RESOURCE_HUD_ICON_SIZE, RESOURCE_HUD_ICON_SIZE)
+      if (entry.iconKey) {
+        icon.setDisplaySize(RESOURCE_HUD_ICON_SIZE, RESOURCE_HUD_ICON_SIZE)
+      } else {
+        icon.setOrigin(0.5, 0.5)
+      }
       this.registerUiObject(icon)
 
       valueText.setOrigin(0, 0.5)
@@ -846,9 +867,13 @@ export class GameScene extends Phaser.Scene {
     }
 
     const values = this.worldStore.kingdom.resources
+    const population = (this.worldStore.units ?? []).length
 
     for (const [key, row] of this.resourceHudRows.entries()) {
-      const value = Math.round(Number(values?.[key] ?? 0))
+      const value =
+        key === 'population'
+          ? population
+          : Math.round(Number(values?.[key] ?? 0))
       row.valueText?.setText(String(value))
     }
   }
