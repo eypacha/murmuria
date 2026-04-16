@@ -55,6 +55,7 @@ export const HOUSE_BUILD_TIME_MS = 20000
 export const TREE_WOOD_AMOUNT = 50
 export const SHEEP_MEAT_AMOUNT = 25
 export const INITIAL_GOLD_COUNT = 128
+export const FOOD_CONSUMPTION_PER_UNIT_PER_TICK = 0.04
 
 // Initial world population
 export const INITIAL_VILLAGERS = 2

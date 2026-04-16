@@ -1,3 +1,6 @@
+import {
+  FOOD_CONSUMPTION_PER_UNIT_PER_TICK,
+} from '../../config/constants.js'
 import { isStartupGracePeriod } from '../../core/isStartupGracePeriod.js'
 
 export class KingdomSystem {
@@ -22,8 +25,7 @@ export class KingdomSystem {
       return
     }
 
-    const FOOD_CONSUMPTION_PER_UNIT = 0.04
-    const foodConsumed = population * FOOD_CONSUMPTION_PER_UNIT
+    const foodConsumed = population * FOOD_CONSUMPTION_PER_UNIT_PER_TICK
     kingdom.resources.meat = Math.max(0, (kingdom.resources.meat ?? 0) - foodConsumed)
 
     const FOOD_RESERVE_PER_UNIT = 6

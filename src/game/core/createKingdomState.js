@@ -1,4 +1,4 @@
-import { INITIAL_GOLD, INITIAL_MEAT, INITIAL_WOOD } from '../config/constants'
+import { INITIAL_GOLD, INITIAL_MEAT, INITIAL_WOOD } from '../config/constants.js'
 
 export function createKingdomState() {
   return {
