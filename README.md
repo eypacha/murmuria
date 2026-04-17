@@ -85,6 +85,27 @@ yarn build
 yarn preview
 ```
 
+## Simulacion headless
+
+Puedes correr la simulacion sin UI y obtener un reporte en JSON:
+
+```bash
+npm run simulate -- --seed 123 --max-ticks 5000
+```
+
+Para correr varias veces y sacar promedios:
+
+```bash
+npm run simulate -- --seed 123 --runs 25 --max-ticks 5000
+```
+
+Campos utiles del reporte:
+
+- `firstCollapseTick`: primer tick en que la poblacion llega a 0.
+- `firstStarvationDeathTick`: primer tick con muertes por hambre.
+- `peakPopulation` y `peakPopulationTick`: maximo de habitantes y cuando ocurrio.
+- `starvationDeaths`: muertes por hambre detectadas.
+
 ## Estructura de datos
 
 El estado global vive en `worldStore` y expone:
