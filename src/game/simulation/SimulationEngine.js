@@ -19,6 +19,7 @@ import { UnitStateSystem } from './systems/UnitStateSystem.js'
 import { VillagerWorkSystem } from './systems/VillagerWorkSystem.js'
 import { SheepStateSystem } from './systems/SheepStateSystem.js'
 import { SheepMovementSystem } from './systems/SheepMovementSystem.js'
+import { WaveSystem } from './systems/WaveSystem.js'
 import { buildSimulationCache } from './buildSimulationCache.js'
 
 export class SimulationEngine {
@@ -86,6 +87,7 @@ export class SimulationEngine {
     VillagerWorkSystem.update(this.worldStore)
     SheepStateSystem.update(this.worldStore)
     SheepMovementSystem.update(this.worldStore)
+    WaveSystem.update(this.worldStore)
     EnemyMovementSystem.update(this.worldStore)
     this.worldStore.tick++
   }

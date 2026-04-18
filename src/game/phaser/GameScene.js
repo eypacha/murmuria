@@ -4,6 +4,7 @@ import {
   CAMERA_MAX_ZOOM,
   CAMERA_MIN_ZOOM,
   CAMERA_WHEEL_ZOOM_RATE,
+  WAVE_WARNING_DURATION_TICKS,
   TILE_SIZE,
 } from '../config/constants.js'
 import { UnitSpriteController } from '../rendering/UnitSpriteController.js'
@@ -26,7 +27,6 @@ import {
 } from '../config/resourceVariants.js'
 import { HOUSE_VARIANT_CONFIGS } from '../config/buildingVariants.js'
 import { ENEMY_TYPE_CONFIGS } from '../config/enemyVariants.js'
-import { spawnEnemyTestGroup as spawnEnemyTestGroupHelper } from '../core/spawnEnemyTestGroup.js'
 
 const WATER_FOAM_TEXTURE_KEY = 'water-foam'
 const WATER_FOAM_ANIMATION_KEY = 'water-foam_anim'
@@ -60,13 +60,21 @@ const RESOURCE_HUD_DEPTH = 99999
 const RESOURCE_HUD_EMOJI_FONT_FAMILY = 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, Arial, sans-serif'
 const VILLAGER_ASSET_BASE_PATH = '/assets/units/blue/villager'
 const VILLAGER_DEAD_ASSET_PATH = '/assets/units/dead.png'
-const SHOW_ENEMY_DEBUG_BUTTON = true
-const ENEMY_DEBUG_BUTTON_LABEL = 'Spawn group'
-const ENEMY_DEBUG_BUTTON_MARGIN_X = 16
-const ENEMY_DEBUG_BUTTON_MARGIN_Y = 64
-const ENEMY_DEBUG_BUTTON_FONT_SIZE = '14px'
-const ENEMY_DEBUG_BUTTON_PADDING_X = 12
-const ENEMY_DEBUG_BUTTON_PADDING_Y = 8
+const WAVE_ANNOUNCEMENT_TEXT = {
+  fontFamily: 'Arial, sans-serif',
+  fontSize: '20px',
+  fontStyle: '700',
+  color: '#fff1f1',
+  backgroundColor: '#7f1d1d',
+  stroke: '#2a0f0f',
+  strokeThickness: 4,
+  padding: {
+    left: 12,
+    right: 12,
+    top: 8,
+    bottom: 8,
+  },
+}
 
 const VILLAGER_ASSETS = [
   {
@@ -176,7 +184,9 @@ export class GameScene extends Phaser.Scene {
     this.speedButtonSprite = null
     this.speedButtonText = null
     this.speedButtonInteractive = null
-    this.spawnEnemyButton = null
+    this.waveAnnouncementText = null
+    this.lastAnnouncedWave = 0
+    this.waveAnnouncementUntilTick = 0
     this.visualSpeedMultiplier = 1
     this.resourceHudRows = new Map()
     this.lastPointerPosition = null
@@ -354,7 +364,9 @@ export class GameScene extends Phaser.Scene {
     this.setupCursor()
     this.setupResourceHud()
     this.setupSpeedButton()
-    this.setupEnemyDebugButton()
+    this.lastAnnouncedWave = 0
+    this.waveAnnouncementUntilTick = 0
+    this.setupWaveAnnouncement()
     this.syncVisualTimeScale()
     this.syncUiOverlay()
     this.syncUiCameraIgnores()
@@ -466,12 +478,9 @@ export class GameScene extends Phaser.Scene {
       this.speedButtonSprite = null
     }
 
-    if (this.spawnEnemyButton) {
-      this.spawnEnemyButton.off('pointerdown', this.handleSpawnEnemyButtonClick, this)
-      this.spawnEnemyButton.off('pointerover', this.handleSpawnEnemyButtonOver, this)
-      this.spawnEnemyButton.off('pointerout', this.handleSpawnEnemyButtonOut, this)
-      this.spawnEnemyButton.destroy()
-      this.spawnEnemyButton = null
+    if (this.waveAnnouncementText) {
+      this.waveAnnouncementText.destroy()
+      this.waveAnnouncementText = null
     }
 
     this.destroyResourceHud()
@@ -610,14 +619,6 @@ export class GameScene extends Phaser.Scene {
     this.selectUnit(unitId)
   }
 
-  spawnEnemyTestGroup() {
-    if (!this.worldStore) {
-      return []
-    }
-
-    return spawnEnemyTestGroupHelper(this.worldStore)
-  }
-
   setupSpeedButton() {
     if (this.speedButtonSprite) {
       this.speedButtonSprite.destroy()
@@ -656,42 +657,18 @@ export class GameScene extends Phaser.Scene {
     this.registerUiObject(this.speedButtonText)
   }
 
-  setupEnemyDebugButton() {
-    if (!SHOW_ENEMY_DEBUG_BUTTON) {
-      return
+  setupWaveAnnouncement() {
+    if (this.waveAnnouncementText) {
+      this.waveAnnouncementText.destroy()
+      this.waveAnnouncementText = null
     }
 
-    if (this.spawnEnemyButton) {
-      this.spawnEnemyButton.destroy()
-      this.spawnEnemyButton = null
-    }
-
-    const buttonX = this.scale.width - ENEMY_DEBUG_BUTTON_MARGIN_X
-    const buttonY = ENEMY_DEBUG_BUTTON_MARGIN_Y
-
-    this.spawnEnemyButton = this.add.text(buttonX, buttonY, ENEMY_DEBUG_BUTTON_LABEL, {
-      fontFamily: 'Arial, sans-serif',
-      fontSize: ENEMY_DEBUG_BUTTON_FONT_SIZE,
-      fontStyle: '700',
-      color: '#fff3f3',
-      backgroundColor: '#7f1d1d',
-      stroke: '#2a0f0f',
-      strokeThickness: 3,
-      padding: {
-        left: ENEMY_DEBUG_BUTTON_PADDING_X,
-        right: ENEMY_DEBUG_BUTTON_PADDING_X,
-        top: ENEMY_DEBUG_BUTTON_PADDING_Y,
-        bottom: ENEMY_DEBUG_BUTTON_PADDING_Y,
-      },
-    })
-    this.spawnEnemyButton.setOrigin(1, 0)
-    this.spawnEnemyButton.setScrollFactor(0)
-    this.spawnEnemyButton.setDepth(10003)
-    this.spawnEnemyButton.setInteractive({ useHandCursor: false })
-    this.spawnEnemyButton.on('pointerdown', this.handleSpawnEnemyButtonClick, this)
-    this.spawnEnemyButton.on('pointerover', this.handleSpawnEnemyButtonOver, this)
-    this.spawnEnemyButton.on('pointerout', this.handleSpawnEnemyButtonOut, this)
-    this.registerUiObject(this.spawnEnemyButton)
+    this.waveAnnouncementText = this.add.text(this.scale.width / 2, 96, '', WAVE_ANNOUNCEMENT_TEXT)
+    this.waveAnnouncementText.setOrigin(0.5, 0)
+    this.waveAnnouncementText.setScrollFactor(0)
+    this.waveAnnouncementText.setDepth(10003)
+    this.waveAnnouncementText.setVisible(false)
+    this.registerUiObject(this.waveAnnouncementText)
   }
 
   setupResourceHud() {
@@ -786,34 +763,6 @@ export class GameScene extends Phaser.Scene {
   handleSpeedButtonOut() {
     if (this.speedButtonSprite) {
       this.speedButtonSprite.clearTint()
-    }
-
-    this.setCursorMode('default')
-  }
-
-  handleSpawnEnemyButtonClick(pointer, _localX, _localY, event) {
-    if (event?.stopPropagation) {
-      event.stopPropagation()
-    }
-
-    if (pointer?.button !== 0) {
-      return
-    }
-
-    this.spawnEnemyTestGroup()
-  }
-
-  handleSpawnEnemyButtonOver() {
-    if (this.spawnEnemyButton) {
-      this.spawnEnemyButton.setStyle({ backgroundColor: '#991b1b' })
-    }
-
-    this.setCursorMode('pointer')
-  }
-
-  handleSpawnEnemyButtonOut() {
-    if (this.spawnEnemyButton) {
-      this.spawnEnemyButton.setStyle({ backgroundColor: '#7f1d1d' })
     }
 
     this.setCursorMode('default')
@@ -930,16 +879,12 @@ export class GameScene extends Phaser.Scene {
     this.applyUiTransform(this.speedButtonText, buttonX, buttonY)
   }
 
-  syncEnemyDebugButtonOverlay() {
-    if (!this.spawnEnemyButton) {
+  syncWaveAnnouncementOverlay() {
+    if (!this.waveAnnouncementText) {
       return
     }
 
-    this.applyUiTransform(
-      this.spawnEnemyButton,
-      this.scale.width - ENEMY_DEBUG_BUTTON_MARGIN_X,
-      ENEMY_DEBUG_BUTTON_MARGIN_Y,
-    )
+    this.applyUiTransform(this.waveAnnouncementText, this.scale.width / 2, 96)
   }
 
   syncResourceHudOverlay() {
@@ -961,7 +906,7 @@ export class GameScene extends Phaser.Scene {
   syncUiOverlay() {
     this.syncCursorOverlay()
     this.syncSpeedButtonOverlay()
-    this.syncEnemyDebugButtonOverlay()
+    this.syncWaveAnnouncementOverlay()
     this.syncResourceHudOverlay()
     this.syncSpeedButtonLabel()
   }
@@ -981,6 +926,27 @@ export class GameScene extends Phaser.Scene {
           : Math.round(Number(values?.[key] ?? 0))
       row.valueText?.setText(String(value))
     }
+  }
+
+  syncWaveAnnouncement() {
+    if (!this.worldStore || !this.waveAnnouncementText) {
+      return
+    }
+
+    const waves = this.worldStore.waves
+    const currentWave = Number.isFinite(Number(waves?.current)) ? Number(waves.current) : 0
+    const currentTick = Number.isFinite(Number(this.worldStore.tick)) ? Number(this.worldStore.tick) : 0
+
+    if (currentWave > 0 && this.lastAnnouncedWave !== currentWave) {
+      this.lastAnnouncedWave = currentWave
+      this.waveAnnouncementUntilTick = currentTick + WAVE_WARNING_DURATION_TICKS
+      this.waveAnnouncementText.setText(`Wave ${currentWave} Incoming`)
+      this.waveAnnouncementText.setVisible(true)
+    }
+
+    const shouldShow = currentWave > 0 && currentTick <= this.waveAnnouncementUntilTick
+
+    this.waveAnnouncementText.setVisible(shouldShow)
   }
 
   selectUnit(unitId) {
@@ -1185,6 +1151,7 @@ export class GameScene extends Phaser.Scene {
     this.updateCameraZoom(delta)
     this.syncSkullEffects()
     this.syncResourceHud()
+    this.syncWaveAnnouncement()
     this.syncUiOverlay()
     syncConstructionSites(this, this.worldStore)
     syncHouses(this, this.worldStore)

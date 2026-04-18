@@ -19,6 +19,11 @@ export const useWorldStore = defineStore('world', () => {
 
   const units = ref([])
   const enemies = ref([])
+  const waves = ref({
+    current: 0,
+    active: false,
+    nextWaveTick: 0,
+  })
   const resources = ref([])
   const buildings = ref([])
   const houses = ref([])
@@ -36,6 +41,7 @@ export const useWorldStore = defineStore('world', () => {
     world,
     units,
     enemies,
+    waves,
     resources,
     buildings,
     houses,

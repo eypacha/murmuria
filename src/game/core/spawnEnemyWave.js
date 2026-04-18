@@ -2,10 +2,6 @@ import { GRID_HEIGHT, GRID_WIDTH, OFFSCREEN_MARGIN } from '../config/constants.j
 import { createEnemy } from '../domain/factories/createEnemy.js'
 import { findCastleSiegeTile } from './findCastleSiegeTile.js'
 
-const ENEMY_TEST_GROUP_TYPES = ['knight']
-
-const GROUP_FAN_OFFSETS = [-2, 0, 2]
-
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value))
 }
@@ -35,8 +31,14 @@ function getSpawnBasePosition(side, castleCenter) {
   return { x: centerX + jitter, y: GRID_HEIGHT + OFFSCREEN_MARGIN }
 }
 
-function getFormationPosition(side, basePosition, index) {
-  const fanOffset = GROUP_FAN_OFFSETS[index] ?? 0
+function getFanOffset(index, count) {
+  const centerIndex = (count - 1) / 2
+
+  return Math.round((index - centerIndex) * 2)
+}
+
+function getFormationPosition(side, basePosition, index, count) {
+  const fanOffset = getFanOffset(index, count)
 
   if (side === 'left') {
     return {
@@ -96,10 +98,10 @@ function getEntryTile(side, siegeTile, worldStore) {
   }
 }
 
-export function spawnEnemyTestGroup(worldStore) {
+export function spawnEnemyWave(worldStore, enemyCount = 1) {
   const castle = (worldStore.buildings ?? []).find((building) => building?.type === 'castle') ?? null
 
-  if (!castle) {
+  if (!castle || enemyCount <= 0) {
     return []
   }
 
@@ -116,12 +118,12 @@ export function spawnEnemyTestGroup(worldStore) {
 
   const tick = Number.isFinite(Number(worldStore.tick)) ? Number(worldStore.tick) : 0
   const entryTile = getEntryTile(side, siegeTile, worldStore)
-  const enemies = ENEMY_TEST_GROUP_TYPES.map((type, index) => {
-    const spawnPosition = getFormationPosition(side, basePosition, index)
+  const enemies = Array.from({ length: enemyCount }, (_unused, index) => {
+    const spawnPosition = getFormationPosition(side, basePosition, index, enemyCount)
     const x = clamp(spawnPosition.x, -OFFSCREEN_MARGIN, GRID_WIDTH + OFFSCREEN_MARGIN)
     const y = clamp(spawnPosition.y, -OFFSCREEN_MARGIN, GRID_HEIGHT + OFFSCREEN_MARGIN)
 
-    return createEnemy(type, x, y, {
+    return createEnemy('knight', x, y, {
       targetX: siegeTile.x,
       targetY: siegeTile.y,
       spawnSide: side,

@@ -25,6 +25,10 @@ export const CAMERA_WHEEL_ZOOM_RATE = 0.0012
 // Simulation
 export const SIMULATION_TICK_MS = 500
 export const STARTUP_GRACE_PERIOD_TICKS = 20
+export const WAVE_INTERVAL_TICKS = 10
+export const WAVE_SCALE_EVERY = 3
+export const BASE_WAVE_SIZE = 1
+export const WAVE_WARNING_DURATION_TICKS = 60
 
 // Units
 export const UNIT_BASE_MOVE_SPEED = 64

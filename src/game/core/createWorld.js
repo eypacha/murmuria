@@ -1999,4 +1999,9 @@ export function createWorld(worldStore) {
   worldStore.pendingSkullEffects = []
   worldStore.units = villagerUnits
   worldStore.enemies = []
+  worldStore.waves = {
+    current: 0,
+    active: false,
+    nextWaveTick: 0,
+  }
 }
