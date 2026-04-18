@@ -255,7 +255,10 @@ export class GameScene extends Phaser.Scene {
       })
     }
 
-    this.load.image(MEAT_RESOURCE_CONFIG.key, MEAT_RESOURCE_CONFIG.path)
+    this.load.spritesheet(MEAT_RESOURCE_CONFIG.key, MEAT_RESOURCE_CONFIG.path, {
+      frameWidth: MEAT_RESOURCE_CONFIG.frameWidth ?? 128,
+      frameHeight: MEAT_RESOURCE_CONFIG.frameHeight ?? 128,
+    })
 
     for (const rockVariant of ROCK_VARIANT_CONFIGS) {
       this.load.image(rockVariant.key, rockVariant.path)
@@ -1030,6 +1033,18 @@ export class GameScene extends Phaser.Scene {
         frames: this.anims.generateFrameNumbers(bushVariant.key, {
           start: 0,
           end: 7,
+        }),
+        frameRate: 10,
+        repeat: 0,
+      })
+    }
+
+    if (!this.anims.exists(`${MEAT_RESOURCE_CONFIG.key}_anim`) && this.textures.exists(MEAT_RESOURCE_CONFIG.key)) {
+      this.anims.create({
+        key: `${MEAT_RESOURCE_CONFIG.key}_anim`,
+        frames: this.anims.generateFrameNumbers(MEAT_RESOURCE_CONFIG.key, {
+          start: 0,
+          end: (MEAT_RESOURCE_CONFIG.frameCount ?? 7) - 1,
         }),
         frameRate: 10,
         repeat: 0,

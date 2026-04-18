@@ -8,11 +8,14 @@ const SHEEP_DISPLAY_SIZE = 128
 const SHEEP_IDLE_FRAME_COUNT = 6
 const SHEEP_MOVE_FRAME_COUNT = 4
 const SHEEP_GRASS_FRAME_COUNT = 12
+const MEAT_RESOURCE_FRAME_WIDTH = 128
+const MEAT_RESOURCE_FRAME_HEIGHT = 128
+const MEAT_RESOURCE_FRAME_COUNT = 7
 const ROCK_VARIANT_INDICES = [0, 1, 2, 3]
 const ROCK_DISPLAY_SIZE = 64
 const BUSH_VARIANT_INDICES = [0, 1, 2, 3]
 const BUSH_DISPLAY_SIZE = 128
-const MEAT_RESOURCE_DISPLAY_SIZE = 64
+const MEAT_RESOURCE_DISPLAY_SIZE = 128
 
 export const TREE_VARIANT_CONFIGS = TREE_VARIANT_INDICES.map((index) => ({
   key: `tree_${index}`,
@@ -60,7 +63,10 @@ export const SHEEP_VARIANT_CONFIGS = [
 
 export const MEAT_RESOURCE_CONFIG = {
   key: 'meat_resource',
-  path: '/assets/terrain/resources/meat/resource.png',
+  path: '/assets/terrain/resources/meat/meat-spawn.png',
+  frameWidth: MEAT_RESOURCE_FRAME_WIDTH,
+  frameHeight: MEAT_RESOURCE_FRAME_HEIGHT,
+  frameCount: MEAT_RESOURCE_FRAME_COUNT,
   displayWidth: MEAT_RESOURCE_DISPLAY_SIZE,
   displayHeight: MEAT_RESOURCE_DISPLAY_SIZE,
 }

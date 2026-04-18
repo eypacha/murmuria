@@ -26,6 +26,8 @@ const SHEEP_HIT_FLASH_MS = 90
 const SHEEP_HIT_FLASH_FRAME_INDEX = 2
 const SKULL_ANIMATION_BOUND_KEY = 'skullAnimationBound'
 const SKULL_ANIMATION_COMPLETE_KEY = 'skullAnimationComplete'
+const MEAT_ANIMATION_BOUND_KEY = 'meatAnimationBound'
+const MEAT_ANIMATION_COMPLETE_KEY = 'meatAnimationComplete'
 const BUSH_ANIMATION_BOUND_KEY = 'bushAnimationBound'
 const BUSH_WAS_OCCUPIED_KEY = 'bushWasOccupied'
 const SHEEP_HIT_FLASH_BOUND_KEY = 'sheepHitFlashBound'
@@ -146,7 +148,7 @@ function getResourceAnimationKey(tree, currentTick = 0) {
   }
 
   if (tree.type === 'meat') {
-    return null
+    return `${MEAT_RESOURCE_CONFIG.key}_anim`
   }
 
   if (tree.type === 'sheep') {
@@ -383,6 +385,31 @@ function ensureSkullAnimationBinding(sprite) {
   sprite.setData(SKULL_ANIMATION_BOUND_KEY, true)
 }
 
+function ensureMeatAnimationBinding(sprite) {
+  if (sprite.getData(MEAT_ANIMATION_BOUND_KEY)) {
+    return
+  }
+
+  const handleAnimationComplete = (animation) => {
+    if (animation?.key !== `${MEAT_RESOURCE_CONFIG.key}_anim`) {
+      return
+    }
+
+    if (sprite.active) {
+      sprite.setFrame((MEAT_RESOURCE_CONFIG.frameCount ?? 7) - 1)
+      sprite.anims?.stop()
+    }
+
+    sprite.setData(MEAT_ANIMATION_COMPLETE_KEY, true)
+  }
+
+  sprite.on('animationcomplete', handleAnimationComplete)
+  sprite.once('destroy', () => {
+    sprite.off('animationcomplete', handleAnimationComplete)
+  })
+  sprite.setData(MEAT_ANIMATION_BOUND_KEY, true)
+}
+
 function getResourceDisplaySize(resource) {
   if (resource.type === 'skull') {
     return {
@@ -566,9 +593,14 @@ function updateResourceSprite(scene, resource) {
     : (isTreeTexture ? getTreeVariantConfig(resource).displayHeight : STUMP_DISPLAY_HEIGHT)
   const originX = 0.5
   const originY = resource.type === 'gold' || isSheep || isMeat || isRock || isBush || isSkull ? 0.5 : 1
-  const shouldAnimate = isSheep || isSkull || ((resource.type === 'gold' || isTreeTexture) && isHarvested)
+  const shouldAnimate =
+    isSheep ||
+    isMeat ||
+    isSkull ||
+    ((resource.type === 'gold' || isTreeTexture) && isHarvested)
   const bushAnimationKey = isBush ? getBushAnimationKey(resource) : null
   const skullAnimationKey = isSkull ? getResourceAnimationKey(resource) : null
+  const meatAnimationKey = isMeat ? getResourceAnimationKey(resource) : null
   const debugLabelText = getResourceDebugLabelText(resource)
   const currentTick = scene.worldStore?.tick ?? 0
   const sheepRenderState = isSheep ? getSheepRenderState(resource, currentTick) : null
@@ -588,7 +620,7 @@ function updateResourceSprite(scene, resource) {
     const renderAnimationKey = isSheep
       ? getSheepAnimationKey({ ...resource, state: sheepRenderState }, currentTick)
       : isMeat
-        ? null
+        ? meatAnimationKey
       : isBush
         ? bushAnimationKey
         : isSkull
@@ -610,6 +642,9 @@ function updateResourceSprite(scene, resource) {
       if (isSkull) {
         ensureSkullAnimationBinding(sprite)
         sprite.setData(SKULL_ANIMATION_COMPLETE_KEY, false)
+      } else if (isMeat) {
+        ensureMeatAnimationBinding(sprite)
+        sprite.setData(MEAT_ANIMATION_COMPLETE_KEY, false)
       }
     } else {
       sprite.anims?.stop()
@@ -643,7 +678,7 @@ function updateResourceSprite(scene, resource) {
     const renderAnimationKey = isSheep
       ? getSheepAnimationKey({ ...resource, state: sheepRenderState }, currentTick)
       : isMeat
-        ? null
+        ? meatAnimationKey
       : isBush
         ? bushAnimationKey
         : isSkull
@@ -662,6 +697,9 @@ function updateResourceSprite(scene, resource) {
       if (isSkull) {
         ensureSkullAnimationBinding(sprite)
         sprite.setData(SKULL_ANIMATION_COMPLETE_KEY, false)
+      } else if (isMeat) {
+        ensureMeatAnimationBinding(sprite)
+        sprite.setData(MEAT_ANIMATION_COMPLETE_KEY, false)
       }
     } else {
       sprite.anims?.stop()
@@ -690,6 +728,19 @@ function updateResourceSprite(scene, resource) {
     } else if (sprite.getData(SKULL_ANIMATION_COMPLETE_KEY)) {
       sprite.anims?.stop()
       sprite.setFrame(6)
+    }
+  } else if (isMeat) {
+    ensureMeatAnimationBinding(sprite)
+
+    if (
+      !sprite.getData(MEAT_ANIMATION_COMPLETE_KEY) &&
+      meatAnimationKey &&
+      (!sprite.anims.isPlaying || sprite.anims.currentAnim?.key !== meatAnimationKey)
+    ) {
+      sprite.play(meatAnimationKey, true)
+    } else if (sprite.getData(MEAT_ANIMATION_COMPLETE_KEY)) {
+      sprite.anims?.stop()
+      sprite.setFrame((MEAT_RESOURCE_CONFIG.frameCount ?? 7) - 1)
     }
   } else if (shouldAnimate) {
     const renderAnimationKey = isSheep
