@@ -55,113 +55,95 @@ const RESOURCE_HUD_ICON_SIZE = 32
 const RESOURCE_HUD_TEXT_OFFSET_X = 32
 const RESOURCE_HUD_DEPTH = 99999
 const RESOURCE_HUD_EMOJI_FONT_FAMILY = 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, Arial, sans-serif'
+const VILLAGER_ASSET_BASE_PATH = '/assets/units/blue/villager'
+const VILLAGER_DEAD_ASSET_PATH = '/assets/units/dead.png'
 
 const VILLAGER_ASSETS = [
   {
     key: 'villager-idle',
-    path: '/assets/units/blue/villager/villager-idle.png',
     frameCount: 8,
   },
   {
     key: 'villager-idle-axe',
-    path: '/assets/units/blue/villager/villager-idle-axe.png',
     frameCount: 8,
   },
   {
     key: 'villager-idle-pickaxe',
-    path: '/assets/units/blue/villager/villager-idle-pickaxe.png',
     frameCount: 8,
   },
   {
     key: 'villager-idle-wood',
-    path: '/assets/units/blue/villager/villager-idle-wood.png',
     frameCount: 8,
   },
   {
     key: 'villager-idle-hammer',
-    path: '/assets/units/blue/villager/villager-idle-hammer.png',
     frameCount: 8,
   },
   {
     key: 'villager-idle-knife',
-    path: '/assets/units/blue/villager/villager-idle-knife.png',
     frameCount: 8,
   },
   {
     key: 'villager-run',
-    path: '/assets/units/blue/villager/villager-run.png',
     frameCount: 6,
   },
   {
     key: 'villager-run-axe',
-    path: '/assets/units/blue/villager/villager-run-axe.png',
     frameCount: 6,
   },
   {
     key: 'villager-run-pickaxe',
-    path: '/assets/units/blue/villager/villager-run-pickaxe.png',
     frameCount: 6,
   },
   {
     key: 'villager-run-knife',
-    path: '/assets/units/blue/villager/villager-run-knife.png',
     frameCount: 6,
   },
   {
     key: 'villager-interact-knife',
-    path: '/assets/units/blue/villager/villager-interact-knife.png',
     frameCount: 4,
   },
   {
     key: 'villager-interact-axe',
-    path: '/assets/units/blue/villager/villager-interact-axe.png',
     frameCount: 4,
   },
   {
     key: 'villager-interact-pickaxe',
-    path: '/assets/units/blue/villager/villager-interact-pickaxe.png',
     frameCount: 4,
   },
   {
     key: 'villager-run-wood',
-    path: '/assets/units/blue/villager/villager-run-wood.png',
     frameCount: 6,
   },
   {
     key: 'villager-run-hammer',
-    path: '/assets/units/blue/villager/villager-run-hammer.png',
     frameCount: 6,
   },
   {
     key: 'villager-idle-meat',
-    path: '/assets/units/blue/villager/villager-idle-meat.png',
     frameCount: 8,
   },
   {
     key: 'villager-idle-gold',
-    path: '/assets/units/blue/villager/villager-idle-gold.png',
     frameCount: 8,
   },
   {
     key: 'villager-run-gold',
-    path: '/assets/units/blue/villager/villager-run-gold.png',
     frameCount: 6,
   },
   {
     key: 'villager-run-meat',
-    path: '/assets/units/blue/villager/villager-run-meat.png',
     frameCount: 6,
   },
   {
     key: 'villager-dead',
-    path: '/assets/units/dead.png',
+    path: VILLAGER_DEAD_ASSET_PATH,
     frameCount: 14,
     frameWidth: 128,
     frameHeight: 128,
   },
   {
     key: 'villager-interact-hammer',
-    path: '/assets/units/blue/villager/villager-interact-hammer.png',
     frameCount: 3,
   },
 ]
@@ -210,7 +192,7 @@ export class GameScene extends Phaser.Scene {
     this.load.image(RESOURCE_ICON_KEYS.meat, '/assets/ui/elements/icons/meat.png')
 
     for (const asset of VILLAGER_ASSETS) {
-      this.load.spritesheet(asset.key, asset.path, {
+      this.load.spritesheet(asset.key, asset.path ?? `${VILLAGER_ASSET_BASE_PATH}/${asset.key}.png`, {
         frameWidth: asset.frameWidth ?? 192,
         frameHeight: asset.frameHeight ?? 192,
       })
