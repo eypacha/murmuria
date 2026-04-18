@@ -60,12 +60,16 @@ const RESOURCE_HUD_DEPTH = 99999
 const RESOURCE_HUD_EMOJI_FONT_FAMILY = 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, Arial, sans-serif'
 const VILLAGER_ASSET_BASE_PATH = '/assets/units/blue/villager'
 const VILLAGER_DEAD_ASSET_PATH = '/assets/units/dead.png'
+const WAVE_ANNOUNCEMENT_BANNER_KEY = 'ui-wave-ribbon-red'
+const WAVE_ANNOUNCEMENT_BANNER_PATH = '/assets/ui/banners/ribbon/ribbon-wave-red.png'
+const WAVE_ANNOUNCEMENT_BANNER_WIDTH = 384
+const WAVE_ANNOUNCEMENT_BANNER_HEIGHT = 128
+const WAVE_ANNOUNCEMENT_TEXT_OFFSET_Y = -8
 const WAVE_ANNOUNCEMENT_TEXT = {
   fontFamily: 'Arial, sans-serif',
-  fontSize: '20px',
+  fontSize: '28px',
   fontStyle: '700',
   color: '#fff1f1',
-  backgroundColor: '#7f1d1d',
   stroke: '#2a0f0f',
   strokeThickness: 4,
   padding: {
@@ -75,7 +79,7 @@ const WAVE_ANNOUNCEMENT_TEXT = {
     bottom: 8,
   },
 }
-const WAVE_ANNOUNCEMENT_Y = 16
+const WAVE_ANNOUNCEMENT_Y = 64
 
 const VILLAGER_ASSETS = [
   {
@@ -185,6 +189,7 @@ export class GameScene extends Phaser.Scene {
     this.speedButtonSprite = null
     this.speedButtonText = null
     this.speedButtonInteractive = null
+    this.waveAnnouncementBanner = null
     this.waveAnnouncementText = null
     this.lastAnnouncedWave = 0
     this.waveAnnouncementUntilTick = 0
@@ -212,6 +217,7 @@ export class GameScene extends Phaser.Scene {
     this.load.image(RESOURCE_ICON_KEYS.wood, '/assets/ui/elements/icons/wood.png')
     this.load.image(RESOURCE_ICON_KEYS.gold, '/assets/ui/elements/icons/coin.png')
     this.load.image(RESOURCE_ICON_KEYS.meat, '/assets/ui/elements/icons/meat.png')
+    this.load.image(WAVE_ANNOUNCEMENT_BANNER_KEY, WAVE_ANNOUNCEMENT_BANNER_PATH)
 
     for (const asset of VILLAGER_ASSETS) {
       this.load.spritesheet(asset.key, asset.path ?? `${VILLAGER_ASSET_BASE_PATH}/${asset.key}.png`, {
@@ -479,6 +485,11 @@ export class GameScene extends Phaser.Scene {
       this.speedButtonSprite = null
     }
 
+    if (this.waveAnnouncementBanner) {
+      this.waveAnnouncementBanner.destroy()
+      this.waveAnnouncementBanner = null
+    }
+
     if (this.waveAnnouncementText) {
       this.waveAnnouncementText.destroy()
       this.waveAnnouncementText = null
@@ -659,13 +670,38 @@ export class GameScene extends Phaser.Scene {
   }
 
   setupWaveAnnouncement() {
+    if (this.waveAnnouncementBanner) {
+      this.waveAnnouncementBanner.destroy()
+      this.waveAnnouncementBanner = null
+    }
+
     if (this.waveAnnouncementText) {
       this.waveAnnouncementText.destroy()
       this.waveAnnouncementText = null
     }
 
-    this.waveAnnouncementText = this.add.text(this.scale.width / 2, WAVE_ANNOUNCEMENT_Y, '', WAVE_ANNOUNCEMENT_TEXT)
-    this.waveAnnouncementText.setOrigin(0.5, 0)
+    this.waveAnnouncementBanner = this.add.image(
+      this.scale.width / 2,
+      WAVE_ANNOUNCEMENT_Y,
+      WAVE_ANNOUNCEMENT_BANNER_KEY,
+    )
+    this.waveAnnouncementBanner.setDisplaySize(
+      WAVE_ANNOUNCEMENT_BANNER_WIDTH,
+      WAVE_ANNOUNCEMENT_BANNER_HEIGHT,
+    )
+    this.waveAnnouncementBanner.setOrigin(0.5, 0.5)
+    this.waveAnnouncementBanner.setScrollFactor(0)
+    this.waveAnnouncementBanner.setDepth(10002)
+    this.waveAnnouncementBanner.setVisible(false)
+    this.registerUiObject(this.waveAnnouncementBanner)
+
+    this.waveAnnouncementText = this.add.text(
+      this.scale.width / 2,
+      WAVE_ANNOUNCEMENT_Y + WAVE_ANNOUNCEMENT_TEXT_OFFSET_Y,
+      '',
+      WAVE_ANNOUNCEMENT_TEXT,
+    )
+    this.waveAnnouncementText.setOrigin(0.5, 0.5)
     this.waveAnnouncementText.setScrollFactor(0)
     this.waveAnnouncementText.setDepth(10003)
     this.waveAnnouncementText.setVisible(false)
@@ -881,11 +917,16 @@ export class GameScene extends Phaser.Scene {
   }
 
   syncWaveAnnouncementOverlay() {
-    if (!this.waveAnnouncementText) {
+    if (!this.waveAnnouncementBanner || !this.waveAnnouncementText) {
       return
     }
 
-    this.applyUiTransform(this.waveAnnouncementText, this.scale.width / 2, WAVE_ANNOUNCEMENT_Y)
+    this.applyUiTransform(this.waveAnnouncementBanner, this.scale.width / 2, WAVE_ANNOUNCEMENT_Y)
+    this.applyUiTransform(
+      this.waveAnnouncementText,
+      this.scale.width / 2,
+      WAVE_ANNOUNCEMENT_Y + WAVE_ANNOUNCEMENT_TEXT_OFFSET_Y,
+    )
   }
 
   syncResourceHudOverlay() {
@@ -930,7 +971,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   syncWaveAnnouncement() {
-    if (!this.worldStore || !this.waveAnnouncementText) {
+    if (!this.worldStore || !this.waveAnnouncementBanner || !this.waveAnnouncementText) {
       return
     }
 
@@ -941,12 +982,14 @@ export class GameScene extends Phaser.Scene {
     if (currentWave > 0 && this.lastAnnouncedWave !== currentWave) {
       this.lastAnnouncedWave = currentWave
       this.waveAnnouncementUntilTick = currentTick + WAVE_WARNING_DURATION_TICKS
-      this.waveAnnouncementText.setText(`Wave ${currentWave} Incoming`)
+      this.waveAnnouncementText.setText(`WAVE ${currentWave}`)
+      this.waveAnnouncementBanner.setVisible(true)
       this.waveAnnouncementText.setVisible(true)
     }
 
     const shouldShow = currentWave > 0 && currentTick <= this.waveAnnouncementUntilTick
 
+    this.waveAnnouncementBanner.setVisible(shouldShow)
     this.waveAnnouncementText.setVisible(shouldShow)
   }
 
