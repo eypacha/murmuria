@@ -225,9 +225,10 @@ export class UnitSpriteController {
   }
 
   updateAnimation() {
-    const animationKey = resolveUnitAnimation(this.unit)
+    const combatAnimationKey = this.getCombatAnimationKey()
+    const animationKey = combatAnimationKey ?? resolveUnitAnimation(this.unit)
 
-    if (this.isVisuallyTraveling() && this.currentAnimationKey?.startsWith('villager-run')) {
+    if (!combatAnimationKey && this.isVisuallyTraveling() && this.currentAnimationKey?.startsWith('villager-run')) {
       return
     }
 
@@ -237,6 +238,21 @@ export class UnitSpriteController {
 
     this.sprite.anims.play(animationKey, true)
     this.currentAnimationKey = animationKey
+  }
+
+  getCombatAnimationKey() {
+    const currentTick = Number(this.scene?.worldStore?.tick ?? 0)
+    const attackUntilTick = Number(this.unit?.combatAttackUntilTick ?? -1)
+
+    if (
+      this.unit?.role === 'villager' &&
+      Number.isFinite(attackUntilTick) &&
+      currentTick <= attackUntilTick
+    ) {
+      return 'villager-interact-knife'
+    }
+
+    return null
   }
 
   updateImpactFlash() {

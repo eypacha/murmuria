@@ -1,6 +1,7 @@
 import { DecisionSystem } from './DecisionSystem.js'
 import { UnitStateSystem } from './UnitStateSystem.js'
 import { ReproductionSystem } from './ReproductionSystem.js'
+import { queueSkullEffect } from '../../core/queueSkullEffect.js'
 
 function getVillagerHealth(unit) {
   unit.status = unit.status ?? {}
@@ -52,44 +53,6 @@ function clearConstructionSlot(worldStore, siteId, villagerId) {
   if (Array.isArray(site.builderVillagerIds)) {
     site.builderVillagerIds = site.builderVillagerIds.filter((id) => id !== villagerId)
   }
-}
-
-function getUnitTile(unit) {
-  if (unit?.gridPos && Number.isFinite(unit.gridPos.x) && Number.isFinite(unit.gridPos.y)) {
-    return unit.gridPos
-  }
-
-  return null
-}
-
-function getDeathFacing(unit) {
-  if (unit?.facing === 'left' || unit?.facing === 'right') {
-    return unit.facing
-  }
-
-  if (unit?.interactionFacing === 'left' || unit?.interactionFacing === 'right') {
-    return unit.interactionFacing
-  }
-
-  return 'right'
-}
-
-function queueSkullEffect(worldStore, unit, currentTick) {
-  worldStore.pendingSkullEffects = worldStore.pendingSkullEffects ?? []
-  const tile = getUnitTile(unit)
-
-  if (!tile) {
-    return
-  }
-
-  worldStore.pendingSkullEffects.push({
-    id: `skull-${unit.id}-${currentTick}`,
-    type: 'skull',
-    x: tile.x,
-    y: tile.y,
-    facing: getDeathFacing(unit),
-    createdTick: currentTick,
-  })
 }
 
 function releaseConstructionDelivery(worldStore, unit) {
@@ -168,6 +131,11 @@ function clearUnitState(unit) {
   unit.reproductionPartnerId = null
   unit.reproductionReadyTick = null
   unit.reproductionUntilTick = null
+  unit.combatTargetId = null
+  unit.combatTargetType = null
+  unit.combatCooldownUntilTick = null
+  unit.combatAttackUntilTick = null
+  unit.combatLastAttackTick = null
   unit.state = 'dead'
 }
 

@@ -11,10 +11,21 @@ function getEnemyRenderPosition(enemy) {
   }
 }
 
-function resolveEnemyAnimationKey(enemy) {
+function resolveEnemyVisual(enemy, currentTick) {
   const config = getEnemyTypeConfig(enemy?.type)
+  const attackUntilTick = Number(enemy?.combatAttackUntilTick ?? -1)
 
-  return enemy?.state === 'marching' ? config.runKey : config.idleKey
+  if (config.attackKey && Number.isFinite(attackUntilTick) && currentTick <= attackUntilTick) {
+    return {
+      key: config.attackKey,
+      isStatic: false,
+    }
+  }
+
+  return {
+    key: enemy?.state === 'marching' ? config.runKey : config.idleKey,
+    isStatic: false,
+  }
 }
 
 function getDebugTileRect(enemy) {
@@ -44,26 +55,30 @@ export class EnemySpriteController {
     this.scene = scene
     this.enemy = enemy
     this.currentAnimationKey = null
+    this.currentVisualIsStatic = false
     this.startPosition = null
     this.targetPosition = null
     this.elapsed = 0
     this.debugBorder = DEBUG_MODE ? scene.add.graphics() : null
 
     const initialPosition = getEnemyRenderPosition(enemy)
-    const initialAnimationKey = resolveEnemyAnimationKey(enemy)
+    const initialVisual = resolveEnemyVisual(enemy, scene.worldStore?.tick ?? 0)
     const config = getEnemyTypeConfig(enemy?.type)
 
     this.startPosition = { ...initialPosition }
     this.targetPosition = { ...initialPosition }
 
-    this.sprite = scene.add.sprite(initialPosition.x, initialPosition.y, initialAnimationKey)
+    this.sprite = scene.add.sprite(initialPosition.x, initialPosition.y, initialVisual.key)
     this.sprite.setOrigin(0.5, 0.9)
     this.sprite.setDisplaySize(config.displayWidth, config.displayHeight)
     this.sprite.setDepth(initialPosition.y)
     this.sprite.setFlipX(this.enemy?.facing === 'left')
-    this.sprite.play(initialAnimationKey, true)
+    if (!initialVisual.isStatic) {
+      this.sprite.play(initialVisual.key, true)
+    }
 
-    this.currentAnimationKey = initialAnimationKey
+    this.currentAnimationKey = initialVisual.key
+    this.currentVisualIsStatic = initialVisual.isStatic
 
     if (this.debugBorder) {
       this.updateDebugBorder()
@@ -112,14 +127,23 @@ export class EnemySpriteController {
   }
 
   updateAnimation() {
-    const nextAnimationKey = resolveEnemyAnimationKey(this.enemy)
+    const currentTick = Number(this.scene?.worldStore?.tick ?? 0)
+    const nextVisual = resolveEnemyVisual(this.enemy, currentTick)
 
-    if (this.currentAnimationKey === nextAnimationKey) {
+    if (this.currentAnimationKey === nextVisual.key && this.currentVisualIsStatic === nextVisual.isStatic) {
       return
     }
 
-    this.currentAnimationKey = nextAnimationKey
-    this.sprite.play(nextAnimationKey, true)
+    this.currentAnimationKey = nextVisual.key
+    this.currentVisualIsStatic = nextVisual.isStatic
+
+    if (nextVisual.isStatic) {
+      this.sprite.anims?.stop?.()
+      this.sprite.setTexture(nextVisual.key)
+      return
+    }
+
+    this.sprite.play(nextVisual.key, true)
   }
 
   updateFacing() {

@@ -1,4 +1,4 @@
-import { SIMULATION_TICK_MS } from '../../config/constants.js'
+import { ATTACK_RANGE, ENEMY_AGGRO_RADIUS, SIMULATION_TICK_MS, TILE_SIZE } from '../../config/constants.js'
 import { findPath } from '../../core/findPath.js'
 
 const ENEMY_ARRIVAL_THRESHOLD = 0.05
@@ -17,6 +17,14 @@ function getTileKey(tile) {
   return `${tile.x}:${tile.y}`
 }
 
+function getTileDistance(a, b) {
+  if (!a || !b) {
+    return Number.POSITIVE_INFINITY
+  }
+
+  return Math.abs(a.x - b.x) + Math.abs(a.y - b.y)
+}
+
 function getEnemyTile(enemy) {
   if (enemy?.gridPos && Number.isFinite(enemy.gridPos.x) && Number.isFinite(enemy.gridPos.y)) {
     return enemy.gridPos
@@ -30,6 +38,96 @@ function getEnemyTile(enemy) {
   }
 
   return null
+}
+
+function getVillagerTile(villager) {
+  if (villager?.gridPos && Number.isFinite(villager.gridPos.x) && Number.isFinite(villager.gridPos.y)) {
+    return villager.gridPos
+  }
+
+  if (Number.isFinite(villager?.pos?.x) && Number.isFinite(villager?.pos?.y)) {
+    return {
+      x: Math.round(villager.pos.x / TILE_SIZE),
+      y: Math.round(villager.pos.y / TILE_SIZE),
+    }
+  }
+
+  return null
+}
+
+function getVillagerById(worldStore, villagerId) {
+  return (worldStore.units ?? []).find((unit) => unit?.id === villagerId && unit?.role === 'villager') ?? null
+}
+
+function getNearestVillagerInRange(worldStore, enemy, maxDistance) {
+  const enemyTile = getEnemyTile(enemy)
+
+  if (!enemyTile) {
+    return null
+  }
+
+  let nearestVillager = null
+  let nearestDistance = Number.POSITIVE_INFINITY
+
+  for (const unit of worldStore.units ?? []) {
+    if (unit?.role !== 'villager') {
+      continue
+    }
+
+    const health = Number(unit?.status?.health ?? 0)
+
+    if (health <= 0) {
+      continue
+    }
+
+    const villagerTile = getVillagerTile(unit)
+
+    if (!villagerTile) {
+      continue
+    }
+
+    const distance = getTileDistance(enemyTile, villagerTile)
+
+    if (distance > maxDistance || distance >= nearestDistance) {
+      continue
+    }
+
+    nearestVillager = unit
+    nearestDistance = distance
+  }
+
+  return nearestVillager
+}
+
+function getCombatTargetTile(worldStore, enemy) {
+  const targetVillager = getVillagerById(worldStore, enemy?.combatTargetId)
+
+  if (!targetVillager) {
+    return null
+  }
+
+  return getVillagerTile(targetVillager)
+}
+
+function ensureCombatTarget(worldStore, enemy) {
+  const currentTarget = getVillagerById(worldStore, enemy?.combatTargetId)
+
+  if (currentTarget) {
+    return currentTarget
+  }
+
+  const nearbyVillager = getNearestVillagerInRange(worldStore, enemy, ENEMY_AGGRO_RADIUS)
+
+  if (!nearbyVillager) {
+    enemy.combatTargetId = null
+    enemy.combatTargetType = null
+    return null
+  }
+
+  enemy.combatTargetId = nearbyVillager.id
+  enemy.combatTargetType = 'villager'
+
+  return nearbyVillager
 }
 
 function isInsideWorld(worldStore, tile) {
@@ -117,7 +215,19 @@ export class EnemyMovementSystem {
         continue
       }
 
+      const targetVillager = ensureCombatTarget(worldStore, enemy)
+
       this.moveEnemy(worldStore, enemy)
+
+      if (targetVillager) {
+        const villagerTile = getCombatTargetTile(worldStore, enemy)
+        const enemyTile = getEnemyTile(enemy)
+
+        if (villagerTile && enemyTile && getTileDistance(enemyTile, villagerTile) <= ATTACK_RANGE) {
+          enemy.path = []
+          enemy.pathGoalKey = null
+        }
+      }
     }
 
     worldStore.enemies = enemies
@@ -130,10 +240,19 @@ export class EnemyMovementSystem {
       return
     }
 
-    const targetTile = getTargetTile(enemy)
+    const targetTile = getCombatTargetTile(worldStore, enemy) ?? getTargetTile(enemy)
 
     if (!targetTile) {
       return
+    }
+
+    const currentTileForRange = getEnemyTile(enemy)
+    if (enemy?.combatTargetId && currentTileForRange) {
+      const targetVillagerTile = getCombatTargetTile(worldStore, enemy)
+
+      if (targetVillagerTile && getTileDistance(currentTileForRange, targetVillagerTile) <= ATTACK_RANGE) {
+        return
+      }
     }
 
     if (!Array.isArray(enemy.path)) {

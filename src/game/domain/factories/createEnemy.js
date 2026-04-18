@@ -43,5 +43,10 @@ export function createEnemy(type, x = 0, y = 0, overrides = {}) {
     facing: overrides.facing ?? resolveFacing(nextX, nextY, targetX, targetY),
     path: Array.isArray(overrides.path) ? [...overrides.path] : [],
     pathGoalKey: overrides.pathGoalKey ?? null,
+    combatTargetId: overrides.combatTargetId ?? null,
+    combatTargetType: overrides.combatTargetType ?? null,
+    combatCooldownUntilTick: overrides.combatCooldownUntilTick ?? null,
+    combatAttackUntilTick: overrides.combatAttackUntilTick ?? null,
+    combatLastAttackTick: overrides.combatLastAttackTick ?? null,
   }
 }

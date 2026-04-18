@@ -236,6 +236,13 @@ export class GameScene extends Phaser.Scene {
         frameWidth: asset.frameWidth,
         frameHeight: asset.frameHeight,
       })
+
+      if (asset.attackKey && asset.attackPath) {
+        this.load.spritesheet(asset.attackKey, asset.attackPath, {
+          frameWidth: asset.frameWidth,
+          frameHeight: asset.frameHeight,
+        })
+      }
     }
 
     this.load.image('castle_blue', '/assets/buildings/blue/castle.png')
@@ -1081,6 +1088,23 @@ export class GameScene extends Phaser.Scene {
           }),
           frameRate: 10,
           repeat: -1,
+        })
+      }
+
+      if (
+        asset.attackKey &&
+        asset.attackFrameCount &&
+        !this.anims.exists(asset.attackKey) &&
+        this.textures.exists(asset.attackKey)
+      ) {
+        this.anims.create({
+          key: asset.attackKey,
+          frames: this.anims.generateFrameNumbers(asset.attackKey, {
+            start: 0,
+            end: asset.attackFrameCount - 1,
+          }),
+          frameRate: 8,
+          repeat: 0,
         })
       }
     }
