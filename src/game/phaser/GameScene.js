@@ -75,6 +75,7 @@ const WAVE_ANNOUNCEMENT_TEXT = {
     bottom: 8,
   },
 }
+const WAVE_ANNOUNCEMENT_Y = 16
 
 const VILLAGER_ASSETS = [
   {
@@ -663,7 +664,7 @@ export class GameScene extends Phaser.Scene {
       this.waveAnnouncementText = null
     }
 
-    this.waveAnnouncementText = this.add.text(this.scale.width / 2, 96, '', WAVE_ANNOUNCEMENT_TEXT)
+    this.waveAnnouncementText = this.add.text(this.scale.width / 2, WAVE_ANNOUNCEMENT_Y, '', WAVE_ANNOUNCEMENT_TEXT)
     this.waveAnnouncementText.setOrigin(0.5, 0)
     this.waveAnnouncementText.setScrollFactor(0)
     this.waveAnnouncementText.setDepth(10003)
@@ -884,7 +885,7 @@ export class GameScene extends Phaser.Scene {
       return
     }
 
-    this.applyUiTransform(this.waveAnnouncementText, this.scale.width / 2, 96)
+    this.applyUiTransform(this.waveAnnouncementText, this.scale.width / 2, WAVE_ANNOUNCEMENT_Y)
   }
 
   syncResourceHudOverlay() {
