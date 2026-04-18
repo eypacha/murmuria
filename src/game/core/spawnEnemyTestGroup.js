@@ -3,7 +3,7 @@ import { ENEMY_TEST_GROUP_TYPES } from '../config/enemyVariants.js'
 import { createEnemy } from '../domain/factories/createEnemy.js'
 import { findCastleSiegeTile } from './findCastleSiegeTile.js'
 
-const GROUP_SPREAD = [0, 1, 2, 3]
+const GROUP_FAN_OFFSETS = [-2, 0, 2]
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value))
@@ -35,32 +35,32 @@ function getSpawnBasePosition(side, castleCenter) {
 }
 
 function getFormationPosition(side, basePosition, index) {
-  const spread = GROUP_SPREAD[index] ?? index
+  const fanOffset = GROUP_FAN_OFFSETS[index] ?? 0
 
   if (side === 'left') {
     return {
-      x: basePosition.x - Math.floor(index / 2),
-      y: basePosition.y + spread,
+      x: basePosition.x + index,
+      y: basePosition.y + fanOffset,
     }
   }
 
   if (side === 'right') {
     return {
-      x: basePosition.x + Math.floor(index / 2),
-      y: basePosition.y + spread,
+      x: basePosition.x - index,
+      y: basePosition.y + fanOffset,
     }
   }
 
   if (side === 'top') {
     return {
-      x: basePosition.x + spread,
-      y: basePosition.y - Math.floor(index / 2),
+      x: basePosition.x + fanOffset,
+      y: basePosition.y + index,
     }
   }
 
   return {
-    x: basePosition.x + spread,
-    y: basePosition.y + Math.floor(index / 2),
+    x: basePosition.x + fanOffset,
+    y: basePosition.y - index,
   }
 }
 
