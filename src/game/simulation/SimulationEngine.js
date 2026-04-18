@@ -14,6 +14,7 @@ import { DecisionSystem } from './systems/DecisionSystem.js'
 import { BubbleSystem } from './systems/BubbleSystem.js'
 import { MovementSystem } from './systems/MovementSystem.js'
 import { ReproductionSystem } from './systems/ReproductionSystem.js'
+import { EnemyMovementSystem } from './systems/EnemyMovementSystem.js'
 import { UnitStateSystem } from './systems/UnitStateSystem.js'
 import { VillagerWorkSystem } from './systems/VillagerWorkSystem.js'
 import { SheepStateSystem } from './systems/SheepStateSystem.js'
@@ -85,6 +86,7 @@ export class SimulationEngine {
     VillagerWorkSystem.update(this.worldStore)
     SheepStateSystem.update(this.worldStore)
     SheepMovementSystem.update(this.worldStore)
+    EnemyMovementSystem.update(this.worldStore)
     this.worldStore.tick++
   }
 }

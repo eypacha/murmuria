@@ -1,11 +1,12 @@
 // Debug / feature flags
-export const DEBUG_MODE = false
+export const DEBUG_MODE = true
 export const FOAM_ANIMATION = true
 
 // World / grid
 export const GRID_WIDTH = 64
 export const GRID_HEIGHT = 64
 export const TILE_SIZE = 64
+export const OFFSCREEN_MARGIN = 3
 
 // Render depths
 export const DEPTH_GRID = 0

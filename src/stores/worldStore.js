@@ -18,6 +18,7 @@ export const useWorldStore = defineStore('world', () => {
   })
 
   const units = ref([])
+  const enemies = ref([])
   const resources = ref([])
   const buildings = ref([])
   const houses = ref([])
@@ -34,6 +35,7 @@ export const useWorldStore = defineStore('world', () => {
     kingdom,
     world,
     units,
+    enemies,
     resources,
     buildings,
     houses,

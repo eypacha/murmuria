@@ -1998,4 +1998,5 @@ export function createWorld(worldStore) {
   worldStore.ongoingReproductions = []
   worldStore.pendingSkullEffects = []
   worldStore.units = villagerUnits
+  worldStore.enemies = []
 }
