@@ -16,8 +16,6 @@ const TALK_BUBBLE_WIDTH = 98
 const TALK_BUBBLE_HEIGHT = 104
 const TALK_BUBBLE_OFFSET_Y = 170
 const TALK_BUBBLE_SIDE_OFFSET_X = 34
-const DEBUG_UNIT_LABEL_FONT_SIZE = '14px'
-const DEBUG_UNIT_LABEL_OFFSET_Y = 10
 const DEBUG_UNIT_BORDER_COLOR = 0x5ad8ff
 const SHEEP_HIT_TINT_COLOR = 0xff6b6b
 const UNIT_HIT_TINT_COLOR = 0xff6b6b
@@ -121,8 +119,6 @@ export class UnitSpriteController {
     this.bubbleText = null
     this.bubbleKey = null
     this.bubbleSlotKey = null
-    this.debugLabel = null
-    this.debugLabelKey = null
     this.debugBorder = DEBUG_MODE ? scene.add.graphics() : null
     this.interactionZone = null
     this.healthFlashTimer = null
@@ -169,7 +165,6 @@ export class UnitSpriteController {
     this.updateAnimation()
     this.updateImpactFlash()
     this.updateTalkBubble()
-    this.updateDebugLabel()
   }
 
   updatePosition() {
@@ -373,33 +368,6 @@ export class UnitSpriteController {
     this.bubbleKey = key
   }
 
-  updateDebugLabel() {
-    if (!DEBUG_MODE) {
-      return
-    }
-
-    if (!this.debugLabel) {
-      this.debugLabel = this.scene.add.text(0, 0, '', {
-        fontFamily: 'monospace',
-        fontSize: DEBUG_UNIT_LABEL_FONT_SIZE,
-        color: '#ffffff',
-        backgroundColor: 'rgba(0, 0, 0, 0.6)',
-        padding: { left: 4, right: 4, top: 2, bottom: 2 },
-      })
-      this.debugLabel.setOrigin(0.5, 1)
-    }
-
-    const key = `${this.unit.id}:${this.unit.state ?? 'unknown'}`
-    const labelText = this.unit?.id ?? ''
-    const labelX = this.sprite.x
-    const labelY = this.sprite.y - DEBUG_UNIT_LABEL_OFFSET_Y - (this.sprite.displayHeight ?? 0) / 2
-
-    this.debugLabelKey = key
-    this.debugLabel.setText(labelText)
-    this.debugLabel.setPosition(labelX, labelY)
-    this.debugLabel.setDepth(this.sprite.depth + 60)
-  }
-
   updateBubbleFlip(bubbleState) {
     if (!this.bubbleImage || !this.bubbleText) {
       return
@@ -460,16 +428,6 @@ export class UnitSpriteController {
     this.bubbleSlotKey = null
   }
 
-  destroyDebugLabel() {
-    if (!this.debugLabel) {
-      return
-    }
-
-    this.debugLabel.destroy()
-    this.debugLabel = null
-    this.debugLabelKey = null
-  }
-
   updateDebugBorder() {
     if (!this.debugBorder) {
       return
@@ -527,7 +485,6 @@ export class UnitSpriteController {
 
   destroy() {
     this.destroyTalkBubble()
-    this.destroyDebugLabel()
 
     if (this.healthFlashTimer) {
       this.healthFlashTimer.remove(false)

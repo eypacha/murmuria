@@ -32,7 +32,7 @@ export const WAVE_WARNING_DURATION_TICKS = 60
 export const ENEMY_AGGRO_RADIUS = 5
 export const VILLAGER_KNIFE_DAMAGE = 2
 export const ENEMY_KNIGHT_DAMAGE = 5
-export const ATTACK_COOLDOWN_TICKS = 10
+export const ATTACK_COOLDOWN_TICKS = 4
 export const ATTACK_RANGE = 1
 
 // Units
