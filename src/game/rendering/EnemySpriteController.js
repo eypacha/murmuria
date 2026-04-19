@@ -3,6 +3,8 @@ import { DEBUG_MODE, SIMULATION_TICK_MS, TILE_SIZE, UNIT_RENDER_OFFSET_Y } from 
 import { getEnemyTypeConfig } from '../config/enemyVariants.js'
 
 const DEBUG_ENEMY_BORDER_COLOR = 0xff4d4d
+const ENEMY_HIT_TINT_COLOR = 0xff6b6b
+const ENEMY_HIT_FLASH_MS = 90
 
 function getEnemyRenderPosition(enemy) {
   return {
@@ -56,6 +58,8 @@ export class EnemySpriteController {
     this.enemy = enemy
     this.currentAnimationKey = null
     this.currentVisualIsStatic = false
+    this.healthFlashTimer = null
+    this.lastHealth = this.getCurrentHealth()
     this.startPosition = null
     this.targetPosition = null
     this.elapsed = 0
@@ -90,6 +94,7 @@ export class EnemySpriteController {
       return
     }
 
+    this.updateHealthFlash()
     this.updatePosition()
     this.updateAnimation()
     this.updateFacing()
@@ -172,10 +177,50 @@ export class EnemySpriteController {
     this.debugBorder.setDepth((this.sprite?.y ?? 0) - 0.01)
   }
 
+  getCurrentHealth() {
+    return Number(this.enemy?.hp ?? 0)
+  }
+
+  updateHealthFlash() {
+    const currentHealth = this.getCurrentHealth()
+
+    if (currentHealth < this.lastHealth) {
+      this.flashDamageTint()
+    }
+
+    this.lastHealth = currentHealth
+  }
+
+  flashDamageTint() {
+    if (!this.sprite) {
+      return
+    }
+
+    if (this.healthFlashTimer) {
+      this.healthFlashTimer.remove(false)
+      this.healthFlashTimer = null
+    }
+
+    this.sprite.setTint(ENEMY_HIT_TINT_COLOR)
+
+    this.healthFlashTimer = this.scene.time.delayedCall(ENEMY_HIT_FLASH_MS, () => {
+      if (this.sprite?.active) {
+        this.sprite.clearTint()
+      }
+
+      this.healthFlashTimer = null
+    })
+  }
+
   destroy() {
     if (this.debugBorder) {
       this.debugBorder.destroy()
       this.debugBorder = null
+    }
+
+    if (this.healthFlashTimer) {
+      this.healthFlashTimer.remove(false)
+      this.healthFlashTimer = null
     }
 
     if (this.sprite) {

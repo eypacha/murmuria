@@ -49,6 +49,7 @@ export function createVillager(x = 0, y = 0, facing = 'right', overrides = {}) {
     target: overrides.target ?? null,
     combatTargetId: overrides.combatTargetId ?? null,
     combatTargetType: overrides.combatTargetType ?? null,
+    combatLockedByEnemyId: overrides.combatLockedByEnemyId ?? null,
     combatCooldownUntilTick: overrides.combatCooldownUntilTick ?? null,
     combatAttackUntilTick: overrides.combatAttackUntilTick ?? null,
     combatLastAttackTick: overrides.combatLastAttackTick ?? null,

@@ -133,6 +133,7 @@ function clearUnitState(unit) {
   unit.reproductionUntilTick = null
   unit.combatTargetId = null
   unit.combatTargetType = null
+  unit.combatLockedByEnemyId = null
   unit.combatCooldownUntilTick = null
   unit.combatAttackUntilTick = null
   unit.combatLastAttackTick = null

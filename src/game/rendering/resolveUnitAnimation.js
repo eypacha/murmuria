@@ -205,6 +205,10 @@ export function resolveUnitAnimation(unit) {
   const targetType = unit?.target?.type
   const workTargetType = unit?.workTargetType
 
+  if (state === 'defending') {
+    return 'villager-idle-knife'
+  }
+
   if (state === 'preparing_to_gold') {
     return 'villager-idle-pickaxe'
   }

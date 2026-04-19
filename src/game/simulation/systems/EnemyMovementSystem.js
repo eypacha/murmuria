@@ -86,6 +86,10 @@ function getNearestVillagerInRange(worldStore, enemy, maxDistance) {
       continue
     }
 
+    if (unit?.combatLockedByEnemyId != null && unit.combatLockedByEnemyId !== enemy?.id) {
+      continue
+    }
+
     const distance = getTileDistance(enemyTile, villagerTile)
 
     if (distance > maxDistance || distance >= nearestDistance) {
@@ -113,6 +117,12 @@ function ensureCombatTarget(worldStore, enemy) {
   const currentTarget = getVillagerById(worldStore, enemy?.combatTargetId)
 
   if (currentTarget) {
+    if (currentTarget.combatLockedByEnemyId != null && currentTarget.combatLockedByEnemyId !== enemy?.id) {
+      enemy.combatTargetId = null
+      enemy.combatTargetType = null
+      return null
+    }
+
     return currentTarget
   }
 
@@ -126,6 +136,7 @@ function ensureCombatTarget(worldStore, enemy) {
 
   enemy.combatTargetId = nearbyVillager.id
   enemy.combatTargetType = 'villager'
+  nearbyVillager.combatLockedByEnemyId = enemy.id
 
   return nearbyVillager
 }
@@ -198,6 +209,16 @@ function getWorldPosition(tile) {
   }
 }
 
+function snapEnemyToGridTile(enemy, tile) {
+  if (!enemy || !tile) {
+    return
+  }
+
+  enemy.x = tile.x
+  enemy.y = tile.y
+  enemy.gridPos = { ...tile }
+}
+
 export class EnemyMovementSystem {
   static update(worldStore) {
     const enemies = worldStore.enemies ?? []
@@ -217,17 +238,40 @@ export class EnemyMovementSystem {
 
       const targetVillager = ensureCombatTarget(worldStore, enemy)
 
-      this.moveEnemy(worldStore, enemy)
-
       if (targetVillager) {
         const villagerTile = getCombatTargetTile(worldStore, enemy)
         const enemyTile = getEnemyTile(enemy)
 
         if (villagerTile && enemyTile && getTileDistance(enemyTile, villagerTile) <= ATTACK_RANGE) {
+          snapEnemyToGridTile(enemy, enemyTile)
+          enemy.state = 'attacking'
           enemy.path = []
           enemy.pathGoalKey = null
+          continue
         }
       }
+
+      if (enemy.state === 'attacking') {
+        const currentTarget = getVillagerById(worldStore, enemy.combatTargetId)
+
+        if (!currentTarget || Number(currentTarget?.status?.health ?? 0) <= 0) {
+          enemy.state = 'marching'
+          enemy.combatTargetId = null
+          enemy.combatTargetType = null
+          enemy.path = []
+          enemy.pathGoalKey = null
+        } else {
+          const enemyTile = getEnemyTile(enemy)
+
+          if (enemyTile) {
+            snapEnemyToGridTile(enemy, enemyTile)
+          }
+
+          continue
+        }
+      }
+
+      this.moveEnemy(worldStore, enemy)
     }
 
     worldStore.enemies = enemies

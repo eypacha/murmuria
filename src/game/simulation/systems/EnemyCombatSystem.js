@@ -6,6 +6,7 @@ import {
   VILLAGER_KNIFE_DAMAGE,
 } from '../../config/constants.js'
 import { queueSkullEffect } from '../../core/queueSkullEffect.js'
+import { DecisionSystem } from './DecisionSystem.js'
 import { VillagerHealthSystem } from './VillagerHealthSystem.js'
 
 function getTileDistance(a, b) {
@@ -65,6 +66,66 @@ function getVillagerById(worldStore, villagerId) {
   ) ?? null
 }
 
+function snapVillagerToGridTile(villager, tile = null) {
+  if (!villager) {
+    return
+  }
+
+  const nextTile = tile ?? getVillagerTile(villager)
+
+  if (!nextTile) {
+    return
+  }
+
+  villager.gridPos = { ...nextTile }
+  villager.pos = {
+    x: nextTile.x * TILE_SIZE + TILE_SIZE / 2,
+    y: nextTile.y * TILE_SIZE + TILE_SIZE / 2,
+  }
+}
+
+function getFacingBetweenTiles(fromTile, toTile) {
+  if (!fromTile || !toTile) {
+    return null
+  }
+
+  if (toTile.x < fromTile.x) {
+    return 'left'
+  }
+
+  if (toTile.x > fromTile.x) {
+    return 'right'
+  }
+
+  return null
+}
+
+function faceVillagerTowardEnemy(villager, enemyTile) {
+  if (!villager || !enemyTile) {
+    return
+  }
+
+  const villagerTile = getVillagerTile(villager)
+  const facing = getFacingBetweenTiles(villagerTile, enemyTile)
+
+  if (facing) {
+    villager.facing = facing
+  }
+}
+
+function faceEnemyTowardVillager(enemy, villagerTile) {
+  if (!enemy || !villagerTile) {
+    return
+  }
+
+  const enemyTile = getEnemyTile(enemy)
+  const facing = getFacingBetweenTiles(enemyTile, villagerTile)
+
+  if (facing) {
+    enemy.facing = facing
+  }
+}
+
 function clearVillagerCombatTarget(worldStore, enemyId) {
   for (const villager of worldStore.units ?? []) {
     if (villager?.role !== 'villager' || villager.combatTargetId !== enemyId) {
@@ -79,12 +140,129 @@ function clearVillagerCombatTarget(worldStore, enemyId) {
   }
 }
 
+function clearVillagerCombatLock(worldStore, enemyId) {
+  for (const villager of worldStore.units ?? []) {
+    if (villager?.role !== 'villager' || villager.combatLockedByEnemyId !== enemyId) {
+      continue
+    }
+
+    villager.combatLockedByEnemyId = null
+  }
+}
+
+function isVillagerLockedByAnotherEnemy(villager, enemyId) {
+  return (
+    villager?.combatLockedByEnemyId != null &&
+    villager.combatLockedByEnemyId !== enemyId
+  )
+}
+
+function releaseEnemyCombatTarget(enemy) {
+  if (!enemy) {
+    return
+  }
+
+  enemy.combatTargetId = null
+  enemy.combatTargetType = null
+  enemy.combatCooldownUntilTick = null
+  enemy.combatAttackUntilTick = null
+  enemy.combatLastAttackTick = null
+  enemy.path = []
+  enemy.pathGoalKey = null
+  enemy.state = 'marching'
+}
+
+function releaseConstructionSlot(worldStore, unit) {
+  const siteId = unit?.constructionBuild?.siteId
+
+  if (!siteId || !unit?.id) {
+    return
+  }
+
+  const site = (worldStore.constructionSites ?? []).find((candidate) => candidate?.id === siteId)
+
+  if (!site) {
+    return
+  }
+
+  if (Array.isArray(site.builderSlots)) {
+    for (const slot of site.builderSlots) {
+      if (slot?.villagerId === unit.id) {
+        slot.villagerId = null
+      }
+    }
+  }
+
+  if (Array.isArray(site.builderVillagerIds)) {
+    site.builderVillagerIds = site.builderVillagerIds.filter((candidateId) => candidateId !== unit.id)
+  }
+}
+
+function releaseCurrentTaskReservation(worldStore, unit) {
+  const resourceId = unit?.workTargetId ?? unit?.targetId
+  const targetTile = unit?.workTargetTile ?? unit?.target?.tile ?? null
+
+  if (!resourceId || !targetTile) {
+    return
+  }
+
+  const resource = (worldStore.resources ?? []).find((candidate) => candidate?.id === resourceId)
+
+  if (!resource) {
+    return
+  }
+
+  DecisionSystem.releaseResourceTargetTile(resource, targetTile)
+  resource.reservedBy = null
+}
+
+function interruptVillagerForDefense(worldStore, villager, attacker, currentTick) {
+  if (!villager) {
+    return
+  }
+
+  snapVillagerToGridTile(villager)
+  releaseConstructionSlot(worldStore, villager)
+  releaseCurrentTaskReservation(worldStore, villager)
+
+  villager.intent = null
+  villager.lastDecision = null
+  villager.targetId = null
+  villager.target = null
+  villager.workTargetId = null
+  villager.workTargetType = null
+  villager.workTargetTile = null
+  villager.constructionDelivery = null
+  villager.constructionBuild = null
+  villager.idleAction = null
+  villager.idleSince = null
+  villager.bubble = null
+  villager.talkPartner = null
+  villager.talkTargetTile = null
+  villager.talkStartedTick = null
+  villager.talkUntilTick = null
+  villager.interactionFacing = null
+  villager.path = []
+  villager.pathGoalKey = null
+  villager.stateUntilTick = null
+  villager.nextState = null
+  villager.decisionLockUntilTick = currentTick
+  villager.combatTargetId = attacker?.id ?? null
+  villager.combatTargetType = attacker ? 'enemy' : null
+  villager.combatLockedByEnemyId = attacker?.id ?? null
+  villager.combatCooldownUntilTick = currentTick
+  villager.combatAttackUntilTick = currentTick + 1
+  villager.combatLastAttackTick = currentTick
+  villager.state = 'defending'
+}
+
 function removeEnemy(worldStore, enemy, currentTick) {
   if (!enemy) {
     return
   }
 
   clearVillagerCombatTarget(worldStore, enemy.id)
+  clearVillagerCombatLock(worldStore, enemy.id)
   queueSkullEffect(worldStore, enemy, currentTick)
   worldStore.enemies = (worldStore.enemies ?? []).filter((candidate) => candidate?.id !== enemy.id)
   enemy.hp = 0
@@ -103,21 +281,21 @@ function applyDamageToVillager(worldStore, villager, amount, attacker, currentTi
     return
   }
 
+  snapVillagerToGridTile(villager)
+  faceVillagerTowardEnemy(villager, getEnemyTile(attacker))
+  faceEnemyTowardVillager(attacker, getVillagerTile(villager))
+
   const nextHealth = getVillagerHealth(villager) - amount
   setVillagerHealth(villager, nextHealth)
 
   if (nextHealth <= 0) {
     VillagerHealthSystem.removeVillager(worldStore, villager)
-    attacker.combatTargetId = null
-    attacker.combatTargetType = null
+    releaseEnemyCombatTarget(attacker)
+    clearVillagerCombatLock(worldStore, attacker.id)
     return
   }
 
-  villager.combatTargetId = attacker.id
-  villager.combatTargetType = 'enemy'
-  villager.combatCooldownUntilTick = currentTick
-  villager.combatAttackUntilTick = currentTick + 1
-  villager.combatLastAttackTick = currentTick
+  interruptVillagerForDefense(worldStore, villager, attacker, currentTick)
 }
 
 function applyDamageToEnemy(worldStore, enemy, amount, currentTick) {
@@ -133,7 +311,13 @@ function applyDamageToEnemy(worldStore, enemy, amount, currentTick) {
 }
 
 function getEnemyCombatTarget(worldStore, enemy) {
-  return getVillagerById(worldStore, enemy?.combatTargetId)
+  const target = getVillagerById(worldStore, enemy?.combatTargetId)
+
+  if (!target || isVillagerLockedByAnotherEnemy(target, enemy?.id)) {
+    return null
+  }
+
+  return target
 }
 
 function getVillagerCombatTarget(worldStore, villager) {
@@ -150,7 +334,7 @@ export class EnemyCombatSystem {
 
   static resolveEnemyAttacks(worldStore, currentTick) {
     for (const enemy of worldStore.enemies ?? []) {
-      if (!enemy || enemy.state !== 'marching' || enemy.type !== 'knight') {
+      if (!enemy || enemy.type !== 'knight') {
         continue
       }
 
@@ -177,6 +361,9 @@ export class EnemyCombatSystem {
         continue
       }
 
+      faceEnemyTowardVillager(enemy, villagerTile)
+      faceVillagerTowardEnemy(targetVillager, enemyTile)
+      enemy.state = 'attacking'
       applyDamageToVillager(worldStore, targetVillager, ENEMY_KNIGHT_DAMAGE, enemy, currentTick)
 
       enemy.combatCooldownUntilTick = currentTick + ATTACK_COOLDOWN_TICKS
@@ -199,6 +386,10 @@ export class EnemyCombatSystem {
         villager.combatCooldownUntilTick = null
         villager.combatAttackUntilTick = null
         villager.combatLastAttackTick = null
+        if (villager.state === 'defending') {
+          villager.state = 'idle'
+          villager.idleSince = currentTick
+        }
         continue
       }
 

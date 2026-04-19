@@ -27,12 +27,12 @@ export const SIMULATION_TICK_MS = 500
 export const STARTUP_GRACE_PERIOD_TICKS = 20
 export const WAVE_INTERVAL_TICKS = 10
 export const WAVE_SCALE_EVERY = 3
-export const BASE_WAVE_SIZE = 1
+export const BASE_WAVE_SIZE = 5
 export const WAVE_WARNING_DURATION_TICKS = 60
 export const ENEMY_AGGRO_RADIUS = 5
 export const VILLAGER_KNIFE_DAMAGE = 2
 export const ENEMY_KNIGHT_DAMAGE = 5
-export const ATTACK_COOLDOWN_TICKS = 30
+export const ATTACK_COOLDOWN_TICKS = 10
 export const ATTACK_RANGE = 1
 
 // Units
