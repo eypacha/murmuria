@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
+import { WAVE_START_DELAY_TICKS } from '../game/config/constants.js'
 import { createKingdomState } from '../game/core/createKingdomState.js'
 import { getHousingCapacity } from '../game/core/getHousingCapacity.js'
 
@@ -22,7 +23,7 @@ export const useWorldStore = defineStore('world', () => {
   const waves = ref({
     current: 0,
     active: false,
-    nextWaveTick: 0,
+    nextWaveTick: WAVE_START_DELAY_TICKS,
   })
   const resources = ref([])
   const buildings = ref([])

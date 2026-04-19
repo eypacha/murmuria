@@ -1,4 +1,9 @@
-import { BASE_WAVE_SIZE, WAVE_INTERVAL_TICKS, WAVE_SCALE_EVERY } from '../../config/constants.js'
+import {
+  BASE_WAVE_SIZE,
+  WAVE_INTERVAL_TICKS,
+  WAVE_START_DELAY_TICKS,
+  WAVE_SCALE_EVERY,
+} from '../../config/constants.js'
 import { spawnEnemyWave } from '../../core/spawnEnemyWave.js'
 
 function ensureWaves(worldStore) {
@@ -6,26 +11,11 @@ function ensureWaves(worldStore) {
     worldStore.waves = {
       current: 0,
       active: false,
-      nextWaveTick: 0,
+      nextWaveTick: WAVE_START_DELAY_TICKS,
     }
   }
 
   return worldStore.waves
-}
-
-function isEnemyAtTargetZone(enemy) {
-  const targetX = Number(enemy?.targetX)
-  const targetY = Number(enemy?.targetY)
-
-  if (!Number.isFinite(targetX) || !Number.isFinite(targetY)) {
-    return false
-  }
-
-  if (!Number.isFinite(enemy?.x) || !Number.isFinite(enemy?.y)) {
-    return false
-  }
-
-  return Math.abs(enemy.x - targetX) <= 0.05 && Math.abs(enemy.y - targetY) <= 0.05
 }
 
 function getWaveEnemyCount(currentWave) {
@@ -72,13 +62,5 @@ export class WaveSystem {
       waves.nextWaveTick = currentTick + WAVE_INTERVAL_TICKS
       return
     }
-
-    if (!enemies.every((enemy) => isEnemyAtTargetZone(enemy))) {
-      return
-    }
-
-    worldStore.enemies = []
-    waves.active = false
-    waves.nextWaveTick = currentTick + WAVE_INTERVAL_TICKS
   }
 }

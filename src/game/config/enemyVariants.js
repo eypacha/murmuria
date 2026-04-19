@@ -16,7 +16,7 @@ export const ENEMY_TYPE_CONFIGS = [
     frameHeight: 192,
     displayWidth: 192,
     displayHeight: 192,
-    maxHp: 30,
+    maxHp: 20,
     speed: 1,
   },
   {

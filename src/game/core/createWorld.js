@@ -1,4 +1,5 @@
 import {
+  WAVE_START_DELAY_TICKS,
   GRID_HEIGHT,
   GRID_WIDTH,
   INITIAL_BUSH_COUNT,
@@ -7,6 +8,7 @@ import {
   INITIAL_SHEEP_COUNT,
   INITIAL_TREE_COUNT,
   TILE_SIZE,
+  INITIAL_ROCK_COUNT,
 } from '../config/constants.js'
 import {
   CASTLE_FOOTPRINT,
@@ -22,7 +24,6 @@ import { isTraversableTile } from './isTraversableTile.js'
 import {
   TREE_VARIANT_CONFIGS,
 } from '../config/resourceVariants.js'
-import { INITIAL_ROCK_COUNT } from '../config/constants.js'
 import { getOccupiedTiles } from './getOccupiedTiles.js'
 import { seededRandom } from './seededRandom.js'
 import { createKingdomState } from './createKingdomState.js'
@@ -2002,6 +2003,6 @@ export function createWorld(worldStore) {
   worldStore.waves = {
     current: 0,
     active: false,
-    nextWaveTick: 0,
+    nextWaveTick: WAVE_START_DELAY_TICKS,
   }
 }

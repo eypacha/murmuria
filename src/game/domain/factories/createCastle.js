@@ -9,6 +9,7 @@ export function createCastle(
   x = Math.max(0, Math.floor((GRID_WIDTH - CASTLE_FOOTPRINT.w) / 2)),
   y = Math.max(0, Math.floor((GRID_HEIGHT - CASTLE_FOOTPRINT.h) / 2)),
 ) {
+  const castleHealth = 100
 
   return {
     id: 'castle',
@@ -19,5 +20,9 @@ export function createCastle(
       y,
     },
     footprint: { ...CASTLE_FOOTPRINT },
+    status: {
+      health: castleHealth,
+      maxHealth: castleHealth,
+    },
   }
 }

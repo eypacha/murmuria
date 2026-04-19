@@ -25,12 +25,15 @@ export const CAMERA_WHEEL_ZOOM_RATE = 0.0012
 // Simulation
 export const SIMULATION_TICK_MS = 500
 export const STARTUP_GRACE_PERIOD_TICKS = 20
-export const WAVE_INTERVAL_TICKS = 10
+
+// Waves / enemies
+export const WAVE_START_DELAY_TICKS = 200
+export const WAVE_INTERVAL_TICKS = 50
 export const WAVE_SCALE_EVERY = 3
-export const BASE_WAVE_SIZE = 5
+export const BASE_WAVE_SIZE = 1
 export const WAVE_WARNING_DURATION_TICKS = 60
 export const ENEMY_AGGRO_RADIUS = 5
-export const VILLAGER_KNIFE_DAMAGE = 2
+export const VILLAGER_KNIFE_DAMAGE = 4
 export const ENEMY_KNIGHT_DAMAGE = 5
 export const ATTACK_COOLDOWN_TICKS = 4
 export const ATTACK_RANGE = 1

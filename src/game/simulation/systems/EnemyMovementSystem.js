@@ -59,15 +59,58 @@ function getVillagerById(worldStore, villagerId) {
   return (worldStore.units ?? []).find((unit) => unit?.id === villagerId && unit?.role === 'villager') ?? null
 }
 
-function getNearestVillagerInRange(worldStore, enemy, maxDistance) {
+function clearEnemyCombatLock(worldStore, enemyId, villagerId) {
+  if (!villagerId) {
+    return
+  }
+
+  const villager = getVillagerById(worldStore, villagerId)
+
+  if (villager?.combatLockedByEnemyId === enemyId) {
+    villager.combatLockedByEnemyId = null
+  }
+}
+
+function setEnemyCombatTarget(worldStore, enemy, villager) {
+  if (!enemy) {
+    return null
+  }
+
+  const previousTargetId = enemy.combatTargetId
+
+  if (previousTargetId && previousTargetId !== villager?.id) {
+    clearEnemyCombatLock(worldStore, enemy.id, previousTargetId)
+  }
+
+  if (!villager) {
+    enemy.combatTargetId = null
+    enemy.combatTargetType = null
+    return null
+  }
+
+  enemy.combatTargetId = villager.id
+  enemy.combatTargetType = 'villager'
+  villager.combatLockedByEnemyId = enemy.id
+
+  return villager
+}
+
+function getBestVillagerInRange(worldStore, enemy, maxDistance) {
   const enemyTile = getEnemyTile(enemy)
+  const currentTarget = getVillagerById(worldStore, enemy?.combatTargetId)
+  const currentTargetTile = getVillagerTile(currentTarget)
+  const currentTargetLockedByAnotherEnemy =
+    currentTarget?.combatLockedByEnemyId != null &&
+    currentTarget.combatLockedByEnemyId !== enemy?.id
+  const currentTargetDistance =
+    currentTargetTile && enemyTile ? getTileDistance(enemyTile, currentTargetTile) : Number.POSITIVE_INFINITY
 
   if (!enemyTile) {
     return null
   }
 
-  let nearestVillager = null
-  let nearestDistance = Number.POSITIVE_INFINITY
+  let bestVillager = null
+  let bestDistance = Number.POSITIVE_INFINITY
 
   for (const unit of worldStore.units ?? []) {
     if (unit?.role !== 'villager') {
@@ -92,15 +135,44 @@ function getNearestVillagerInRange(worldStore, enemy, maxDistance) {
 
     const distance = getTileDistance(enemyTile, villagerTile)
 
-    if (distance > maxDistance || distance >= nearestDistance) {
+    if (distance > maxDistance) {
       continue
     }
 
-    nearestVillager = unit
-    nearestDistance = distance
+    if (bestVillager == null) {
+      bestVillager = unit
+      bestDistance = distance
+      continue
+    }
+
+    if (distance < bestDistance) {
+      bestVillager = unit
+      bestDistance = distance
+      continue
+    }
+
+    if (distance === bestDistance) {
+      const bestIsCurrentTarget = bestVillager.id === enemy?.combatTargetId
+      const candidateIsCurrentTarget = unit.id === enemy?.combatTargetId
+
+      if (!bestIsCurrentTarget && candidateIsCurrentTarget) {
+        bestVillager = unit
+        bestDistance = distance
+      }
+    }
   }
 
-  return nearestVillager
+  if (
+    currentTarget &&
+    currentTargetTile &&
+    !currentTargetLockedByAnotherEnemy &&
+    currentTargetDistance <= maxDistance &&
+    (bestVillager == null || currentTargetDistance <= bestDistance)
+  ) {
+    return currentTarget
+  }
+
+  return bestVillager
 }
 
 function getCombatTargetTile(worldStore, enemy) {
@@ -113,32 +185,72 @@ function getCombatTargetTile(worldStore, enemy) {
   return getVillagerTile(targetVillager)
 }
 
+function getPreferredCombatApproachTile(worldStore, enemy) {
+  const targetVillager = getVillagerById(worldStore, enemy?.combatTargetId)
+  const villagerTile = getVillagerTile(targetVillager)
+
+  if (!villagerTile) {
+    return null
+  }
+
+  const enemyTile = getEnemyTile(enemy)
+  const horizontalFirst = []
+
+  if (enemyTile && enemyTile.x <= villagerTile.x) {
+    horizontalFirst.push(
+      { x: villagerTile.x - 1, y: villagerTile.y },
+      { x: villagerTile.x + 1, y: villagerTile.y },
+    )
+  } else {
+    horizontalFirst.push(
+      { x: villagerTile.x + 1, y: villagerTile.y },
+      { x: villagerTile.x - 1, y: villagerTile.y },
+    )
+  }
+
+  const candidates = [
+    ...horizontalFirst,
+    { x: villagerTile.x, y: villagerTile.y - 1 },
+    { x: villagerTile.x, y: villagerTile.y + 1 },
+  ]
+
+  for (const candidate of candidates) {
+    if (!isInsideWorld(worldStore, candidate)) {
+      continue
+    }
+
+    if (enemyTile && candidate.x === enemyTile.x && candidate.y === enemyTile.y) {
+      return candidate
+    }
+
+    const path = findPath(worldStore, enemyTile ?? candidate, candidate)
+
+    if (path.length > 0) {
+      return candidate
+    }
+  }
+
+  return villagerTile
+}
+
 function ensureCombatTarget(worldStore, enemy) {
   const currentTarget = getVillagerById(worldStore, enemy?.combatTargetId)
 
-  if (currentTarget) {
+  const bestVillager = getBestVillagerInRange(worldStore, enemy, ENEMY_AGGRO_RADIUS)
+
+  if (!bestVillager) {
+    return setEnemyCombatTarget(worldStore, enemy, null)
+  }
+
+  if (currentTarget?.id === bestVillager.id) {
     if (currentTarget.combatLockedByEnemyId != null && currentTarget.combatLockedByEnemyId !== enemy?.id) {
-      enemy.combatTargetId = null
-      enemy.combatTargetType = null
-      return null
+      return setEnemyCombatTarget(worldStore, enemy, null)
     }
 
     return currentTarget
   }
 
-  const nearbyVillager = getNearestVillagerInRange(worldStore, enemy, ENEMY_AGGRO_RADIUS)
-
-  if (!nearbyVillager) {
-    enemy.combatTargetId = null
-    enemy.combatTargetType = null
-    return null
-  }
-
-  enemy.combatTargetId = nearbyVillager.id
-  enemy.combatTargetType = 'villager'
-  nearbyVillager.combatLockedByEnemyId = enemy.id
-
-  return nearbyVillager
+  return setEnemyCombatTarget(worldStore, enemy, bestVillager)
 }
 
 function isInsideWorld(worldStore, tile) {
@@ -239,10 +351,14 @@ export class EnemyMovementSystem {
       const targetVillager = ensureCombatTarget(worldStore, enemy)
 
       if (targetVillager) {
-        const villagerTile = getCombatTargetTile(worldStore, enemy)
+        const targetVillagerTile = getCombatTargetTile(worldStore, enemy)
         const enemyTile = getEnemyTile(enemy)
 
-        if (villagerTile && enemyTile && getTileDistance(enemyTile, villagerTile) <= ATTACK_RANGE) {
+        if (
+          targetVillagerTile &&
+          enemyTile &&
+          getTileDistance(enemyTile, targetVillagerTile) <= ATTACK_RANGE
+        ) {
           snapEnemyToGridTile(enemy, enemyTile)
           enemy.state = 'attacking'
           enemy.path = []
@@ -284,7 +400,9 @@ export class EnemyMovementSystem {
       return
     }
 
-    const targetTile = getCombatTargetTile(worldStore, enemy) ?? getTargetTile(enemy)
+    const targetTile =
+      (enemy?.combatTargetId ? getPreferredCombatApproachTile(worldStore, enemy) : null) ??
+      getTargetTile(enemy)
 
     if (!targetTile) {
       return
@@ -294,7 +412,10 @@ export class EnemyMovementSystem {
     if (enemy?.combatTargetId && currentTileForRange) {
       const targetVillagerTile = getCombatTargetTile(worldStore, enemy)
 
-      if (targetVillagerTile && getTileDistance(currentTileForRange, targetVillagerTile) <= ATTACK_RANGE) {
+      if (
+        targetVillagerTile &&
+        getTileDistance(currentTileForRange, targetVillagerTile) <= ATTACK_RANGE
+      ) {
         return
       }
     }

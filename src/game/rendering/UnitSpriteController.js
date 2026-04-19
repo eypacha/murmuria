@@ -16,6 +16,8 @@ const TALK_BUBBLE_WIDTH = 98
 const TALK_BUBBLE_HEIGHT = 104
 const TALK_BUBBLE_OFFSET_Y = 170
 const TALK_BUBBLE_SIDE_OFFSET_X = 34
+const DEBUG_UNIT_HEALTH_LABEL_FONT_SIZE = '14px'
+const DEBUG_UNIT_HEALTH_LABEL_OFFSET_Y = 50
 const DEBUG_UNIT_BORDER_COLOR = 0x5ad8ff
 const SHEEP_HIT_TINT_COLOR = 0xff6b6b
 const UNIT_HIT_TINT_COLOR = 0xff6b6b
@@ -119,6 +121,7 @@ export class UnitSpriteController {
     this.bubbleText = null
     this.bubbleKey = null
     this.bubbleSlotKey = null
+    this.healthLabel = null
     this.debugBorder = DEBUG_MODE ? scene.add.graphics() : null
     this.interactionZone = null
     this.healthFlashTimer = null
@@ -155,6 +158,9 @@ export class UnitSpriteController {
     if (this.debugBorder) {
       this.updateDebugBorder()
     }
+    if (DEBUG_MODE) {
+      this.updateHealthLabel()
+    }
   }
 
   update() {
@@ -165,6 +171,7 @@ export class UnitSpriteController {
     this.updateAnimation()
     this.updateImpactFlash()
     this.updateTalkBubble()
+    this.updateHealthLabel()
   }
 
   updatePosition() {
@@ -368,6 +375,44 @@ export class UnitSpriteController {
     this.bubbleKey = key
   }
 
+  updateHealthLabel() {
+    if (!DEBUG_MODE || !this.sprite) {
+      this.destroyHealthLabel()
+      return
+    }
+
+    if (!this.healthLabel) {
+      this.healthLabel = this.scene.add.text(0, 0, '', {
+        fontFamily: 'monospace',
+        fontSize: DEBUG_UNIT_HEALTH_LABEL_FONT_SIZE,
+        color: '#ffffff',
+        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+        padding: { left: 4, right: 4, top: 2, bottom: 2 },
+        align: 'center',
+      })
+      this.healthLabel.setOrigin(0.5, 1)
+      this.healthLabel.setScrollFactor(1, 1)
+    }
+
+    const health = this.getCurrentHealth()
+    const spriteOriginY = Number.isFinite(this.sprite?.originY) ? this.sprite.originY : 0.5
+    const spriteTopY = this.sprite.y - (this.sprite.displayHeight ?? 0) * spriteOriginY
+    const labelY = spriteTopY + DEBUG_UNIT_HEALTH_LABEL_OFFSET_Y
+
+    this.healthLabel.setText(`HP: ${health}`)
+    this.healthLabel.setPosition(this.sprite.x, labelY)
+    this.healthLabel.setDepth(this.sprite.depth + 60)
+  }
+
+  destroyHealthLabel() {
+    if (!this.healthLabel) {
+      return
+    }
+
+    this.healthLabel.destroy()
+    this.healthLabel = null
+  }
+
   updateBubbleFlip(bubbleState) {
     if (!this.bubbleImage || !this.bubbleText) {
       return
@@ -485,6 +530,7 @@ export class UnitSpriteController {
 
   destroy() {
     this.destroyTalkBubble()
+    this.destroyHealthLabel()
 
     if (this.healthFlashTimer) {
       this.healthFlashTimer.remove(false)

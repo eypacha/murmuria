@@ -176,6 +176,7 @@ export class GameScene extends Phaser.Scene {
     super({ key: 'GameScene' })
     this.worldStore = null
     this.unitControllers = new Map()
+    this.buildingSprites = new Map()
     this.houseSprites = new Map()
     this.constructionSiteSprites = new Map()
     this.resourceSprites = new Map()
@@ -246,6 +247,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.load.image('castle_blue', '/assets/buildings/blue/castle.png')
+    this.load.image('castle_destroyed', '/assets/buildings/castle-destroyed.png')
 
     for (const houseVariant of HOUSE_VARIANT_CONFIGS) {
       this.load.image(houseVariant.key, houseVariant.path)
@@ -336,6 +338,27 @@ export class GameScene extends Phaser.Scene {
       sprite.destroy()
     }
     this.houseSprites.clear()
+
+    for (const sprite of this.buildingSprites.values()) {
+      sprite.destroy()
+    }
+    this.buildingSprites.clear()
+
+    if (this.buildingDebugOverlays) {
+      for (const overlay of this.buildingDebugOverlays.values()) {
+        for (const object of overlay) {
+          object.destroy()
+        }
+      }
+      this.buildingDebugOverlays.clear()
+    }
+
+    if (this.buildingHealthLabels) {
+      for (const label of this.buildingHealthLabels.values()) {
+        label.destroy()
+      }
+      this.buildingHealthLabels.clear()
+    }
 
     for (const sprite of this.constructionSiteSprites.values()) {
       sprite.destroy()
@@ -1221,6 +1244,7 @@ export class GameScene extends Phaser.Scene {
     this.syncResourceHud()
     this.syncWaveAnnouncement()
     this.syncUiOverlay()
+    syncBuildings(this, this.worldStore)
     syncConstructionSites(this, this.worldStore)
     syncHouses(this, this.worldStore)
     syncResources(this, this.worldStore)

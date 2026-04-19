@@ -5,6 +5,7 @@ import {
   TILE_SIZE,
   VILLAGER_KNIFE_DAMAGE,
 } from '../../config/constants.js'
+import { findCastleSiegeTile } from '../../core/findCastleSiegeTile.js'
 import { queueSkullEffect } from '../../core/queueSkullEffect.js'
 import { DecisionSystem } from './DecisionSystem.js'
 import { VillagerHealthSystem } from './VillagerHealthSystem.js'
@@ -58,6 +59,33 @@ function setVillagerHealth(villager, value) {
 
 function getEnemyById(worldStore, enemyId) {
   return (worldStore.enemies ?? []).find((enemy) => enemy?.id === enemyId) ?? null
+}
+
+function getCastle(worldStore) {
+  return (worldStore.buildings ?? []).find((building) => building?.type === 'castle') ?? null
+}
+
+function faceEnemyTowardCastle(enemy, castle) {
+  if (!enemy || !castle?.gridPos) {
+    return
+  }
+
+  const footprint = castle.footprint ?? { w: 1, h: 1 }
+  const castleCenterX = castle.gridPos.x + Math.floor(footprint.w / 2)
+  const enemyTile = getEnemyTile(enemy)
+
+  if (!enemyTile) {
+    return
+  }
+
+  if (enemyTile.x < castleCenterX) {
+    enemy.facing = 'right'
+    return
+  }
+
+  if (enemyTile.x > castleCenterX) {
+    enemy.facing = 'left'
+  }
 }
 
 function getVillagerById(worldStore, villagerId) {
@@ -310,6 +338,42 @@ function applyDamageToEnemy(worldStore, enemy, amount, currentTick) {
   }
 }
 
+function getCastleHealth(castle) {
+  return Number(castle?.status?.health ?? 0)
+}
+
+function setCastleHealth(castle, value) {
+  if (!castle) {
+    return
+  }
+
+  const nextHealth = Math.max(0, Number(value ?? 0))
+
+  if (castle.status) {
+    castle.status.health = nextHealth
+    return
+  }
+
+  castle.status = {
+    health: nextHealth,
+    maxHealth: nextHealth,
+  }
+}
+
+function applyDamageToCastle(worldStore, castle, amount) {
+  if (!castle) {
+    return
+  }
+
+  const currentHealth = getCastleHealth(castle)
+
+  if (currentHealth <= 0) {
+    return
+  }
+
+  setCastleHealth(castle, currentHealth - amount)
+}
+
 function getEnemyCombatTarget(worldStore, enemy) {
   const target = getVillagerById(worldStore, enemy?.combatTargetId)
 
@@ -333,8 +397,33 @@ export class EnemyCombatSystem {
   }
 
   static resolveEnemyAttacks(worldStore, currentTick) {
+    const castle = getCastle(worldStore)
+    const castleAlive = castle && getCastleHealth(castle) > 0
+
     for (const enemy of worldStore.enemies ?? []) {
       if (!enemy || enemy.type !== 'knight') {
+        continue
+      }
+
+      const enemyTile = getEnemyTile(enemy)
+      const castleSiegeTile =
+        castleAlive && enemyTile ? findCastleSiegeTile(castle, worldStore, enemy) : null
+
+      if (
+        castleAlive &&
+        enemyTile &&
+        castleSiegeTile &&
+        enemyTile.x === castleSiegeTile.x &&
+        enemyTile.y === castleSiegeTile.y &&
+        !(Number.isFinite(enemy.combatCooldownUntilTick) && currentTick < enemy.combatCooldownUntilTick)
+      ) {
+        faceEnemyTowardCastle(enemy, castle)
+
+        enemy.state = 'attacking'
+        applyDamageToCastle(worldStore, castle, ENEMY_KNIGHT_DAMAGE)
+        enemy.combatCooldownUntilTick = currentTick + ATTACK_COOLDOWN_TICKS
+        enemy.combatAttackUntilTick = currentTick + 1
+        enemy.combatLastAttackTick = currentTick
         continue
       }
 
@@ -346,14 +435,14 @@ export class EnemyCombatSystem {
         continue
       }
 
-      const enemyTile = getEnemyTile(enemy)
+      const knightTile = getEnemyTile(enemy)
       const villagerTile = getVillagerTile(targetVillager)
 
-      if (!enemyTile || !villagerTile) {
+      if (!knightTile || !villagerTile) {
         continue
       }
 
-      if (getTileDistance(enemyTile, villagerTile) > ATTACK_RANGE) {
+      if (getTileDistance(knightTile, villagerTile) > ATTACK_RANGE) {
         continue
       }
 
@@ -362,7 +451,7 @@ export class EnemyCombatSystem {
       }
 
       faceEnemyTowardVillager(enemy, villagerTile)
-      faceVillagerTowardEnemy(targetVillager, enemyTile)
+      faceVillagerTowardEnemy(targetVillager, knightTile)
       enemy.state = 'attacking'
       applyDamageToVillager(worldStore, targetVillager, ENEMY_KNIGHT_DAMAGE, enemy, currentTick)
 
