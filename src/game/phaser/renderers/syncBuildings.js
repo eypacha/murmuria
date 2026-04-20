@@ -1,5 +1,15 @@
 import { DEBUG_MODE, TILE_SIZE } from '../../config/constants.js'
 import { getOccupiedTiles } from '../../core/getOccupiedTiles.js'
+import {
+  CASTLE_FIRE_DISPLAY_SIZE,
+  CASTLE_FIRE_POSITIONS,
+  CASTLE_FIRE_VARIANTS,
+} from '../../config/buildingVariants.js'
+
+const CASTLE_FIRE_ASSET_BY_KEY = new Map(
+  CASTLE_FIRE_VARIANTS.map((variant) => [variant.key, variant]),
+)
+const CASTLE_FIRE_REVEAL_AT_KEY = 'castleFireRevealAt'
 
 const CASTLE_DISPLAY_WIDTH = 320
 const CASTLE_DISPLAY_HEIGHT = 256
@@ -20,6 +30,10 @@ function ensureBuildingCache(scene) {
 
   if (!scene.buildingHealthLabels) {
     scene.buildingHealthLabels = new Map()
+  }
+
+  if (!scene.castleFireSprites) {
+    scene.castleFireSprites = new Map()
   }
 }
 
@@ -58,6 +72,20 @@ function clearCastleHealthLabel(scene, castleId) {
   scene.buildingHealthLabels.delete(castleId)
 }
 
+function clearCastleFireSprites(scene, castleId) {
+  const fireSprites = scene.castleFireSprites.get(castleId)
+
+  if (!fireSprites) {
+    return
+  }
+
+  for (const sprite of fireSprites.values()) {
+    sprite.destroy()
+  }
+
+  scene.castleFireSprites.delete(castleId)
+}
+
 function getCastleWorldPosition(castle) {
   const footprint = castle.footprint ?? { w: 1, h: 1 }
 
@@ -73,6 +101,106 @@ function getCastleTextureKey(castle) {
 
 function getCastleHealth(castle) {
   return Number(castle?.status?.health ?? 0)
+}
+
+function getCastleMaxHealth(castle) {
+  const maxHealth = Number(castle?.status?.maxHealth)
+
+  if (Number.isFinite(maxHealth) && maxHealth > 0) {
+    return maxHealth
+  }
+
+  return Math.max(0, getCastleHealth(castle))
+}
+
+function shouldRenderCastleFire(castle) {
+  const currentHealth = getCastleHealth(castle)
+  const maxHealth = getCastleMaxHealth(castle)
+
+  if (currentHealth <= 0 || maxHealth <= 0) {
+    return false
+  }
+
+  return currentHealth <= maxHealth * 0.5
+}
+
+function getCastleFireWorldPosition(castle, firePlacement) {
+  const { x, y } = getCastleWorldPosition(castle)
+
+  return {
+    x: x + (firePlacement.offsetX ?? 0),
+    y: y + (firePlacement.offsetY ?? 0),
+  }
+}
+
+function isCastleFireRevealed(scene, sprite) {
+  const revealAt = Number(sprite?.getData?.(CASTLE_FIRE_REVEAL_AT_KEY) ?? 0)
+
+  return (scene?.time?.now ?? 0) >= revealAt
+}
+
+function updateCastleFireSprites(scene, castle) {
+  if (!shouldRenderCastleFire(castle)) {
+    clearCastleFireSprites(scene, castle.id)
+    return
+  }
+
+  const fireSprites = scene.castleFireSprites.get(castle.id) ?? new Map()
+  const activeFireIds = new Set()
+  const depth = getCastleWorldPosition(castle).y + CASTLE_DEPTH_EPSILON + 0.5
+
+  for (const [index, firePlacement] of CASTLE_FIRE_POSITIONS.entries()) {
+    const fireVariant = CASTLE_FIRE_ASSET_BY_KEY.get(firePlacement.assetKey)
+    const firePosition = fireVariant ? getCastleFireWorldPosition(castle, firePlacement) : null
+
+    if (!fireVariant || !firePosition) {
+      continue
+    }
+
+    const animationKey = `${fireVariant.key}_anim`
+    let sprite = fireSprites.get(firePlacement.id)
+    activeFireIds.add(firePlacement.id)
+
+    if (!sprite) {
+      sprite = scene.add.sprite(firePosition.x, firePosition.y, fireVariant.key)
+      sprite.setOrigin(0.5, 1)
+      sprite.setDisplaySize(
+        fireVariant.displaySize ?? CASTLE_FIRE_DISPLAY_SIZE,
+        fireVariant.displaySize ?? CASTLE_FIRE_DISPLAY_SIZE,
+      )
+      sprite.setVisible(false)
+      sprite.setData(CASTLE_FIRE_REVEAL_AT_KEY, (scene.time.now ?? 0) + (firePlacement.delayMs ?? 0))
+      fireSprites.set(firePlacement.id, sprite)
+    }
+
+    sprite.setPosition(firePosition.x, firePosition.y)
+    sprite.setDepth(depth + index * 0.01)
+
+    if (!isCastleFireRevealed(scene, sprite)) {
+      sprite.setVisible(false)
+      if (sprite.anims?.isPlaying) {
+        sprite.stop()
+      }
+      continue
+    }
+
+    sprite.setVisible(true)
+
+    if (!sprite.anims.isPlaying || sprite.anims.currentAnim?.key !== animationKey) {
+      sprite.play(animationKey, true)
+    }
+  }
+
+  for (const [fireId, sprite] of fireSprites.entries()) {
+    if (activeFireIds.has(fireId)) {
+      continue
+    }
+
+    sprite.destroy()
+    fireSprites.delete(fireId)
+  }
+
+  scene.castleFireSprites.set(castle.id, fireSprites)
 }
 
 function updateCastleSprite(scene, castle) {
@@ -173,6 +301,7 @@ export function syncBuildings(scene, worldStore) {
   for (const castle of castles) {
     activeCastleIds.add(castle.id)
     updateCastleSprite(scene, castle)
+    updateCastleFireSprites(scene, castle)
 
     if (DEBUG_MODE) {
       updateCastleDebugOverlay(scene, castle)
@@ -187,6 +316,7 @@ export function syncBuildings(scene, worldStore) {
 
     sprite.destroy()
     scene.buildingSprites.delete(castleId)
+    clearCastleFireSprites(scene, castleId)
     clearCastleDebugOverlay(scene, castleId)
     clearCastleHealthLabel(scene, castleId)
   }

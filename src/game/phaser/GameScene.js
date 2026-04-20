@@ -25,7 +25,7 @@ import {
   TREE_FRAME_COUNT,
   TREE_VARIANT_CONFIGS,
 } from '../config/resourceVariants.js'
-import { HOUSE_VARIANT_CONFIGS } from '../config/buildingVariants.js'
+import { CASTLE_FIRE_VARIANTS, HOUSE_VARIANT_CONFIGS } from '../config/buildingVariants.js'
 import { ENEMY_TYPE_CONFIGS } from '../config/enemyVariants.js'
 
 const WATER_FOAM_TEXTURE_KEY = 'water-foam'
@@ -177,6 +177,7 @@ export class GameScene extends Phaser.Scene {
     this.worldStore = null
     this.unitControllers = new Map()
     this.buildingSprites = new Map()
+    this.castleFireSprites = new Map()
     this.houseSprites = new Map()
     this.constructionSiteSprites = new Map()
     this.resourceSprites = new Map()
@@ -248,6 +249,13 @@ export class GameScene extends Phaser.Scene {
 
     this.load.image('castle_blue', '/assets/buildings/blue/castle.png')
     this.load.image('castle_destroyed', '/assets/buildings/castle-destroyed.png')
+
+    for (const fireVariant of CASTLE_FIRE_VARIANTS) {
+      this.load.spritesheet(fireVariant.key, fireVariant.path, {
+        frameWidth: fireVariant.frameWidth,
+        frameHeight: fireVariant.frameHeight,
+      })
+    }
 
     for (const houseVariant of HOUSE_VARIANT_CONFIGS) {
       this.load.image(houseVariant.key, houseVariant.path)
@@ -343,6 +351,13 @@ export class GameScene extends Phaser.Scene {
       sprite.destroy()
     }
     this.buildingSprites.clear()
+
+    for (const fireSprites of this.castleFireSprites.values()) {
+      for (const sprite of fireSprites.values()) {
+        sprite.destroy()
+      }
+    }
+    this.castleFireSprites.clear()
 
     if (this.buildingDebugOverlays) {
       for (const overlay of this.buildingDebugOverlays.values()) {
@@ -1176,6 +1191,24 @@ export class GameScene extends Phaser.Scene {
           end: GOLD_FRAME_COUNT - 1,
         }),
         frameRate: 10,
+        repeat: -1,
+      })
+    }
+
+    for (const fireVariant of CASTLE_FIRE_VARIANTS) {
+      const animationKey = `${fireVariant.key}_anim`
+
+      if (this.anims.exists(animationKey)) {
+        continue
+      }
+
+      this.anims.create({
+        key: animationKey,
+        frames: this.anims.generateFrameNumbers(fireVariant.key, {
+          start: 0,
+          end: fireVariant.frameCount - 1,
+        }),
+        frameRate: 12,
         repeat: -1,
       })
     }
