@@ -446,8 +446,6 @@ export class EnemyMovementSystem {
       const stepRatio = Math.min(1, step / distance)
       enemy.x += dx * stepRatio
       enemy.y += dy * stepRatio
-      enemy.facing = dx < 0 ? 'left' : 'right'
-
       const nextTile = getEnemyTile(enemy)
       if (isInsideWorld(worldStore, nextTile)) {
         enemy.gridPos = { ...nextTile }
@@ -488,7 +486,6 @@ export class EnemyMovementSystem {
         enemy.y = nextPosition.y
         enemy.gridPos = { ...nextTile }
         enemy.path.shift()
-        enemy.facing = dx < 0 ? 'left' : 'right'
         remainingStep -= Math.min(distance, remainingStep)
 
         if (enemy.path.length === 0) {
@@ -503,7 +500,6 @@ export class EnemyMovementSystem {
       const ratio = remainingStep / distance
       enemy.x += dx * ratio
       enemy.y += dy * ratio
-      enemy.facing = dx < 0 ? 'left' : 'right'
       return
     }
   }
