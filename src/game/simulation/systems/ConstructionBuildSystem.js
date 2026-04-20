@@ -1,27 +1,27 @@
 import { isStartupGracePeriod } from '../../core/isStartupGracePeriod.js'
 import {
-  HOUSE_BUILD_TIME_MS,
   SIMULATION_TICK_MS,
   VILLAGER_INTENT_ACTION_DELAY_TICKS,
   VILLAGER_INTENT_BUBBLE_DURATION_TICKS,
 } from '../../config/constants.js'
+import { buildingDefs, getBuildingDef } from '../../config/buildingDefs.js'
 import { findPath } from '../../core/findPath.js'
 import { isTraversableWorldTile } from '../../core/isTraversableTile.js'
-import { createHouse } from '../../domain/factories/createHouse.js'
 import { UnitStateSystem } from './UnitStateSystem.js'
 import { getIntentBubbleText } from './getIntentBubbleText.js'
 
-function getHouseConstructionSites(worldStore) {
+function getConstructionSites(worldStore) {
   return (worldStore.constructionSites ?? []).filter((site) => {
-    return site?.type === 'constructionSite' && site?.buildingType === 'house' && site?.revealed !== false
+    return site?.type === 'constructionSite' && site?.revealed !== false
   })
 }
 
 function getBuildReadySites(worldStore) {
-  return getHouseConstructionSites(worldStore).filter((site) => {
-    const woodRequired = Math.max(0, Number(site?.woodRequired ?? 0))
+  return getConstructionSites(worldStore).filter((site) => {
+    const buildingDef = getBuildingDef(site?.buildingType) ?? null
+    const woodRequired = Math.max(0, Number(site?.woodRequired ?? buildingDef?.woodCost ?? 0))
     const woodDelivered = Math.max(0, Number(site?.woodDelivered ?? 0))
-    const buildRequiredMs = Math.max(0, Number(site?.buildRequiredMs ?? HOUSE_BUILD_TIME_MS))
+    const buildRequiredMs = Math.max(0, Number(site?.buildRequiredMs ?? buildingDef?.buildTimeMs ?? 0))
     const buildProgressMs = Math.max(0, Number(site?.buildProgressMs ?? 0))
 
     return woodRequired > 0 && woodDelivered >= woodRequired && buildProgressMs < buildRequiredMs
@@ -266,15 +266,22 @@ function completeSite(site, worldStore, currentTick) {
     return
   }
 
-  const house = createHouse(
-    site.gridPos?.x ?? site.x ?? 0,
-    site.gridPos?.y ?? site.y ?? 0,
-    site.variant ?? 0,
-    site.capacity ?? 2,
-  )
+  const buildingDef = getBuildingDef(site?.buildingType) ?? buildingDefs.house
+  const completedBuilding = buildingDef?.onComplete?.({
+    x: site.gridPos?.x ?? site.x ?? 0,
+    y: site.gridPos?.y ?? site.y ?? 0,
+    variant: site.variant ?? 0,
+    capacity: site.capacity ?? buildingDef?.capacity ?? 0,
+    site,
+    worldStore,
+    currentTick,
+  })
 
-  worldStore.houses = worldStore.houses ?? []
-  worldStore.houses.push(house)
+  if (completedBuilding) {
+    const collectionKey = buildingDef?.storeKey ?? 'buildings'
+    worldStore[collectionKey] = worldStore[collectionKey] ?? []
+    worldStore[collectionKey].push(completedBuilding)
+  }
 
   for (const unit of worldStore.units ?? []) {
     if (unit?.constructionBuild?.siteId !== site.id) {
@@ -284,6 +291,7 @@ function completeSite(site, worldStore, currentTick) {
     clearBuilderAssignment(unit, worldStore, currentTick)
   }
 
+  console.log('Completed building:', site.buildingType)
   worldStore.constructionSites.splice(siteIndex, 1)
 }
 
@@ -445,14 +453,15 @@ export class ConstructionBuildProgressSystem {
     const currentTick = worldStore.tick ?? 0
 
     for (const site of sites) {
-    const activeBuilders = getActiveBuilders(worldStore, site)
+      const activeBuilders = getActiveBuilders(worldStore, site)
       const builderCount = activeBuilders.length
 
       if (builderCount <= 0) {
         continue
       }
 
-      const buildRequiredMs = Math.max(0, Number(site.buildRequiredMs ?? HOUSE_BUILD_TIME_MS))
+      const buildingDef = getBuildingDef(site?.buildingType) ?? null
+      const buildRequiredMs = Math.max(0, Number(site.buildRequiredMs ?? buildingDef?.buildTimeMs ?? 0))
       const currentProgress = Math.max(0, Number(site.buildProgressMs ?? 0))
       const nextProgress = Math.min(buildRequiredMs, currentProgress + deltaMs * builderCount)
 

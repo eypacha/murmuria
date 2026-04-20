@@ -1,5 +1,5 @@
 import { CASTLE_FOOTPRINT } from '../domain/factories/createCastle.js'
-import { HOUSE_FOOTPRINT } from '../domain/factories/createHouse.js'
+import { HOUSE_FOOTPRINT } from '../config/buildingDefs.js'
 import { buildNoBuildZoneTileSet } from './getNoBuildZoneTiles.js'
 import { getOccupiedTiles } from './getOccupiedTiles.js'
 import { hasClearPerimeter } from './getPerimeterTiles.js'

@@ -1,5 +1,4 @@
-import { HOUSE_BUILD_TIME_MS, HOUSE_WOOD_COST } from '../../config/constants.js'
-import { HOUSE_FOOTPRINT } from './createHouse.js'
+import { buildingDefs } from '../../config/buildingDefs.js'
 
 let constructionSiteIdCounter = 0
 
@@ -7,21 +6,24 @@ export function createConstructionSite({
   x = 0,
   y = 0,
   buildingType = 'house',
-  capacity = 2,
+  capacity = null,
   proposerVillagerId = null,
   createdTick = 0,
   variant = 0,
   revealed = false,
-  woodRequired = HOUSE_WOOD_COST,
+  woodRequired = null,
   woodDelivered = 0,
   woodReserved = 0,
-  buildRequiredMs = HOUSE_BUILD_TIME_MS,
+  buildRequiredMs = null,
   buildProgressMs = 0,
   buildStartedTick = null,
   builderVillagerIds = [],
   builderSlots = [],
 } = {}) {
   constructionSiteIdCounter += 1
+  const buildingDef = buildingDefs[buildingType] ?? buildingDefs.house
+  const footprint = buildingDef?.footprint ?? { w: 1, h: 1 }
+  const nextCapacity = capacity ?? buildingDef?.capacity ?? 0
 
   return {
     id: `construction-site-${constructionSiteIdCounter}`,
@@ -34,16 +36,16 @@ export function createConstructionSite({
       x,
       y,
     },
-    footprint: { ...HOUSE_FOOTPRINT },
-    capacity,
+    footprint: { ...footprint },
+    capacity: nextCapacity,
     variant,
     proposerVillagerId,
     createdTick,
     revealed,
-    woodRequired,
+    woodRequired: woodRequired ?? buildingDef?.woodCost ?? 0,
     woodDelivered,
     woodReserved,
-    buildRequiredMs,
+    buildRequiredMs: buildRequiredMs ?? buildingDef?.buildTimeMs ?? 0,
     buildProgressMs,
     buildStartedTick,
     builderVillagerIds: [...builderVillagerIds],

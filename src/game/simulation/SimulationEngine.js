@@ -2,7 +2,7 @@ import { SIMULATION_TICK_MS } from '../config/constants.js'
 import { KingdomSystem } from './systems/KingdomSystem.js'
 import { VillagerHealthSystem } from './systems/VillagerHealthSystem.js'
 import { HousingNeedSystem } from './systems/HousingNeedSystem.js'
-import { HousingProposalSystem } from './systems/HousingProposalSystem.js'
+import { BuildingProposalSystem } from './systems/BuildingProposalSystem.js'
 import { GrowthSystem } from './systems/GrowthSystem.js'
 import { ConstructionSiteSystem } from './systems/ConstructionSiteSystem.js'
 import { ConstructionWoodDeliverySystem } from './systems/ConstructionWoodDeliverySystem.js'
@@ -74,7 +74,7 @@ export class SimulationEngine {
     KingdomSystem.update(this.worldStore)
     HousingNeedSystem.update(this.worldStore)
     GrowthSystem.update(this.worldStore)
-    HousingProposalSystem.update(this.worldStore)
+    BuildingProposalSystem.update(this.worldStore)
     ConstructionWoodDeliverySystem.update(this.worldStore)
     ConstructionSiteSystem.update(this.worldStore)
     ConstructionBuildAssignmentSystem.update(this.worldStore)

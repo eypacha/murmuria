@@ -1,6 +1,6 @@
-function getHouseConstructionSites(worldStore) {
+function getConstructionSites(worldStore) {
   return (worldStore.constructionSites ?? []).filter((site) => {
-    return site?.type === 'constructionSite' && site?.buildingType === 'house'
+    return site?.type === 'constructionSite'
   })
 }
 
@@ -10,7 +10,7 @@ export class ConstructionSiteSystem {
       return
     }
 
-    const sites = getHouseConstructionSites(worldStore)
+    const sites = getConstructionSites(worldStore)
     const units = worldStore.units ?? []
 
     for (const site of sites) {

@@ -9,7 +9,7 @@ export function createKingdomState() {
     },
     housingCapacity: 0,
     housingPressure: 0,
-    houseProposal: null,
+    buildingProposal: null,
     constructionWoodReserved: 0,
     needs: {
       wood: 0,

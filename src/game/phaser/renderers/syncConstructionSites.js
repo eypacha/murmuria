@@ -1,4 +1,5 @@
 import { TILE_SIZE } from '../../config/constants.js'
+import { buildingDefs } from '../../config/buildingDefs.js'
 import {
   HOUSE_DISPLAY_HEIGHT,
   HOUSE_DISPLAY_WIDTH,
@@ -16,9 +17,11 @@ function ensureConstructionSiteCache(scene) {
 
 function getConstructionSiteVariantConfig(site) {
   const variantIndex = Number.isInteger(site?.variant) ? site.variant : 0
-  const clampedIndex = Math.max(0, Math.min(HOUSE_VARIANT_CONFIGS.length - 1, variantIndex))
+  const buildingDef = buildingDefs[site?.buildingType] ?? null
+  const variantConfigs = buildingDef?.constructionVariantConfigs ?? HOUSE_VARIANT_CONFIGS
+  const clampedIndex = Math.max(0, Math.min(variantConfigs.length - 1, variantIndex))
 
-  return HOUSE_VARIANT_CONFIGS[clampedIndex] ?? HOUSE_VARIANT_CONFIGS[0]
+  return variantConfigs[clampedIndex] ?? variantConfigs[0]
 }
 
 function getConstructionSiteWorldPosition(site) {
@@ -33,6 +36,9 @@ function getConstructionSiteWorldPosition(site) {
 
 function updateConstructionSiteSprite(scene, site) {
   const variantConfig = getConstructionSiteVariantConfig(site)
+  const buildingDef = buildingDefs[site?.buildingType] ?? null
+  const displayWidth = buildingDef?.constructionDisplayWidth ?? HOUSE_DISPLAY_WIDTH
+  const displayHeight = buildingDef?.constructionDisplayHeight ?? HOUSE_DISPLAY_HEIGHT
   const existingSprite = scene.constructionSiteSprites.get(site.id)
   const { x, y } = getConstructionSiteWorldPosition(site)
   const depth = y + CONSTRUCTION_SITE_DEPTH_EPSILON
@@ -40,7 +46,7 @@ function updateConstructionSiteSprite(scene, site) {
   if (existingSprite) {
     existingSprite.setTexture(variantConfig.key)
     existingSprite.setPosition(x, y)
-    existingSprite.setDisplaySize(HOUSE_DISPLAY_WIDTH, HOUSE_DISPLAY_HEIGHT)
+    existingSprite.setDisplaySize(displayWidth, displayHeight)
     existingSprite.setDepth(depth)
     existingSprite.setAlpha(CONSTRUCTION_SITE_ALPHA)
     return existingSprite
@@ -48,7 +54,7 @@ function updateConstructionSiteSprite(scene, site) {
 
   const sprite = scene.add.image(x, y, variantConfig.key)
   sprite.setOrigin(0.5, 1)
-  sprite.setDisplaySize(HOUSE_DISPLAY_WIDTH, HOUSE_DISPLAY_HEIGHT)
+  sprite.setDisplaySize(displayWidth, displayHeight)
   sprite.setDepth(depth)
   sprite.setAlpha(CONSTRUCTION_SITE_ALPHA)
 

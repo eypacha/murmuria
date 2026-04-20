@@ -1,11 +1,5 @@
 import { GRID_HEIGHT, GRID_WIDTH } from '../../config/constants.js'
-
-export const HOUSE_FOOTPRINT = {
-  w: 2,
-  h: 2,
-}
-
-let houseIdCounter = 0
+import { HOUSE_FOOTPRINT, buildingDefs } from '../../config/buildingDefs.js'
 
 export function createHouse(
   x = Math.max(0, Math.floor((GRID_WIDTH - HOUSE_FOOTPRINT.w) / 2)),
@@ -13,21 +7,10 @@ export function createHouse(
   variant = 0,
   capacity = 2,
 ) {
-  houseIdCounter += 1
-
-  return {
-    id: `house-${houseIdCounter}`,
-    kind: 'building',
-    type: 'house',
+  return buildingDefs.house.onComplete({
     x,
     y,
-    gridPos: {
-      x,
-      y,
-    },
-    footprint: { ...HOUSE_FOOTPRINT },
-    capacity,
     variant,
-    reproductionTaskId: null,
-  }
+    capacity,
+  })
 }

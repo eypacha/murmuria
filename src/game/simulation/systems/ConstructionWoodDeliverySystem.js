@@ -5,20 +5,22 @@ import {
   VILLAGER_INTENT_ACTION_DELAY_TICKS,
   VILLAGER_INTENT_BUBBLE_DURATION_TICKS,
 } from '../../config/constants.js'
+import { buildingDefs } from '../../config/buildingDefs.js'
 import { findCastleDropTile } from '../../core/findCastleDropTile.js'
 import { findConstructionSiteDeliveryTile } from '../../core/findConstructionSiteDeliveryTile.js'
 import { UnitStateSystem } from './UnitStateSystem.js'
 import { DecisionSystem } from './DecisionSystem.js'
 import { getIntentBubbleText } from './getIntentBubbleText.js'
 
-function getHouseConstructionSites(worldStore) {
+function getConstructionSites(worldStore) {
   return (worldStore.constructionSites ?? []).filter((site) => {
-    return site?.type === 'constructionSite' && site?.buildingType === 'house' && site?.revealed !== false
+    return site?.type === 'constructionSite' && site?.revealed !== false
   })
 }
 
 function getSiteRemainingNeed(site) {
-  const required = Math.max(0, Number(site?.woodRequired ?? 0))
+  const buildingDef = buildingDefs[site?.buildingType] ?? null
+  const required = Math.max(0, Number(site?.woodRequired ?? buildingDef?.woodCost ?? 0))
   const delivered = Math.max(0, Number(site?.woodDelivered ?? 0))
   const reserved = Math.max(0, Number(site?.woodReserved ?? 0))
 
@@ -61,12 +63,12 @@ export class ConstructionWoodDeliverySystem {
     }
 
     if (isStartupGracePeriod(worldStore)) {
-      this.updateWoodNeed(worldStore, getHouseConstructionSites(worldStore))
+      this.updateWoodNeed(worldStore, getConstructionSites(worldStore))
       return
     }
 
     const castle = getCastle(worldStore)
-    const sites = getHouseConstructionSites(worldStore)
+    const sites = getConstructionSites(worldStore)
     const idleVillagers = getIdleVillagers(worldStore)
 
     if (!castle || sites.length === 0 || idleVillagers.length === 0) {
@@ -211,7 +213,7 @@ export class ConstructionWoodDeliverySystem {
     this.updateWoodNeed(worldStore, sites)
   }
 
-  static updateWoodNeed(worldStore, sites = getHouseConstructionSites(worldStore)) {
+  static updateWoodNeed(worldStore, sites = getConstructionSites(worldStore)) {
     const kingdom = worldStore?.kingdom
 
     if (!kingdom) {

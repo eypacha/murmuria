@@ -5,9 +5,9 @@ import { findHousePlacement } from '../../core/findHousePlacement.js'
 import { getBlockingEntities } from '../../core/getBlockingEntities.js'
 import { createConstructionSite } from '../../domain/factories/createConstructionSite.js'
 
-function getActiveHouseConstructionSite(worldStore) {
+function getActiveConstructionSite(worldStore) {
   return (worldStore.constructionSites ?? []).find((site) => {
-    return site?.type === 'constructionSite' && site?.buildingType === 'house'
+    return site?.type === 'constructionSite'
   }) ?? null
 }
 
@@ -33,7 +33,7 @@ function chooseRandomVillager(villagers) {
   return villagers[index] ?? null
 }
 
-export class HousingProposalSystem {
+export class BuildingProposalSystem {
   static update(worldStore) {
     const kingdom = worldStore?.kingdom
 
@@ -41,7 +41,7 @@ export class HousingProposalSystem {
       return
     }
 
-    if (kingdom.houseProposal) {
+    if (kingdom.buildingProposal) {
       return
     }
 
@@ -49,7 +49,7 @@ export class HousingProposalSystem {
       return
     }
 
-    if (getActiveHouseConstructionSite(worldStore)) {
+    if (getActiveConstructionSite(worldStore)) {
       return
     }
 
@@ -72,6 +72,7 @@ export class HousingProposalSystem {
       return
     }
 
+    const buildingType = 'house'
     const worldTiles = worldStore.world?.tiles ?? []
     const placement = findHousePlacement({
       worldStore,
@@ -88,7 +89,8 @@ export class HousingProposalSystem {
     }
 
     const currentTick = worldStore.tick ?? 0
-    kingdom.houseProposal = {
+    kingdom.buildingProposal = {
+      buildingType,
       x: placement.x,
       y: placement.y,
       proposerVillagerId: proposer.id,
@@ -99,14 +101,14 @@ export class HousingProposalSystem {
     const hiddenSite = createConstructionSite({
       x: placement.x,
       y: placement.y,
-      buildingType: 'house',
-      capacity: 2,
+      buildingType,
       proposerVillagerId: proposer.id,
       createdTick: currentTick,
       revealed: false,
     })
     worldStore.constructionSites.push(hiddenSite)
-    kingdom.houseProposal = null
+    console.log('Created construction site:', buildingType)
+    kingdom.buildingProposal = null
 
     proposer.target = {
       type: 'constructionSite',
@@ -121,7 +123,7 @@ export class HousingProposalSystem {
     proposer.path = []
     proposer.pathGoalKey = null
     proposer.bubble = {
-      text: getIntentBubbleText('house'),
+      text: getIntentBubbleText(buildingType),
       untilTick: currentTick + VILLAGER_INTENT_BUBBLE_DURATION_TICKS,
     }
     proposer.state = 'moving'
