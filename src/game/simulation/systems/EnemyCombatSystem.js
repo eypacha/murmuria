@@ -195,6 +195,8 @@ function releaseEnemyCombatTarget(enemy) {
   enemy.combatCooldownUntilTick = null
   enemy.combatAttackUntilTick = null
   enemy.combatLastAttackTick = null
+  enemy.combatHitReady = false
+  enemy.combatHitResolved = false
   enemy.path = []
   enemy.pathGoalKey = null
   enemy.state = 'marching'
@@ -302,6 +304,52 @@ function removeEnemy(worldStore, enemy, currentTick) {
   enemy.combatCooldownUntilTick = null
   enemy.combatAttackUntilTick = null
   enemy.combatLastAttackTick = null
+  enemy.combatHitReady = false
+  enemy.combatHitResolved = false
+}
+
+function startEnemyAttack(enemy, currentTick) {
+  if (!enemy) {
+    return
+  }
+
+  enemy.state = 'attacking'
+  enemy.combatCooldownUntilTick = null
+  enemy.combatAttackUntilTick = currentTick + 1
+  enemy.combatLastAttackTick = currentTick
+  enemy.combatHitReady = false
+  enemy.combatHitResolved = false
+}
+
+function resolvePendingEnemyAttack(worldStore, enemy, currentTick) {
+  if (!enemy || enemy.state !== 'attacking' || enemy.combatHitResolved || !enemy.combatHitReady) {
+    return
+  }
+
+  if (enemy.combatTargetType === 'castle') {
+    const castle = getCastle(worldStore)
+
+    if (!castle || getCastleHealth(castle) <= 0) {
+      return
+    }
+
+    applyDamageToCastle(worldStore, castle, ENEMY_KNIGHT_DAMAGE)
+  } else {
+    const targetVillager = getEnemyCombatTarget(worldStore, enemy)
+
+    if (!targetVillager) {
+      return
+    }
+
+    applyDamageToVillager(worldStore, targetVillager, ENEMY_KNIGHT_DAMAGE, enemy, currentTick)
+  }
+
+  enemy.combatHitResolved = true
+  enemy.combatHitReady = false
+  enemy.state = 'attacking'
+  enemy.combatCooldownUntilTick = currentTick + ATTACK_COOLDOWN_TICKS
+  enemy.combatAttackUntilTick = currentTick + 1
+  enemy.combatLastAttackTick = currentTick
 }
 
 function applyDamageToVillager(worldStore, villager, amount, attacker, currentTick) {
@@ -405,6 +453,8 @@ export class EnemyCombatSystem {
         continue
       }
 
+      resolvePendingEnemyAttack(worldStore, enemy, currentTick)
+
       const enemyTile = getEnemyTile(enemy)
       const castleSiegeTile =
         castleAlive && enemyTile ? findCastleSiegeTile(castle, worldStore, enemy) : null
@@ -418,12 +468,11 @@ export class EnemyCombatSystem {
         !(Number.isFinite(enemy.combatCooldownUntilTick) && currentTick < enemy.combatCooldownUntilTick)
       ) {
         faceEnemyTowardCastle(enemy, castle)
-
-        enemy.state = 'attacking'
-        applyDamageToCastle(worldStore, castle, ENEMY_KNIGHT_DAMAGE)
-        enemy.combatCooldownUntilTick = currentTick + ATTACK_COOLDOWN_TICKS
-        enemy.combatAttackUntilTick = currentTick + 1
-        enemy.combatLastAttackTick = currentTick
+        enemy.combatTargetId = castle.id
+        enemy.combatTargetType = 'castle'
+        if (enemy.state !== 'attacking' || enemy.combatHitResolved) {
+          startEnemyAttack(enemy, currentTick)
+        }
         continue
       }
 
@@ -432,6 +481,8 @@ export class EnemyCombatSystem {
       if (!targetVillager) {
         enemy.combatTargetId = null
         enemy.combatTargetType = null
+        enemy.combatHitReady = false
+        enemy.combatHitResolved = false
         continue
       }
 
@@ -452,12 +503,9 @@ export class EnemyCombatSystem {
 
       faceEnemyTowardVillager(enemy, villagerTile)
       faceVillagerTowardEnemy(targetVillager, knightTile)
-      enemy.state = 'attacking'
-      applyDamageToVillager(worldStore, targetVillager, ENEMY_KNIGHT_DAMAGE, enemy, currentTick)
-
-      enemy.combatCooldownUntilTick = currentTick + ATTACK_COOLDOWN_TICKS
-      enemy.combatAttackUntilTick = currentTick + 1
-      enemy.combatLastAttackTick = currentTick
+      if (enemy.state !== 'attacking' || enemy.combatHitResolved) {
+        startEnemyAttack(enemy, currentTick)
+      }
     }
   }
 

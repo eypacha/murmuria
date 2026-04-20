@@ -2,6 +2,7 @@ import Phaser from 'phaser'
 import { DEBUG_MODE, SIMULATION_TICK_MS, TILE_SIZE, UNIT_RENDER_OFFSET_Y } from '../config/constants.js'
 import { getEnemyTypeConfig } from '../config/enemyVariants.js'
 
+const ENEMY_HIT_FRAME_INDEX = 2
 const DEBUG_ENEMY_BORDER_COLOR = 0xff4d4d
 const DEBUG_ENEMY_HEALTH_LABEL_FONT_SIZE = '14px'
 const DEBUG_ENEMY_HEALTH_LABEL_OFFSET_Y = 50
@@ -126,6 +127,7 @@ export class EnemySpriteController {
     this.updateHealthFlash()
     this.updatePosition()
     this.updateAnimation()
+    this.updateAttackHitFrame()
     this.updateFacing()
     this.updateDebugBorder()
     this.updateHealthLabel()
@@ -180,6 +182,22 @@ export class EnemySpriteController {
     }
 
     this.sprite.play(nextVisual.key, true)
+  }
+
+  updateAttackHitFrame() {
+    const config = getEnemyTypeConfig(this.enemy?.type)
+
+    if (this.currentAnimationKey !== config.attackKey || this.enemy?.combatHitResolved) {
+      return
+    }
+
+    const currentFrameIndex = this.sprite?.anims?.currentFrame?.index
+
+    if (currentFrameIndex !== ENEMY_HIT_FRAME_INDEX) {
+      return
+    }
+
+    this.enemy.combatHitReady = true
   }
 
   updateFacing() {

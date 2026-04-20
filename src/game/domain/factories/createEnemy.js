@@ -48,5 +48,7 @@ export function createEnemy(type, x = 0, y = 0, overrides = {}) {
     combatCooldownUntilTick: overrides.combatCooldownUntilTick ?? null,
     combatAttackUntilTick: overrides.combatAttackUntilTick ?? null,
     combatLastAttackTick: overrides.combatLastAttackTick ?? null,
+    combatHitReady: overrides.combatHitReady ?? false,
+    combatHitResolved: overrides.combatHitResolved ?? false,
   }
 }
